@@ -1,0 +1,138 @@
+src
+├── app
+│   ├── App.tsx
+│   ├── layout
+│   │   ├── AppShell.tsx
+│   │   ├── icons.tsx
+│   │   ├── Sidebar.tsx
+│   │   └── TopNav.tsx
+│   └── routes.tsx
+├── App.css
+├── App.tsx
+├── assets
+│   └── react.svg
+├── components
+│   ├── Layout.css
+│   ├── Layout.tsx
+│   └── ProtectedRoute.tsx
+├── config.ts
+├── env.d.ts
+├── features
+│   └── pipeline
+│       ├── components
+│       │   ├── KanbanBoard.tsx
+│       │   ├── KanbanColumn.tsx
+│       │   ├── LeadCard.tsx
+│       │   └── LeadCreateModal.tsx
+│       ├── insights
+│       │   ├── components
+│       │   ├── insights.api.ts
+│       │   ├── insights.types.ts
+│       │   └── PipelineInsightsPage.tsx
+│       ├── pipeline.api.ts
+│       ├── pipeline.store.ts
+│       ├── PipelinePage.tsx
+│       └── utils
+│           └── slaHelpers.ts
+├── index.css
+├── lib
+│   ├── auth.ts
+│   ├── profile.ts
+│   ├── rlsNotes.md
+│   ├── supabase.ts
+│   ├── supabaseClient.ts
+│   ├── supabaseErrorHandler.ts
+│   └── useSession.ts
+├── main.tsx
+├── modules
+│   ├── auth
+│   │   └── pages
+│   │       └── LoginPage.tsx
+│   └── okr
+│       ├── components
+│       │   ├── DailyGoalProgress.tsx
+│       │   ├── DailySummaryCompact.tsx
+│       │   ├── QuickAddMetricCard.tsx
+│       │   ├── TeamConsistencyTable.tsx
+│       │   ├── TeamProfileList.tsx
+│       │   ├── TeamWeeklyLeaderboardTable.tsx
+│       │   ├── UndoLastEventButton.tsx
+│       │   ├── WeeklyRhythmCoach.tsx
+│       │   └── WeekSummaryTable.tsx
+│       ├── dashboard
+│       │   ├── advisorDetailHelpers.ts
+│       │   ├── advisorProfile.ts
+│       │   ├── businessDays.ts
+│       │   ├── managerInsights.ts
+│       │   ├── teamAlerts.ts
+│       │   ├── teamDashboardInsights.ts
+│       │   ├── todayActionPlan.ts
+│       │   ├── useDashboardSnapshot.ts
+│       │   ├── useTeamOkrDashboard.ts
+│       │   ├── weekCompareHelpers.ts
+│       │   └── weeklyMinimumTargets.ts
+│       ├── data
+│       │   ├── okrMutations.ts
+│       │   └── okrQueries.ts
+│       ├── domain
+│       │   ├── metricKeys.ts
+│       │   ├── metricLabels.ts
+│       │   └── types.ts
+│       ├── index.ts
+│       ├── pages
+│       │   ├── OkrDailyLogPage.tsx
+│       │   ├── OkrHomePage.tsx
+│       │   ├── OkrScoringPage.tsx
+│       │   ├── OkrTodayPage.tsx
+│       │   └── OkrWeekPage.tsx
+│       ├── settings
+│       │   ├── metricMinimumConfig.ts
+│       │   ├── weeklyMinimumTargetsApi.ts
+│       │   └── WeeklyMinimumTargetsPage.tsx
+│       └── utils
+│           ├── motivationHelpers.ts
+│           ├── weeklyHistoryHelpers.ts
+│           ├── weeklyMotivationHelpers.ts
+│           └── weeklyRhythmCoach.ts
+├── pages
+│   ├── Activity.css
+│   ├── Activity.tsx
+│   ├── AuthCallback.css
+│   ├── AuthCallback.tsx
+│   ├── FocusPage.tsx
+│   ├── LeadDetailPage.tsx
+│   ├── Leaderboard.tsx
+│   ├── Login.css
+│   ├── Login.tsx
+│   ├── manager
+│   │   ├── AdvisorWeekDetailPage.tsx
+│   │   └── ManagerDashboardPage.tsx
+│   ├── owner
+│   │   ├── AssignmentsPage.tsx
+│   │   ├── OwnerDashboardPage.tsx
+│   │   └── utils
+│   │       └── ownerDashboardHelpers.ts
+│   ├── PipelinePage.tsx
+│   ├── PipelineSettingsPage.tsx
+│   ├── ProfilePage.tsx
+│   └── SettingsPoints.tsx
+├── shared
+│   ├── auth
+│   │   └── AuthProvider.tsx
+│   ├── components
+│   │   ├── LeadCard.tsx
+│   │   └── Toast.tsx
+│   ├── hooks
+│   │   ├── useAutoRefresh.ts
+│   │   └── useUserRole.ts
+│   ├── types
+│   ├── ui
+│   └── utils
+│       ├── dates.ts
+│       ├── focusHelpers.ts
+│       ├── format.ts
+│       └── timeAgo.ts
+└── styles
+    └── globals.css
+
+35 directories, 101 files

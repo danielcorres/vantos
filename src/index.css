@@ -1,0 +1,117 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  body {
+    @apply m-0 min-w-[320px] min-h-screen bg-surface text-text;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold text-text;
+    line-height: 1.2;
+  }
+
+  h1 {
+    @apply text-2xl mb-4;
+  }
+
+  h2 {
+    @apply text-xl mb-3;
+  }
+
+  h3 {
+    @apply text-lg mb-2;
+  }
+
+  a {
+    @apply text-text no-underline;
+  }
+
+  a:focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
+  }
+
+  input, select, textarea {
+    font-family: inherit;
+  }
+
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    @apply outline-2 outline-offset-1 outline-primary;
+  }
+
+  button:focus-visible {
+    @apply outline-2 outline-offset-2 outline-primary;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-surface border border-border rounded-lg p-3.5;
+  }
+
+  .card-header {
+    @apply font-semibold text-base mb-3 pb-2 border-b-2 border-border;
+  }
+
+  .btn {
+    @apply px-3 py-2.5 rounded-lg text-sm font-semibold transition-all;
+    @apply disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+
+  .btn:active:not(:disabled) {
+    @apply scale-[0.98];
+  }
+
+  .btn-primary {
+    @apply bg-primary text-surface;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    @apply opacity-90;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-text;
+  }
+
+  .btn-ghost:hover:not(:disabled) {
+    @apply bg-black/5;
+  }
+
+  .badge {
+    @apply rounded-full px-2.5 py-1.5 text-xs font-semibold whitespace-nowrap;
+  }
+
+  .badge-overdue {
+    @apply bg-red-50 text-danger border border-danger;
+  }
+
+  .badge-warn {
+    @apply bg-amber-50 text-warning border border-warning;
+  }
+
+  .badge-ok {
+    @apply bg-green-50 text-success border border-success;
+  }
+
+  .badge-none {
+    @apply bg-bg text-muted border border-border;
+  }
+
+  .select {
+    @apply border border-border rounded-md px-2 py-1 text-xs;
+    font-family: inherit;
+    @apply disabled:opacity-60 disabled:cursor-not-allowed;
+    @apply focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary;
+  }
+}

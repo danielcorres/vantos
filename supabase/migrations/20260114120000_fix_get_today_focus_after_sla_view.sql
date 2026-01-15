@@ -1,0 +1,5 @@
+-- DEPRECATED / NO-OP
+-- get_today_focus depends on public.v_lead_sla_alerts.
+-- This migration caused failures on fresh environments because the view didn't exist yet.
+-- The view + function are now created in:
+--   20260114225621_create_v_lead_sla_alerts_and_apply_get_today_focus.sql

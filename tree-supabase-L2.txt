@@ -1,0 +1,65 @@
+supabase
+├── _migrations_misc_supabase_folder
+│   └── migrations
+├── config.toml
+├── migrations
+│   ├── 20260107200000_init.sql
+│   ├── 20260107210000_activity_rpcs.sql
+│   ├── 20260107213000_okr_views.sql
+│   ├── 20260107214500_okr_streak_view.sql
+│   ├── 20260107220000_dedupe_10min.sql
+│   ├── 20260107224500_fix_streak_logic.sql
+│   ├── 20260107231000_streak_use_recorded_at.sql
+│   ├── 20260108190000_pipeline_v0.sql
+│   ├── 20260108190500_pipeline_v0_idem_index.sql
+│   ├── 20260108191358_okr_today_use_recorded_at.sql
+│   ├── 20260108193254_okr_streak_fix_auth_uid.sql
+│   ├── 20260108194251_pipeline_v1_metrics.sql
+│   ├── 20260108200000_pipeline_move_autolog_activity.sql
+│   ├── 20260108200306_pipeline_v2_backend.sql
+│   ├── 20260108214634_pipeline_v2_perf_fix.sql
+│   ├── 20260108214922_activity_events_lead_ref.sql
+│   ├── 20260108220408_patch_log_activity_event_persist_lead_id.sql
+│   ├── 20260108222229_patch_move_lead_stage_autolog_lead_id.sql
+│   ├── 20260108223133_debug_move_lead_stage_autolog.sql
+│   ├── 20260108223322_add_metric_pipeline_stage_moved.sql
+│   ├── 20260108223731_patch_move_lead_stage_tolerant_autolog.sql
+│   ├── 20260109005610_get_pipeline_board.sql
+│   ├── 20260109130000_create_okr_metric_scores.sql
+│   ├── 20260109131000_rpc_upsert_daily_metrics.sql
+│   ├── 20260109132000_view_okr_points_progress_by_date.sql
+│   ├── 20260109134000_rpc_upsert_okr_metric_scores.sql
+│   ├── 20260109161000_add_captured_local_to_upsert_daily_metrics.sql
+│   ├── 20260109162000_fix_streak_no_backfill_using_captured_local.sql
+│   ├── 20260109170000_fix_upsert_daily_metrics_remove_on_conflict.sql
+│   ├── 20260109180000_create_okr_goal_settings.sql
+│   ├── 20260109181000_update_get_okr_points_progress_use_goal_settings.sql
+│   ├── 20260109182000_fix_okr_week_metric_totals_exclude_pipeline.sql
+│   ├── 20260109183037_fix_upsert_daily_metrics_no_on_conflict.sql
+│   ├── 20260109183335_ix_upsert_daily_metrics_idempotency.sql
+│   ├── 20260109184410_fix_get_okr_streak_with_grace.sql
+│   ├── 20260109184958_create_get_okr_streak_with_grace.sql
+│   ├── 20260109191318_fix_okr_week_daily_summary_view.sql
+│   ├── 20260112123000_okr_global_settings_and_scoring.sql
+│   ├── 20260112193258_fix_okr_week_metric_totals_v2.sql
+│   ├── 20260112220940_okr_global_scoring_final.sql
+│   ├── 20260113000000_fix_okr_week_points_global.sql
+│   ├── 20260113162742_profiles_manager_recruiter.sql
+│   ├── 20260113163556_profiles_owner_rls.sql
+│   ├── 20260113170000_profiles_add_name_fields.sql
+│   ├── 20260113173444_profiles_select_policies_manager_recruiter.sql
+│   ├── 20260113174227_profiles_drop_jwt_role_policies.sql
+│   ├── 20260113212129_fix_upsert_daily_metrics_security_definer.sql
+│   ├── 20260113230835_rls_manager_read_team.sql
+│   ├── 20260114004048_auth_role_and_profiles_hardening.sql
+│   ├── 20260114105704_okr_weekly_minimum_targets.sql
+│   └── 20260115000000_okr_weekly_minimum_targets.sql
+├── migrations_hold
+│   ├── _hold_20260108213424_pipeline_v2_perf.sql
+│   ├── _hold_20260109141000_rpc_get_okr_streak_with_grace.sql
+│   ├── _hold_20260109173000_okr_daily_decouple_pipeline.sql
+│   └── _hold_20260110025450_okr_scoring_global_owner.sql
+├── README.md
+└── seed.sql
+
+5 directories, 58 files

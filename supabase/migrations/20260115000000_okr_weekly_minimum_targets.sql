@@ -1,0 +1,6 @@
+-- DEPRECATED / NO-OP
+-- This migration file was created by mistake as a duplicate of:
+--   20260114105704_okr_weekly_minimum_targets.sql
+--
+-- It is intentionally left empty to avoid duplicate object creation
+-- and schema drift between environments.
