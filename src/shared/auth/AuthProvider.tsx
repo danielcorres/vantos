@@ -5,7 +5,7 @@ import type { User, Session, AuthError } from '@supabase/supabase-js'
 
 const IS_DEV = import.meta.env.DEV
 
-type UserRole = 'advisor' | 'manager' | 'recruiter' | 'owner'
+type UserRole = 'advisor' | 'manager' | 'recruiter' | 'owner' | 'director' | 'seguimiento'
 
 interface AuthContextType {
   user: User | null
@@ -110,7 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (profileData && profileData.role) {
         const userRole = profileData.role as UserRole
         // Validar que el role sea uno de los válidos
-        const validRoles: UserRole[] = ['owner', 'manager', 'recruiter', 'advisor']
+        const validRoles: UserRole[] = ['owner', 'manager', 'recruiter', 'advisor', 'director', 'seguimiento']
         const finalRole: UserRole = validRoles.includes(userRole) ? userRole : 'advisor'
         
         if (IS_DEV) {

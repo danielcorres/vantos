@@ -1,15 +1,18 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { supabase } from '../../lib/supabaseClient'
-import { useUserRole } from '../../shared/hooks/useUserRole'
+import { useAuth } from '../../shared/auth/AuthProvider'
+import { getSystemOwnerId } from '../../lib/systemOwner'
 
 type Profile = {
   user_id: string
   full_name: string | null
   display_name: string | null
-  role: 'owner' | 'manager' | 'recruiter' | 'advisor'
+  role: 'owner' | 'manager' | 'recruiter' | 'advisor' | 'director' | 'seguimiento'
   manager_user_id: string | null
   recruiter_user_id: string | null
 }
+
+const rolesEditable = ['advisor', 'manager', 'recruiter', 'director', 'seguimiento'] as const
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -18,30 +21,42 @@ type RowSaveState = {
 }
 
 export function AssignmentsPage() {
-  const { isOwner, loading: roleLoading } = useUserRole()
+  const { role: currentUserRole, loading: authLoading } = useAuth()
   const [profiles, setProfiles] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [rowSaveStates, setRowSaveStates] = useState<RowSaveState>({})
+  const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const mountedRef = useRef(true)
+  const snapshotsRef = useRef<{ [userId: string]: Profile }>({})
 
-  // Filtrar managers y recruiters para los dropdowns
+  // Verificar permisos: solo owner y director pueden acceder
+  const canAccess = currentUserRole === 'owner' || currentUserRole === 'director'
+
+  // Filtrar managers y recruiters para los dropdowns (solo roles específicos)
   const managers = useMemo(() => {
-    return profiles.filter(p => p.role === 'manager' || p.role === 'owner')
+    return profiles.filter(p => p.role === 'manager')
   }, [profiles])
 
   const recruiters = useMemo(() => {
-    return profiles.filter(p => p.role === 'recruiter' || p.role === 'owner')
+    return profiles.filter(p => p.role === 'recruiter')
   }, [profiles])
 
-  // Cargar datos
+  // Cargar owner_user_id y datos
   useEffect(() => {
-    if (!isOwner && !roleLoading) {
+    if (!canAccess && !authLoading) {
       return
     }
 
     const loadData = async () => {
       try {
+        // Cargar owner_user_id desde okr_settings_global
+        const ownerId = await getSystemOwnerId()
+        if (mountedRef.current) {
+          setOwnerUserId(ownerId)
+        }
+
+        // Cargar perfiles
         const { data, error: fetchError } = await supabase
           .from('profiles')
           .select('user_id, full_name, display_name, role, manager_user_id, recruiter_user_id')
@@ -65,7 +80,7 @@ export function AssignmentsPage() {
     }
 
     loadData()
-  }, [isOwner, roleLoading])
+  }, [canAccess, authLoading])
 
   useEffect(() => {
     mountedRef.current = true
@@ -78,27 +93,62 @@ export function AssignmentsPage() {
     return profile.full_name || profile.display_name || profile.user_id.slice(0, 8)
   }
 
-  const handleRoleChange = async (userId: string, newRole: 'owner' | 'manager' | 'recruiter' | 'advisor') => {
+  // Función helper para guardar perfil con validación estricta
+  const saveProfile = async (userId: string, payload: Partial<Profile>): Promise<Profile> => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .update(payload)
+      .eq('user_id', userId)
+      .select('user_id, full_name, display_name, role, manager_user_id, recruiter_user_id')
+      .single()
+
+    if (error) throw error
+    if (!data) throw new Error('Update did not return a row (possible RLS block).')
+
+    return data as Profile
+  }
+
+  const handleRoleChange = async (userId: string, newRole: typeof rolesEditable[number] | 'owner') => {
     if (!mountedRef.current) return
+
+    // Bloquear edición del owner del sistema
+    if (userId === ownerUserId) {
+      return
+    }
+
+    // Guardar snapshot antes del cambio
+    const profile = profiles.find(p => p.user_id === userId)
+    if (profile) {
+      snapshotsRef.current[userId] = { ...profile }
+    }
 
     setRowSaveStates(prev => ({ ...prev, [userId]: 'saving' }))
 
-    try {
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ role: newRole })
-        .eq('user_id', userId)
-
-      if (updateError) throw updateError
-
-      // Actualizar estado local
-      setProfiles(prev =>
-        prev.map(p =>
-          p.user_id === userId ? { ...p, role: newRole } : p
-        )
+    // Actualizar estado local optimistically
+    const previousRole = profile?.role
+    setProfiles(prev =>
+      prev.map(p =>
+        p.user_id === userId ? { ...p, role: newRole as Profile['role'] } : p
       )
+    )
 
+    try {
+      // Si el nuevo rol no es 'advisor', forzar nulls en manager/recruiter
+      const payload: Partial<Profile> = { role: newRole as Profile['role'] }
+      if (newRole !== 'advisor') {
+        payload.manager_user_id = null
+        payload.recruiter_user_id = null
+      }
+
+      const updatedProfile = await saveProfile(userId, payload)
+
+      // Actualizar con datos reales del servidor
       if (mountedRef.current) {
+        setProfiles(prev =>
+          prev.map(p =>
+            p.user_id === userId ? updatedProfile : p
+          )
+        )
         setRowSaveStates(prev => ({ ...prev, [userId]: 'saved' }))
         setTimeout(() => {
           if (mountedRef.current) {
@@ -112,6 +162,15 @@ export function AssignmentsPage() {
       }
     } catch (err) {
       console.error('[AssignmentsPage] Error al actualizar role:', err)
+      // Revertir cambio local
+      if (snapshotsRef.current[userId]) {
+        setProfiles(prev =>
+          prev.map(p =>
+            p.user_id === userId ? snapshotsRef.current[userId] : p
+          )
+        )
+        delete snapshotsRef.current[userId]
+      }
       if (mountedRef.current) {
         setRowSaveStates(prev => ({ ...prev, [userId]: 'error' }))
         setTimeout(() => {
@@ -137,48 +196,57 @@ export function AssignmentsPage() {
     const profile = profiles.find(p => p.user_id === userId)
     if (!profile || profile.role !== 'advisor') return
 
+    // Bloquear edición del owner del sistema
+    if (userId === ownerUserId) {
+      return
+    }
+
     // Validación: no permitir auto-asignación
     if (value === userId) {
       alert('No puedes asignar a un usuario como su propio manager/recruiter')
       return
     }
 
-    // Validación: manager_user_id solo puede ser manager/owner
+    // Validación actualizada: manager_user_id solo puede ser manager
     if (field === 'manager_user_id' && value) {
       const targetProfile = profiles.find(p => p.user_id === value)
-      if (targetProfile && targetProfile.role !== 'manager' && targetProfile.role !== 'owner') {
-        alert('El manager debe tener role "manager" o "owner"')
+      if (targetProfile && targetProfile.role !== 'manager') {
+        alert('El manager debe tener role "manager"')
         return
       }
     }
 
-    // Validación: recruiter_user_id solo puede ser recruiter/owner
+    // Validación actualizada: recruiter_user_id solo puede ser recruiter
     if (field === 'recruiter_user_id' && value) {
       const targetProfile = profiles.find(p => p.user_id === value)
-      if (targetProfile && targetProfile.role !== 'recruiter' && targetProfile.role !== 'owner') {
-        alert('El recruiter debe tener role "recruiter" o "owner"')
+      if (targetProfile && targetProfile.role !== 'recruiter') {
+        alert('El recruiter debe tener role "recruiter"')
         return
       }
     }
+
+    // Guardar snapshot antes del cambio
+    snapshotsRef.current[userId] = { ...profile }
 
     setRowSaveStates(prev => ({ ...prev, [userId]: 'saving' }))
 
-    try {
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ [field]: value })
-        .eq('user_id', userId)
-
-      if (updateError) throw updateError
-
-      // Actualizar estado local
-      setProfiles(prev =>
-        prev.map(p =>
-          p.user_id === userId ? { ...p, [field]: value } : p
-        )
+    // Actualizar estado local optimistically
+    setProfiles(prev =>
+      prev.map(p =>
+        p.user_id === userId ? { ...p, [field]: value } : p
       )
+    )
 
+    try {
+      const updatedProfile = await saveProfile(userId, { [field]: value })
+
+      // Actualizar con datos reales del servidor
       if (mountedRef.current) {
+        setProfiles(prev =>
+          prev.map(p =>
+            p.user_id === userId ? updatedProfile : p
+          )
+        )
         setRowSaveStates(prev => ({ ...prev, [userId]: 'saved' }))
         setTimeout(() => {
           if (mountedRef.current) {
@@ -192,6 +260,15 @@ export function AssignmentsPage() {
       }
     } catch (err) {
       console.error('[AssignmentsPage] Error al actualizar asignación:', err)
+      // Revertir cambio local
+      if (snapshotsRef.current[userId]) {
+        setProfiles(prev =>
+          prev.map(p =>
+            p.user_id === userId ? snapshotsRef.current[userId] : p
+          )
+        )
+        delete snapshotsRef.current[userId]
+      }
       if (mountedRef.current) {
         setRowSaveStates(prev => ({ ...prev, [userId]: 'error' }))
         setTimeout(() => {
@@ -207,7 +284,7 @@ export function AssignmentsPage() {
     }
   }
 
-  if (roleLoading) {
+  if (authLoading) {
     return (
       <div className="text-center p-8">
         <span className="text-muted">Cargando...</span>
@@ -215,7 +292,7 @@ export function AssignmentsPage() {
     )
   }
 
-  if (!isOwner) {
+  if (!canAccess) {
     return (
       <div className="text-center p-8">
         <p className="text-red-600">No tienes permisos para ver esta página.</p>
@@ -269,29 +346,46 @@ export function AssignmentsPage() {
             {profiles.map(profile => {
               const saveState = rowSaveStates[profile.user_id] || 'idle'
               const displayName = getDisplayName(profile)
+              const isSystemOwner = profile.user_id === ownerUserId
+              const isReadOnly = isSystemOwner
+              const showRoleDropdown = !isReadOnly && rolesEditable.includes(profile.role as any)
 
               return (
                 <tr key={profile.user_id} className="border-b border-border hover:bg-black/5">
                   <td className="p-3">
                     <div className="font-medium text-text">{displayName}</div>
                     <div className="text-xs text-muted">{profile.user_id.slice(0, 8)}...</div>
+                    {isSystemOwner && (
+                      <div className="mt-1">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-purple-50 text-purple-700">
+                          Owner (sistema)
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td className="p-3">
-                    <select
-                      value={profile.role}
-                      onChange={e =>
-                        handleRoleChange(profile.user_id, e.target.value as Profile['role'])
-                      }
-                      className="px-2 py-1 text-sm border border-border rounded bg-bg text-text"
-                    >
-                      <option value="advisor">Advisor</option>
-                      <option value="manager">Manager</option>
-                      <option value="recruiter">Recruiter</option>
-                      <option value="owner">Owner</option>
-                    </select>
+                    {showRoleDropdown ? (
+                      <select
+                        value={profile.role}
+                        onChange={e =>
+                          handleRoleChange(profile.user_id, e.target.value as typeof rolesEditable[number])
+                        }
+                        className="px-2 py-1 text-sm border border-border rounded bg-bg text-text"
+                      >
+                        <option value="advisor">Advisor</option>
+                        <option value="manager">Manager</option>
+                        <option value="recruiter">Recruiter</option>
+                        <option value="director">Director</option>
+                        <option value="seguimiento">Seguimiento</option>
+                      </select>
+                    ) : (
+                      <div>
+                        <span className="text-text font-medium capitalize">{profile.role}</span>
+                      </div>
+                    )}
                   </td>
                   <td className="p-3">
-                    {profile.role === 'advisor' ? (
+                    {profile.role === 'advisor' && !isReadOnly ? (
                       <select
                         value={profile.manager_user_id || ''}
                         onChange={e =>
@@ -313,7 +407,7 @@ export function AssignmentsPage() {
                     ) : (
                       <span className="text-muted text-xs">—</span>
                     )}
-                    {profile.role === 'advisor' && !profile.manager_user_id && (
+                    {profile.role === 'advisor' && !profile.manager_user_id && !isReadOnly && (
                       <div className="mt-1">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-yellow-50 text-yellow-700">
                           Sin manager
@@ -322,7 +416,7 @@ export function AssignmentsPage() {
                     )}
                   </td>
                   <td className="p-3">
-                    {profile.role === 'advisor' ? (
+                    {profile.role === 'advisor' && !isReadOnly ? (
                       <select
                         value={profile.recruiter_user_id || ''}
                         onChange={e =>
@@ -344,7 +438,7 @@ export function AssignmentsPage() {
                     ) : (
                       <span className="text-muted text-xs">—</span>
                     )}
-                    {profile.role === 'advisor' && !profile.recruiter_user_id && (
+                    {profile.role === 'advisor' && !profile.recruiter_user_id && !isReadOnly && (
                       <div className="mt-1">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-yellow-50 text-yellow-700">
                           Sin recruiter

@@ -17,6 +17,7 @@ export function Sidebar({ userEmail, onSignOut, onNavigate }: SidebarProps) {
   const location = useLocation()
   const { role, loading: authLoading } = useAuth()
   const canSeeConfig = role === 'owner'
+  const canSeeAssignments = role === 'owner' || role === 'director'
 
   const handleNavClick = () => {
     // Cerrar drawer en mobile al navegar
@@ -118,19 +119,21 @@ export function Sidebar({ userEmail, onSignOut, onNavigate }: SidebarProps) {
               >
                 <span>Dashboard Owner</span>
               </NavLink>
-              <NavLink
-                to="/owner/assignments"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary/10 text-primary border-l-4 border-primary'
-                      : 'text-text hover:bg-black/5'
-                  }`
-                }
-                onClick={handleNavClick}
-              >
-                <span>Asignaciones</span>
-              </NavLink>
+              {!authLoading && canSeeAssignments && (
+                <NavLink
+                  to="/owner/assignments"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-primary/10 text-primary border-l-4 border-primary'
+                        : 'text-text hover:bg-black/5'
+                    }`
+                  }
+                  onClick={handleNavClick}
+                >
+                  <span>Asignaciones</span>
+                </NavLink>
+              )}
               <NavLink
                 to="/settings/okr-minimums"
                 className={({ isActive }) =>
