@@ -125,7 +125,6 @@ export function AssignmentsPage() {
     setRowSaveStates(prev => ({ ...prev, [userId]: 'saving' }))
 
     // Actualizar estado local optimistically
-    const previousRole = profile?.role
     setProfiles(prev =>
       prev.map(p =>
         p.user_id === userId ? { ...p, role: newRole as Profile['role'] } : p
