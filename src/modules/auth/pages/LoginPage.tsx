@@ -1,11 +1,24 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabaseClient'
 import { isNetworkError } from '../../../lib/supabaseErrorHandler'
+import { useAuth } from '../useAuth'
+import { getHomePathForRole } from '../getHomePathForRole'
 
 const EMAIL_STORAGE_KEY = 'vant_last_email'
 
+function isSafeNext(next: string | null): next is string {
+  if (!next || typeof next !== 'string') return false
+  if (!next.startsWith('/')) return false
+  if (next.startsWith('//')) return false
+  if (next.includes('://')) return false
+  return true
+}
+
 export function LoginPage() {
+  const [searchParams] = useSearchParams()
+  const next = searchParams.get('next')
+  const { session, role, loading: authLoading } = useAuth()
   const [email, setEmail] = useState(() => {
     // Cargar email guardado del localStorage
     const savedEmail = localStorage.getItem(EMAIL_STORAGE_KEY)
@@ -18,6 +31,13 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
+
+  // Si ya está autenticado en /login, redirigir a next o getHomePathForRole(role)
+  useEffect(() => {
+    if (!session || role == null || authLoading) return
+    const dest = isSafeNext(next) ? next : getHomePathForRole(role)
+    navigate(dest, { replace: true })
+  }, [session, role, authLoading, next, navigate])
 
   // Guardar email en localStorage cuando cambia
   useEffect(() => {
@@ -45,7 +65,8 @@ export function LoginPage() {
         })
         if (error) throw error
       }
-      navigate('/')
+      const dest = isSafeNext(next) ? next : '/'
+      navigate(dest, { replace: true })
     } catch (err: unknown) {
       let errorMessage = 'Error al autenticar'
 

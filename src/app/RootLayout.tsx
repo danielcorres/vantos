@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../shared/auth/AuthProvider'
 import { getHomePathForRole } from '../modules/auth/getHomePathForRole'
+import { FullScreenLoader } from '../components/FullScreenLoader'
 
 function isSafeNext(next: string | null): next is string {
   if (!next || typeof next !== 'string') return false
@@ -13,6 +14,10 @@ export function RootLayout() {
   const location = useLocation()
   const navigate = useNavigate()
   const { pathname, search } = location
+
+  if (loading) {
+    return <FullScreenLoader label="Cargando..." />
+  }
 
   useEffect(() => {
     if (!session || role == null || loading) return

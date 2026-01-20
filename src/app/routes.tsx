@@ -1,6 +1,7 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { RootLayout } from './RootLayout'
 import { AppShell } from './layout/AppShell'
+import { RoleGuard } from '../modules/auth/RoleGuard'
 import { LoginPage } from '../modules/auth/pages/LoginPage'
 import { OkrHomePage } from '../modules/okr/pages/OkrHomePage'
 import { OkrWeekPage } from '../modules/okr/pages/OkrWeekPage'
@@ -26,6 +27,9 @@ function ErrorPage() {
   )
 }
 
+const OWNER_ROLES = ['owner'] as const
+const ADVISOR_AREA_ROLES = ['advisor', 'owner', 'manager', 'recruiter', 'director', 'seguimiento', 'developer', 'super_admin'] as const
+
 export const router = createBrowserRouter([
   {
     element: <RootLayout />,
@@ -43,59 +47,115 @@ export const router = createBrowserRouter([
         children: [
       {
         index: true,
-        element: <OkrHomePage />,
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <OkrHomePage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'week',
-        element: <OkrWeekPage />,
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <OkrWeekPage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'okr/daily',
-        element: <OkrDailyLogPage />,
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <OkrDailyLogPage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'okr/scoring',
-        element: <OkrScoringPage />,
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <OkrScoringPage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'pipeline',
-        element: <PipelinePage />,
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <PipelinePage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'pipeline/settings',
-        element: <PipelineSettingsPage />,
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <PipelineSettingsPage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'focus',
-        element: <FocusPage />,
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <FocusPage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'leads/:id',
-        element: <LeadDetailPage />,
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <LeadDetailPage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'profile',
-        element: <ProfilePage />,
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <ProfilePage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'owner/dashboard',
-        element: <OwnerDashboardPage />,
+        element: (
+          <RoleGuard allowedRoles={[...OWNER_ROLES]}>
+            <OwnerDashboardPage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'owner/assignments',
-        element: <AssignmentsPage />,
+        element: (
+          <RoleGuard allowedRoles={[...OWNER_ROLES]}>
+            <AssignmentsPage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'manager/dashboard',
-        element: <ManagerDashboardPage />,
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <ManagerDashboardPage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'manager/advisor/:advisorId',
-        element: <AdvisorWeekDetailPage />,
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <AdvisorWeekDetailPage />
+          </RoleGuard>
+        ),
       },
       {
         path: 'settings/okr-minimums',
-        element: <WeeklyMinimumTargetsPage />,
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <WeeklyMinimumTargetsPage />
+          </RoleGuard>
+        ),
       },
         ],
       },
