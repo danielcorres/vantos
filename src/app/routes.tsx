@@ -1,4 +1,5 @@
 import { createBrowserRouter } from 'react-router-dom'
+import { RootLayout } from './RootLayout'
 import { AppShell } from './layout/AppShell'
 import { LoginPage } from '../modules/auth/pages/LoginPage'
 import { OkrHomePage } from '../modules/okr/pages/OkrHomePage'
@@ -27,15 +28,19 @@ function ErrorPage() {
 
 export const router = createBrowserRouter([
   {
-    path: '/login',
-    element: <LoginPage />,
-    errorElement: <ErrorPage />,
-  },
-  {
-    path: '/',
-    element: <AppShell />,
+    element: <RootLayout />,
     errorElement: <ErrorPage />,
     children: [
+      {
+        path: '/login',
+        element: <LoginPage />,
+        errorElement: <ErrorPage />,
+      },
+      {
+        path: '/',
+        element: <AppShell />,
+        errorElement: <ErrorPage />,
+        children: [
       {
         index: true,
         element: <OkrHomePage />,
@@ -91,6 +96,8 @@ export const router = createBrowserRouter([
       {
         path: 'settings/okr-minimums',
         element: <WeeklyMinimumTargetsPage />,
+      },
+        ],
       },
     ],
   },
