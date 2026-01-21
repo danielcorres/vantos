@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import { RootLayout } from './RootLayout'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { AppShell } from './layout/AppShell'
+import { VantMark } from '../components/branding/VantMark'
 import { RoleGuard } from '../modules/auth/RoleGuard'
 import { LoginPage } from '../modules/auth/pages/LoginPage'
 import { OkrHomePage } from '../modules/okr/pages/OkrHomePage'
@@ -21,9 +22,12 @@ import { WeeklyMinimumTargetsPage } from '../modules/okr/settings/WeeklyMinimumT
 
 function ErrorPage() {
   return (
-    <div style={{ textAlign: 'center', padding: '40px' }}>
-      <h1>Error</h1>
-      <p>Algo salió mal. Por favor, intenta recargar la página.</p>
+    <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-8 text-center">
+      <VantMark size={40} mode="light" aria-label="VANT" />
+      <div>
+        <h1 className="text-xl font-semibold text-text mb-2">Error</h1>
+        <p className="text-muted">Algo salió mal. Por favor, intenta recargar la página.</p>
+      </div>
     </div>
   )
 }

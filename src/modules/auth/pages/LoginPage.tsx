@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabaseClient'
 import { isNetworkError } from '../../../lib/supabaseErrorHandler'
 import { useAuth } from '../useAuth'
 import { getHomePathForRole } from '../getHomePathForRole'
+import { LoginBranding } from '../../../components/auth/LoginBranding'
 
 const EMAIL_STORAGE_KEY = 'vant_last_email'
 
@@ -88,10 +89,11 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-bg flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="card p-8">
-          <h1 className="text-3xl font-bold text-center mb-2">Bienvenido a Vant</h1>
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+      <div className="w-full max-w-md flex flex-col items-center">
+        <LoginBranding mode="light" className="mb-6" />
+        <div className="w-full p-8 rounded-2xl shadow-sm ring-1 ring-black/5 dark:ring-white/10 border border-border bg-white dark:bg-slate-900">
+          <h1 className="text-3xl font-bold text-center mb-2 text-text">Bienvenido a Vant</h1>
           <p className="text-sm text-muted text-center mb-6">Inicia sesión para continuar</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">

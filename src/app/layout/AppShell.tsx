@@ -4,6 +4,7 @@ import { useAuth } from '../../shared/auth/AuthProvider'
 import { Sidebar } from './Sidebar'
 import { IconMenu, IconX } from './icons'
 import { getUserDisplayName } from '../../lib/profile'
+import { VantMark } from '../../components/branding/VantMark'
 
 export function AppShell() {
   const navigate = useNavigate()
@@ -64,6 +65,7 @@ export function AppShell() {
   if (authLoading) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen gap-4">
+        <VantMark size={48} mode="light" animated aria-label="VANT" />
         <span className="text-muted">Cargando...</span>
         {authError && (
           <div className="card p-4 max-w-md text-center">
@@ -81,9 +83,9 @@ export function AppShell() {
   }
 
   if (!user) {
-    // Redirigiendo a login (el useEffect ya lo maneja, pero mostramos mensaje mientras)
     return (
-      <div className="flex justify-center items-center min-h-screen">
+      <div className="flex flex-col justify-center items-center min-h-screen gap-4">
+        <VantMark size={40} mode="light" animated aria-label="VANT" />
         <span className="text-muted">Redirigiendo...</span>
       </div>
     )
@@ -106,7 +108,10 @@ export function AppShell() {
           >
             <IconMenu />
           </button>
-          <h1 className="text-base font-semibold text-text">Vant</h1>
+          <div className="flex items-center gap-2">
+            <VantMark size={28} mode="light" aria-label="VANT" />
+            <span className="text-base font-semibold text-text">VANT</span>
+          </div>
           <div className="w-9" /> {/* Spacer */}
         </div>
       </header>
