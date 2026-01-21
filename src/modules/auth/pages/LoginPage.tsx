@@ -89,22 +89,22 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md flex flex-col items-center">
-        <LoginBranding mode="light" className="mb-6" />
-        <div className="w-full p-8 rounded-2xl shadow-sm ring-1 ring-black/5 dark:ring-white/10 border border-border bg-white dark:bg-slate-900">
-          <h1 className="text-3xl font-bold text-center mb-2 text-text">Bienvenido a Vant</h1>
-          <p className="text-sm text-muted text-center mb-6">Inicia sesión para continuar</p>
+        <LoginBranding mode="dark" className="mb-6" />
+        <div className="w-full p-8 rounded-2xl bg-slate-900/50 backdrop-blur shadow-lg ring-1 ring-white/10">
+          <h1 className="text-2xl font-bold text-center mb-2 text-slate-100">Bienvenido a Vant</h1>
+          <p className="text-sm text-slate-400 text-center mb-6">Inicia sesión para continuar</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+              <div className="p-3 bg-red-950/60 border border-red-800/60 rounded-md text-sm text-red-200">
                 {error}
               </div>
             )}
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-text mb-1.5">
+              <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-1.5">
                 Correo electrónico
               </label>
               <input
@@ -115,13 +115,13 @@ export function LoginPage() {
                 placeholder="tu@email.com"
                 required
                 disabled={loading}
-                className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-slate-900 text-slate-100 ring-1 ring-white/10 rounded-md px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                 autoComplete="email"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-text mb-1.5">
+              <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1.5">
                 Contraseña
               </label>
               <div className="relative">
@@ -148,20 +148,20 @@ export function LoginPage() {
                   }}
                   required
                   disabled={loading}
-                  className="w-full border border-border rounded-md px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-slate-900 text-slate-100 ring-1 ring-white/10 rounded-md px-3 py-2 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   autoComplete={isSignUp ? 'new-password' : 'current-password'}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted hover:text-text text-sm"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 text-sm"
                   tabIndex={-1}
                 >
                   {showPassword ? 'Ocultar' : 'Mostrar'}
                 </button>
               </div>
               {capsLockOn && (
-                <div className="mt-1 text-xs text-warning flex items-center gap-1">
+                <div className="mt-1 text-xs text-amber-300 flex items-center gap-1">
                   <span>⚠️</span>
                   <span>Caps Lock activado</span>
                 </div>
@@ -171,7 +171,7 @@ export function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn btn-primary py-2.5 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-2.5 rounded-lg text-sm font-semibold bg-slate-800 text-slate-100 ring-1 ring-white/10 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? 'Cargando...' : isSignUp ? 'Crear acceso' : 'Iniciar sesión'}
             </button>
@@ -180,7 +180,7 @@ export function LoginPage() {
               type="button"
               onClick={() => setIsSignUp(!isSignUp)}
               disabled={loading}
-              className="w-full text-sm text-primary hover:underline disabled:opacity-50"
+              className="w-full text-sm text-slate-400 hover:text-slate-200 hover:underline disabled:opacity-50 transition-colors"
             >
               {isSignUp ? 'Ya tengo acceso' : 'Crear acceso nuevo'}
             </button>
