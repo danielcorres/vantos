@@ -1,5 +1,5 @@
 /**
- * VANT logo (isotipo + texto).
+ * VANT logo (lockup horizontal: isotipo + texto).
  * Uso: login, sidebar, pantallas de marca.
  */
 
@@ -20,42 +20,46 @@ export function VantLogo({
   className = '',
   'aria-label': ariaLabel = 'VANT',
 }: VantLogoProps) {
+  // Mantener compatibilidad: `size` controla la altura
+  // Proporción del nuevo SVG: 640 x 200  => width = height * (640/200) = height * 3.2
   const h = size
-  const w = width ?? (size * 256) / 320
+  const w = width ?? h * (640 / 200)
 
-  const iso =
-    mode === 'auto' ? (
-      <>
-        <path d="M40 32 L128 216 L216 32 Z" className="fill-[#0B1C2D] dark:fill-white" />
-        <path d="M88 104 L128 192 L168 104 Z" className="fill-white dark:fill-[#0B1C2D]" />
-      </>
-    ) : (
-      <>
-        <path d="M40 32 L128 216 L216 32 Z" fill={mode === 'dark' ? '#FFFFFF' : '#0B1C2D'} />
-        <path d="M88 104 L128 192 L168 104 Z" fill={mode === 'dark' ? '#0B1C2D' : '#FFFFFF'} />
-      </>
-    )
+  const textFill =
+    mode === 'auto'
+      ? undefined
+      : mode === 'dark'
+        ? '#FFFFFF'
+        : '#0B1C2D'
 
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 256 320"
+      viewBox="0 0 640 200"
       width={w}
       height={h}
       className={className}
       aria-label={ariaLabel}
       style={animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : undefined}
     >
-      {iso}
+      {/* Isotipo */}
+      <g transform="translate(40,36)">
+        {/* Fondo del isotipo (se queda azul en light/dark/auto, como en tu SVG) */}
+        <rect x="0" y="0" width="128" height="128" rx="24" fill="#0B1C2D" />
+        {/* V recortada */}
+        <path d="M36 40 L64 96 L92 40 Z" fill="#FFFFFF" />
+      </g>
+
+      {/* Texto VANT */}
       <text
-        x="128"
-        y="292"
-        fill={mode === 'dark' ? '#FFFFFF' : mode === 'auto' ? undefined : '#0B1C2D'}
-        fontSize={56}
+        x="210"
+        y="126"
+        fontSize={84}
         fontFamily="Inter, SF Pro Display, Helvetica Neue, Arial, sans-serif"
-        fontWeight={600}
+        fontWeight={700}
         letterSpacing={6}
-        textAnchor="middle"
+        // Modo auto: usa clases dark: para invertir el texto
+        fill={textFill}
         className={mode === 'auto' ? 'fill-[#0B1C2D] dark:fill-white' : ''}
         style={mode === 'dark' ? { fill: '#FFFFFF' } : undefined}
       >
