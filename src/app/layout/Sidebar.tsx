@@ -40,7 +40,7 @@ export function Sidebar({ userEmail, onSignOut, onNavigate }: SidebarProps) {
       {/* Logo/Header */}
       <div className="px-4 pt-4 pb-3 border-b border-border flex flex-col items-center">
         <VantLogo size={72} mode="light" className="shrink-0" aria-label="VANT" />
-        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">Consultores Avanzados de Vida</p>
+        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">V 1.0</p>
       </div>
 
       {/* Navigation */}
