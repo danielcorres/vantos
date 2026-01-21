@@ -50,13 +50,14 @@ export function VantLogo({
       <text
         x="128"
         y="292"
-        fill={mode === 'auto' ? undefined : mode === 'dark' ? '#FFFFFF' : '#0B1C2D'}
+        fill={mode === 'dark' ? '#FFFFFF' : mode === 'auto' ? undefined : '#0B1C2D'}
         fontSize={56}
         fontFamily="Inter, SF Pro Display, Helvetica Neue, Arial, sans-serif"
         fontWeight={600}
         letterSpacing={6}
         textAnchor="middle"
         className={mode === 'auto' ? 'fill-[#0B1C2D] dark:fill-white' : ''}
+        style={mode === 'dark' ? { fill: '#FFFFFF' } : undefined}
       >
         VANT
       </text>

@@ -92,7 +92,7 @@ export function LoginPage() {
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md flex flex-col items-center">
         <LoginBranding mode="dark" className="mb-6" />
-        <div className="w-full p-8 rounded-2xl bg-slate-900/50 backdrop-blur shadow-lg ring-1 ring-white/10">
+        <div className="w-full p-8 rounded-2xl bg-slate-900/60 backdrop-blur shadow-lg ring-1 ring-white/15 text-slate-100">
           <h1 className="text-2xl font-bold text-center mb-2 text-slate-100">Bienvenido a Vant</h1>
           <p className="text-sm text-slate-400 text-center mb-6">Inicia sesión para continuar</p>
 
