@@ -15,10 +15,6 @@ export function RootLayout() {
   const navigate = useNavigate()
   const { pathname, search } = location
 
-  if (loading) {
-    return <FullScreenLoader label="Cargando..." />
-  }
-
   useEffect(() => {
     if (!session || role == null || loading) return
     if (pathname !== '/' && pathname !== '/login') return
@@ -31,6 +27,10 @@ export function RootLayout() {
     }
     navigate(getHomePathForRole(role), { replace: true })
   }, [session, role, loading, pathname, search, navigate])
+
+  if (loading) {
+    return <FullScreenLoader label="Cargando..." />
+  }
 
   return <Outlet />
 }

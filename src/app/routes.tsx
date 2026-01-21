@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { RootLayout } from './RootLayout'
+import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { AppShell } from './layout/AppShell'
 import { RoleGuard } from '../modules/auth/RoleGuard'
 import { LoginPage } from '../modules/auth/pages/LoginPage'
@@ -33,7 +34,7 @@ const ADVISOR_AREA_ROLES = ['advisor', 'owner', 'manager', 'recruiter', 'directo
 export const router = createBrowserRouter([
   {
     element: <RootLayout />,
-    errorElement: <ErrorPage />,
+    errorElement: <RouteErrorBoundary />,
     children: [
       {
         path: '/login',
