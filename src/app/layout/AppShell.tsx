@@ -65,7 +65,7 @@ export function AppShell() {
   if (authLoading) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen gap-4">
-        <VantMark size={48} mode="light" animated aria-label="VANT" />
+        <VantMark size={48} animated aria-label="VANT" />
         <span className="text-muted">Cargando...</span>
         {authError && (
           <div className="card p-4 max-w-md text-center">
@@ -85,7 +85,7 @@ export function AppShell() {
   if (!user) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen gap-4">
-        <VantMark size={40} mode="light" animated aria-label="VANT" />
+        <VantMark size={40} animated aria-label="VANT" />
         <span className="text-muted">Redirigiendo...</span>
       </div>
     )
@@ -109,7 +109,7 @@ export function AppShell() {
             <IconMenu />
           </button>
           <div className="flex items-center gap-2">
-            <VantMark size={28} mode="light" aria-label="VANT" />
+            <VantMark size={28} aria-label="VANT" />
             <span className="text-base font-semibold text-text">VANT</span>
           </div>
           <div className="w-9" /> {/* Spacer */}

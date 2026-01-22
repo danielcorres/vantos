@@ -17,7 +17,7 @@ type VantMarkProps = {
 export function VantMark({
   size = 40,
   width,
-  mode = 'light',
+  mode = 'auto',
   animated = false,
   className = '',
   'aria-label': ariaLabel = 'VANT',
@@ -39,25 +39,24 @@ export function VantMark({
 
   const s = width ?? size
 
-  // Estilos inline con background-image (inmune a CSS globales de img/flex)
-  const inlineStyle: React.CSSProperties = {
-    width: `${s}px`,
-    height: `${s}px`,
-    display: 'inline-block',
-    flexShrink: 0,
-    backgroundImage: `url("${src}")`,
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'center',
-    backgroundSize: 'contain',
-    ...(animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : {}),
+  // Error handler (solo en dev)
+  const handleError = () => {
+    if (import.meta.env.DEV) {
+      console.error(`[VantMark] Failed to load SVG: ${src}`)
+    }
   }
 
   return (
-    <span
-      role="img"
-      aria-label={ariaLabel}
+    <img
+      src={src}
+      alt={ariaLabel}
+      width={s}
+      height={s}
       className={className}
-      style={inlineStyle}
+      aria-label={ariaLabel}
+      draggable={false}
+      onError={handleError}
+      style={animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : undefined}
     />
   )
 }

@@ -12,7 +12,7 @@ type LoginBrandingProps = {
   className?: string
 }
 
-export function LoginBranding({ mode = 'light', animated = false, className = '' }: LoginBrandingProps) {
+export function LoginBranding({ mode = 'auto', animated = false, className = '' }: LoginBrandingProps) {
   return (
     <div className={`flex flex-col items-center gap-4 ${className}`}>
       <div className="md:hidden" aria-hidden>

@@ -17,7 +17,7 @@ type VantLogoProps = {
 export function VantLogo({
   size = 120,
   width,
-  mode = 'light',
+  mode = 'auto',
   animated = false,
   className = '',
   'aria-label': ariaLabel = 'VANT',
@@ -45,25 +45,24 @@ export function VantLogo({
   
   const src = `${path}?v=${v}`
 
-  // Estilos inline con background-image (inmune a CSS globales de img/flex)
-  const inlineStyle: React.CSSProperties = {
-    width: `${w}px`,
-    height: `${h}px`,
-    display: 'inline-block',
-    flexShrink: 0,
-    backgroundImage: `url("${src}")`,
-    backgroundRepeat: 'no-repeat',
-    backgroundPosition: 'center',
-    backgroundSize: 'contain',
-    ...(animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : {}),
+  // Error handler (solo en dev)
+  const handleError = () => {
+    if (import.meta.env.DEV) {
+      console.error(`[VantLogo] Failed to load SVG: ${src}`)
+    }
   }
 
   return (
-    <span
-      role="img"
-      aria-label={ariaLabel}
+    <img
+      src={src}
+      alt={ariaLabel}
+      width={w}
+      height={h}
       className={className}
-      style={inlineStyle}
+      aria-label={ariaLabel}
+      draggable={false}
+      onError={handleError}
+      style={animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : undefined}
     />
   )
 }
