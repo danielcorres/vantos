@@ -6,7 +6,7 @@ import {
   IconLogout,
 } from './icons'
 import { useAuth } from '../../shared/auth/AuthProvider'
-import { VantLogo } from '../../components/branding/VantLogo'
+import { VantMark } from '../../components/branding/VantMark'
 
 type SidebarProps = {
   userEmail?: string
@@ -39,7 +39,7 @@ export function Sidebar({ userEmail, onSignOut, onNavigate }: SidebarProps) {
     <div className="flex flex-col h-full bg-surface border-r border-border">
       {/* Logo/Header */}
       <div className="px-4 pt-4 pb-3 border-b border-border flex flex-col items-center">
-        <VantLogo size={72} className="shrink-0" aria-label="VANT" />
+        <VantMark size={72} className="shrink-0" aria-label="VANT" />
         <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">V 1.0</p>
       </div>
 
