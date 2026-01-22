@@ -27,10 +27,13 @@ export function VantLogo({
   // Resolver el modo efectivo
   const effectiveMode = mode === 'auto' ? systemTheme : mode
   
+  // Construir ruta base
+  const base = import.meta.env.BASE_URL || '/'
+  
   // Seleccionar el archivo SVG según el modo
   const src = effectiveMode === 'dark' 
-    ? '/branding/vant-logobbg.svg'
-    : '/branding/vant-logo.svg'
+    ? `${base}branding/vant-logobbg.svg`
+    : `${base}branding/vant-logo.svg`
 
   const h = size
   const w = width ?? size

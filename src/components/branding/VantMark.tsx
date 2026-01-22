@@ -27,10 +27,13 @@ export function VantMark({
   // Resolver el modo efectivo
   const effectiveMode = mode === 'auto' ? systemTheme : mode
   
+  // Construir ruta base
+  const base = import.meta.env.BASE_URL || '/'
+  
   // Seleccionar el archivo SVG según el modo
   const src = effectiveMode === 'dark'
-    ? '/branding/vant-markbbg.svg'
-    : '/branding/vant-mark.svg'
+    ? `${base}branding/vant-markbbg.svg`
+    : `${base}branding/vant-mark.svg`
 
   const s = width ?? size
 
