@@ -40,34 +40,24 @@ export function VantLogo({
   const h = size
   const w = width ?? size
 
-  // Error handler (solo en dev)
-  const handleError = () => {
-    if (import.meta.env.DEV) {
-      console.error(`[VantLogo] Failed to load SVG: ${src}`)
-    }
-  }
-
-  // Estilos inline para forzar tamaño (evita colapso en flex)
-  const inlineStyle = {
+  // Estilos inline con background-image (inmune a CSS globales de img/flex)
+  const inlineStyle: React.CSSProperties = {
     width: `${w}px`,
     height: `${h}px`,
+    display: 'inline-block',
+    flexShrink: 0,
+    backgroundImage: `url("${src}")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'center',
+    backgroundSize: 'contain',
     ...(animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : {}),
   }
 
-  // Clases base para evitar colapso en flex
-  const baseClasses = 'block shrink-0 object-contain'
-  const finalClassName = className ? `${baseClasses} ${className}` : baseClasses
-
   return (
-    <img
-      src={src}
-      alt={ariaLabel}
-      width={w}
-      height={h}
-      className={finalClassName}
+    <span
+      role="img"
       aria-label={ariaLabel}
-      draggable={false}
-      onError={handleError}
+      className={className}
       style={inlineStyle}
     />
   )
