@@ -33,7 +33,7 @@ export function VantLogo({
     : '/branding/vant-logo.svg'
 
   const h = size
-  const w = width ?? (size * 256) / 320
+  const w = width ?? size
 
   return (
     <img
@@ -43,6 +43,7 @@ export function VantLogo({
       height={h}
       className={className}
       aria-label={ariaLabel}
+      draggable={false}
       style={animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : undefined}
     />
   )

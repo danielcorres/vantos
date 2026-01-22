@@ -42,6 +42,7 @@ export function VantMark({
       height={s}
       className={className}
       aria-label={ariaLabel}
+      draggable={false}
       style={animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : undefined}
     />
   )

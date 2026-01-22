@@ -12,7 +12,6 @@
     "db:link:prod": "supabase link --project-ref lyvnyjkfgkbrobetzxvs",
     "db:push": "supabase db push",
     "db:where": "ref=$(tr -d '\\n\\r\\t ' < supabase/.temp/project-ref 2>/dev/null); if [ -n \"$ref\" ]; then printf \"%s\\n\" \"$ref\"; else echo \"NOT LINKED\" && exit 1; fi"
-
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.90.0",
@@ -33,6 +32,7 @@
     "eslint-plugin-react-refresh": "^0.4.24",
     "globals": "^16.5.0",
     "postcss": "^8.5.6",
+    "svgo": "^4.0.0",
     "tailwindcss": "^3.4.19",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
