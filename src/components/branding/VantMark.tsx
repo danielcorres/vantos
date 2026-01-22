@@ -1,9 +1,10 @@
 /**
- * VANT isotipo (solo triángulo, cuadrado).
+ * VANT isotipo (check icon usando CSS mask).
  * Uso: header, favicon, loading, error.
+ * 
+ * Usa CSS mask para que el color se adapte automáticamente a light/dark
+ * mediante currentColor y clases Tailwind.
  */
-
-import { useSystemTheme } from './useSystemTheme'
 
 type VantMarkProps = {
   size?: number
@@ -22,41 +23,43 @@ export function VantMark({
   className = '',
   'aria-label': ariaLabel = 'VANT',
 }: VantMarkProps) {
-  const systemTheme = useSystemTheme()
-  
-  // Resolver el modo efectivo
-  const effectiveMode = mode === 'auto' ? systemTheme : mode
-  
-  // Cache-busting version
-  const v = '20260122'
-  
-  // Seleccionar el archivo SVG según el modo (ruta absoluta siempre)
-  const path = effectiveMode === 'dark'
-    ? '/branding/vant-markbbg.svg'
-    : '/branding/vant-mark.svg'
-  
-  const src = `${path}?v=${v}`
-
   const s = width ?? size
 
-  // Error handler (solo en dev)
-  const handleError = () => {
-    if (import.meta.env.DEV) {
-      console.error(`[VantMark] Failed to load SVG: ${src}`)
-    }
+  // Clases de color según mode (SSR-safe, solo Tailwind)
+  const colorClass = mode === 'light' 
+    ? 'text-slate-900' 
+    : mode === 'dark' 
+    ? 'text-white' 
+    : 'text-slate-900 dark:text-white'
+
+  // Estilos inline para CSS mask
+  const inlineStyle: React.CSSProperties = {
+    width: `${s}px`,
+    height: `${s}px`,
+    display: 'inline-block',
+    flexShrink: 0,
+    WebkitMaskImage: `url('/branding/vant-mark.svg')`,
+    maskImage: `url('/branding/vant-mark.svg')`,
+    WebkitMaskRepeat: 'no-repeat',
+    maskRepeat: 'no-repeat',
+    WebkitMaskPosition: 'center',
+    maskPosition: 'center',
+    WebkitMaskSize: 'contain',
+    maskSize: 'contain',
+    backgroundColor: 'currentColor',
+    userSelect: 'none',
+    ...(animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : {}),
   }
 
+  // Combinar clases
+  const finalClassName = className ? `${colorClass} ${className}` : colorClass
+
   return (
-    <img
-      src={src}
-      alt={ariaLabel}
-      width={s}
-      height={s}
-      className={className}
+    <span
+      role="img"
       aria-label={ariaLabel}
-      draggable={false}
-      onError={handleError}
-      style={animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : undefined}
+      className={finalClassName}
+      style={inlineStyle}
     />
   )
 }

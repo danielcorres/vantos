@@ -1,9 +1,10 @@
 /**
- * VANT logo (isotipo + texto).
+ * VANT logo (isotipo check + texto "VANT").
  * Uso: login, sidebar, pantallas de marca.
+ * 
+ * Usa CSS mask para el isotipo y texto HTML para "VANT".
+ * Layout horizontal: isotipo + texto.
  */
-
-import { useSystemTheme } from './useSystemTheme'
 
 type VantLogoProps = {
   size?: number
@@ -22,47 +23,70 @@ export function VantLogo({
   className = '',
   'aria-label': ariaLabel = 'VANT',
 }: VantLogoProps) {
-  const systemTheme = useSystemTheme()
-  
-  // Resolver el modo efectivo
-  const effectiveMode = mode === 'auto' ? systemTheme : mode
-  
-  // Cache-busting version
-  const v = '20260122'
-  
-  // Calcular tamaño efectivo para decidir entre mark y logo
+  // Calcular tamaños
   const h = size
-  const w = width ?? size
-  const effectiveSize = w
+  const maxWidth = width ? `${width}px` : undefined
   
-  // Usar mark en tamaños pequeños (< 72px), logo en tamaños grandes (>= 72px)
-  const useMark = effectiveSize < 72
-  
-  // Seleccionar el archivo SVG según el tamaño y el modo (ruta absoluta siempre)
-  const path = useMark
-    ? (effectiveMode === 'dark' ? '/branding/vant-markbbg.svg' : '/branding/vant-mark.svg')
-    : (effectiveMode === 'dark' ? '/branding/vant-logobbg.svg' : '/branding/vant-logo.svg')
-  
-  const src = `${path}?v=${v}`
+  // Tamaño del isotipo (proporcional a la altura)
+  const markSize = Math.round(h * 0.6)
 
-  // Error handler (solo en dev)
-  const handleError = () => {
-    if (import.meta.env.DEV) {
-      console.error(`[VantLogo] Failed to load SVG: ${src}`)
-    }
+  // Clases de color según mode (SSR-safe, solo Tailwind)
+  const colorClass = mode === 'light' 
+    ? 'text-slate-900' 
+    : mode === 'dark' 
+    ? 'text-white' 
+    : 'text-slate-900 dark:text-white'
+
+  // Estilos para el contenedor
+  const containerStyle: React.CSSProperties = {
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: `${Math.round(h * 0.15)}px`,
+    height: `${h}px`,
+    ...(maxWidth ? { maxWidth } : {}),
+    ...(animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : {}),
   }
 
+  // Estilos para el isotipo (CSS mask)
+  const markStyle: React.CSSProperties = {
+    width: `${markSize}px`,
+    height: `${markSize}px`,
+    display: 'inline-block',
+    flexShrink: 0,
+    WebkitMaskImage: `url('/branding/vant-mark.svg')`,
+    maskImage: `url('/branding/vant-mark.svg')`,
+    WebkitMaskRepeat: 'no-repeat',
+    maskRepeat: 'no-repeat',
+    WebkitMaskPosition: 'center',
+    maskPosition: 'center',
+    WebkitMaskSize: 'contain',
+    maskSize: 'contain',
+    backgroundColor: 'currentColor',
+    userSelect: 'none',
+  }
+
+  // Estilos para el texto
+  const textStyle: React.CSSProperties = {
+    fontSize: `${Math.round(h * 0.4)}px`,
+    lineHeight: 1,
+    fontFamily: 'Inter, SF Pro Display, Helvetica Neue, Arial, sans-serif',
+    fontWeight: 600,
+    letterSpacing: '0.25em',
+    userSelect: 'none',
+  }
+
+  // Combinar clases
+  const finalClassName = className ? `${colorClass} ${className}` : colorClass
+
   return (
-    <img
-      src={src}
-      alt={ariaLabel}
-      width={w}
-      height={h}
-      className={className}
+    <span
+      role="img"
       aria-label={ariaLabel}
-      draggable={false}
-      onError={handleError}
-      style={animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : undefined}
-    />
+      className={finalClassName}
+      style={containerStyle}
+    >
+      <span style={markStyle} aria-hidden="true" />
+      <span style={textStyle} aria-hidden="true">VANT</span>
+    </span>
   )
 }
