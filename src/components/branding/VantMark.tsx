@@ -29,15 +29,10 @@ export function VantMark({
   // Resolver el modo efectivo
   const effectiveMode = mode === 'auto' ? systemTheme : mode
   
-  // Cache-busting version
-  const v = '20260122'
-  
   // Seleccionar el archivo SVG según el modo (ruta absoluta siempre)
-  const path = effectiveMode === 'dark'
+  const src = effectiveMode === 'dark'
     ? '/branding/vant-markbbg.svg'
     : '/branding/vant-mark.svg'
-  
-  const src = `${path}?v=${v}`
 
   const s = width ?? size
 
