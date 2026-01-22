@@ -1,8 +1,23 @@
 {
   "rewrites": [
     {
+      "source": "/branding/:path*",
+      "destination": "/branding/:path*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/branding/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
     }
   ]
 }
