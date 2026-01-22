@@ -47,17 +47,28 @@ export function VantLogo({
     }
   }
 
+  // Estilos inline para forzar tamaño (evita colapso en flex)
+  const inlineStyle = {
+    width: `${w}px`,
+    height: `${h}px`,
+    ...(animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : {}),
+  }
+
+  // Clases base para evitar colapso en flex
+  const baseClasses = 'block shrink-0 object-contain'
+  const finalClassName = className ? `${baseClasses} ${className}` : baseClasses
+
   return (
     <img
       src={src}
       alt={ariaLabel}
       width={w}
       height={h}
-      className={className}
+      className={finalClassName}
       aria-label={ariaLabel}
       draggable={false}
       onError={handleError}
-      style={animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : undefined}
+      style={inlineStyle}
     />
   )
 }
