@@ -16,7 +16,7 @@ type VantMarkProps = {
 }
 
 export function VantMark({
-  size = 40,
+  size = 24,
   width,
   mode = 'auto',
   animated = false,

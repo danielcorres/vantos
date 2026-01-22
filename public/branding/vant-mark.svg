@@ -1,4 +1,7 @@
-<!-- Check icon by Taigaio (CC Attribution) - https://github.com/taigaio/taiga-design -->
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 652.362 400 400">
-  <path d="m 1.5e-6,652.36214 0,400.00006 399.9999985,0 0,-25 0,-375.00006 z m 24.9999995,25 349.999999,0 0,350.00006 -349.999999,0 z m 306.556699,63.375 -174.127,187.92 -89.695299,-81.8965 -16.1152,19.1132 108.808599,98.0117 190.2422,-207.0351 z" fill="#000000"/>
+<!-- Check icon by Elnodos (CC Attribution) - https://elnodos.gumroad.com -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- Círculo (anillo: r=9, stroke-width=2 convertido a path sólido) -->
+  <path d="M 12,3 A 9,9 0 1,1 12,21 A 9,9 0 1,1 12,3 M 12,4 A 8,8 0 1,0 12,20 A 8,8 0 1,0 12,4" fill="#000000" fill-rule="evenodd"/>
+  <!-- Palomita (stroke convertido a path sólido con grosor) -->
+  <path d="M 7.5,12.5 L 9.151,14.5638 L 9.895,14.605 L 14.5,10 L 13.5,9 L 9.151,13.5638 L 8.5,12.5 Z" fill="#000000"/>
 </svg>

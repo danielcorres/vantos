@@ -16,7 +16,7 @@ type VantLogoProps = {
 }
 
 export function VantLogo({
-  size = 120,
+  size = 84,
   width,
   mode = 'auto',
   animated = false,
@@ -27,8 +27,9 @@ export function VantLogo({
   const h = size
   const maxWidth = width ? `${width}px` : undefined
   
-  // Tamaño del isotipo (proporcional a la altura)
-  const markSize = Math.round(h * 0.6)
+  // Tamaño del isotipo (proporcionalmente más chico que el texto)
+  const markSize = Math.round(h * 0.42)
+  const gap = Math.round(h * 0.18)
 
   // Clases de color según mode (SSR-safe, solo Tailwind)
   const colorClass = mode === 'light' 
@@ -41,7 +42,7 @@ export function VantLogo({
   const containerStyle: React.CSSProperties = {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: `${Math.round(h * 0.15)}px`,
+    gap: `${gap}px`,
     height: `${h}px`,
     ...(maxWidth ? { maxWidth } : {}),
     ...(animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : {}),
@@ -67,7 +68,7 @@ export function VantLogo({
 
   // Estilos para el texto
   const textStyle: React.CSSProperties = {
-    fontSize: `${Math.round(h * 0.4)}px`,
+    fontSize: `${Math.round(h * 0.52)}px`,
     lineHeight: 1,
     fontFamily: 'Inter, SF Pro Display, Helvetica Neue, Arial, sans-serif',
     fontWeight: 600,
