@@ -27,16 +27,25 @@ export function VantLogo({
   // Resolver el modo efectivo
   const effectiveMode = mode === 'auto' ? systemTheme : mode
   
-  // Construir ruta base
-  const base = import.meta.env.BASE_URL || '/'
+  // Cache-busting version
+  const v = '20260122'
   
-  // Seleccionar el archivo SVG según el modo
-  const src = effectiveMode === 'dark' 
-    ? `${base}branding/vant-logobbg.svg`
-    : `${base}branding/vant-logo.svg`
+  // Seleccionar el archivo SVG según el modo (ruta absoluta siempre)
+  const path = effectiveMode === 'dark' 
+    ? '/branding/vant-logobbg.svg'
+    : '/branding/vant-logo.svg'
+  
+  const src = `${path}?v=${v}`
 
   const h = size
   const w = width ?? size
+
+  // Error handler (solo en dev)
+  const handleError = () => {
+    if (import.meta.env.DEV) {
+      console.error(`[VantLogo] Failed to load SVG: ${src}`)
+    }
+  }
 
   return (
     <img
@@ -47,6 +56,7 @@ export function VantLogo({
       className={className}
       aria-label={ariaLabel}
       draggable={false}
+      onError={handleError}
       style={animated ? { animation: 'vant-pulse 2s ease-in-out infinite' } : undefined}
     />
   )
