@@ -48,7 +48,8 @@ export function AdvisorWeekDetailPage() {
   const mountedRef = useRef(true)
   const [searchParams] = useSearchParams()
 
-  const isManager = role === 'manager' || role === 'owner'
+  // Permitir acceso a owner, manager, director y seguimiento
+  const canAccessAdvisorDetail = role === 'owner' || role === 'manager' || role === 'director' || role === 'seguimiento'
   const todayLocal = todayLocalYmd()
   const { weekStartLocal, weekEndLocal, nextWeekStartLocal } = calcWeekRangeLocal()
   const weeklyTarget = dailyTarget * weeklyDays
@@ -218,19 +219,19 @@ export function AdvisorWeekDetailPage() {
   useEffect(() => {
     mountedRef.current = true
 
-    if (!roleLoading && !isManager) {
+    if (!roleLoading && !canAccessAdvisorDetail) {
       navigate('/', { replace: true })
       return
     }
 
-    if (isManager && !roleLoading && advisorId) {
+    if (canAccessAdvisorDetail && !roleLoading && advisorId) {
       loadData()
     }
 
     return () => {
       mountedRef.current = false
     }
-  }, [isManager, roleLoading, advisorId, navigate, loadData])
+  }, [canAccessAdvisorDetail, roleLoading, advisorId, navigate, loadData])
 
   // Scroll a bloque específico si hay focus en URL
   useEffect(() => {
@@ -431,11 +432,11 @@ export function AdvisorWeekDetailPage() {
     )
   }
 
-  if (!isManager) {
+  if (!canAccessAdvisorDetail) {
     return (
       <div className="text-center p-8">
         <div className="text-lg font-semibold mb-2">No autorizado</div>
-        <div className="text-sm text-muted">Solo los managers pueden acceder a esta vista.</div>
+        <div className="text-sm text-muted">Solo owner, manager, director y seguimiento pueden acceder a esta vista.</div>
       </div>
     )
   }
