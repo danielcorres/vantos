@@ -1,11 +1,11 @@
 /**
- * VANT isotipo (solo icono: círculo + check).
- * Uso: header, favicon, loading, error.
+ * VANT logo (icono + texto "vant").
+ * Uso: login, sidebar, pantallas de marca.
  */
 
 import { useSystemTheme } from './useSystemTheme'
 
-type VantMarkProps = {
+type VantLogoProps = {
   size?: number
   width?: number
   mode?: 'light' | 'dark' | 'auto'
@@ -16,14 +16,14 @@ type VantMarkProps = {
 
 const BRANDING_VERSION = '20260122-01'
 
-export function VantMark({
-  size = 24,
+export function VantLogo({
+  size = 64,
   width,
   mode = 'auto',
   animated = false,
   className = '',
   'aria-label': ariaLabel = 'vant',
-}: VantMarkProps) {
+}: VantLogoProps) {
   const systemTheme = useSystemTheme()
   
   // Resolver el modo efectivo
@@ -31,18 +31,20 @@ export function VantMark({
   
   // Seleccionar el archivo SVG según el modo (ruta absoluta siempre)
   const path = effectiveMode === 'dark'
-    ? '/branding/vant-markbbg.svg'
-    : '/branding/vant-mark.svg'
+    ? '/branding/vant-logobbg.svg'
+    : '/branding/vant-logo.svg'
   
   const src = `${path}?v=${BRANDING_VERSION}`
 
-  // Tamaño: cuadrado (lado = size o width)
-  const s = width ?? size
+  // Tamaños: size controla altura, width respeta proporción viewBox (120/32 = 3.75)
+  const h = size
+  const defaultWidth = size * 3.75
+  const w = width ?? defaultWidth
 
   // Error handler (solo en dev)
   const handleError = () => {
     if (import.meta.env.DEV) {
-      console.error(`[VantMark] Failed to load SVG: ${src}`)
+      console.error(`[VantLogo] Failed to load SVG: ${src}`)
     }
   }
 
@@ -50,8 +52,8 @@ export function VantMark({
     <img
       src={src}
       alt={ariaLabel}
-      width={s}
-      height={s}
+      width={w}
+      height={h}
       className={className}
       aria-label={ariaLabel}
       draggable={false}
