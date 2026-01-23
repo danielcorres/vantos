@@ -451,11 +451,11 @@ export function OkrDailyLogPage() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-28 md:pb-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold mb-1">OKR Diario</h1>
+          <h1 className="text-2xl md:text-3xl font-bold mb-1">OKR Diario</h1>
           <p className="text-sm text-muted">Captura y progreso</p>
         </div>
         {todayPlan && selectedDate === todayLocalYmd() && (
@@ -572,9 +572,60 @@ export function OkrDailyLogPage() {
         </div>
       </div>
 
-      {/* Table Card */}
+      {/* Metrics Registration */}
       <div className="card p-0 overflow-hidden">
-        <div className="overflow-x-auto max-h-[calc(100vh-500px)] overflow-y-auto">
+        {/* Mobile: Card Stack Layout */}
+        <div className="md:hidden space-y-3 p-4">
+          {metricKeys.map((metricKey) => {
+            const metric = metrics.find(m => m.key === metricKey) || {
+              key: metricKey,
+              label: METRIC_LABELS[metricKey] || metricKey,
+              sort_order: 0,
+            }
+            const value = entries[metricKey] ?? 0
+            const points = calculatePoints(metricKey, value)
+            const hasValue = value > 0
+
+            return (
+              <div
+                key={metricKey}
+                className={`p-3 rounded-lg border border-border transition-colors ${
+                  hasValue ? 'bg-primary/5 border-primary/20' : 'bg-surface'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex-1">
+                    <div className="font-medium text-sm mb-1">{metric.label}</div>
+                    <div className="text-xs text-muted">Pts/u: {scores[metricKey] ?? 0}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm font-bold mb-1">{points} pts</div>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={value}
+                      onChange={(e) => handleEntryChange(metricKey, e.target.value)}
+                      disabled={saving}
+                      className="w-20 border border-border rounded-md px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+          {/* Total en mobile */}
+          <div className="pt-3 border-t border-border">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold">Total:</span>
+              <span className="text-xl font-black">{totalPoints} pts</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Desktop: Table Layout */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead className="bg-bg sticky top-0 z-10 border-b-2 border-border">
               <tr>
@@ -641,21 +692,15 @@ export function OkrDailyLogPage() {
       </div>
 
       {/* Footer Sticky (Mobile) */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-border p-4 shadow-lg z-40">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <span className="text-sm font-semibold">Total: </span>
-            <span className="text-xl font-black">{totalPoints} pts</span>
-          </div>
-          {lastSavedAt && !hasChanges && !saveError && (
-            <div className="text-xs text-muted">
-              Guardado {timeAgo(lastSavedAt)}
-            </div>
-          )}
-        </div>
+      <div className="md:hidden sticky bottom-0 left-0 right-0 bg-surface/95 backdrop-blur border-t border-border p-4 shadow-lg z-40 pb-[calc(env(safe-area-inset-bottom,0px)+12px)]">
         {saveError && (
           <div className="text-xs text-danger mb-2">
             Error: {saveError}
+          </div>
+        )}
+        {lastSavedAt && !hasChanges && !saveError && (
+          <div className="text-xs text-muted mb-2 text-center">
+            Guardado {timeAgo(lastSavedAt)}
           </div>
         )}
         <button
