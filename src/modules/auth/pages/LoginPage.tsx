@@ -29,6 +29,9 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [capsLockOn, setCapsLockOn] = useState(false)
   const [isSignUp, setIsSignUp] = useState(false)
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [signupSuccess, setSignupSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
@@ -54,20 +57,38 @@ export function LoginPage() {
 
     try {
       if (isSignUp) {
+        // Validar nombre y apellido en sign up
+        if (!firstName.trim() || !lastName.trim()) {
+          setError('Nombre y apellido son requeridos')
+          setLoading(false)
+          return
+        }
+
         const { error } = await supabase.auth.signUp({
           email,
           password,
+          options: {
+            data: {
+              first_name: firstName.trim(),
+              last_name: lastName.trim(),
+            },
+          },
         })
         if (error) throw error
+
+        // No navegar, mostrar mensaje de confirmación
+        setSignupSuccess(true)
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
         if (error) throw error
+
+        // Navegar normalmente en sign in
+        const dest = isSafeNext(next) ? next : '/'
+        navigate(dest, { replace: true })
       }
-      const dest = isSafeNext(next) ? next : '/'
-      navigate(dest, { replace: true })
     } catch (err: unknown) {
       let errorMessage = 'Error al autenticar'
 
@@ -88,37 +109,103 @@ export function LoginPage() {
     }
   }
 
+  const handleBackToSignIn = () => {
+    setIsSignUp(false)
+    setSignupSuccess(false)
+    setFirstName('')
+    setLastName('')
+    setPassword('')
+    setError(null)
+  }
+
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md flex flex-col items-center">
         <LoginBranding mode="dark" className="mb-6" />
         <div className="w-full p-8 rounded-2xl bg-slate-900/60 backdrop-blur shadow-lg ring-1 ring-white/15 text-slate-100">
           <h1 className="text-2xl font-bold text-center mb-2 text-slate-100">Bienvenido a Vant</h1>
-          <p className="text-sm text-slate-400 text-center mb-6">Inicia sesión para continuar</p>
+          <p className="text-sm text-slate-400 text-center mb-6">
+            {signupSuccess ? 'Confirma tu correo' : isSignUp ? 'Crea tu cuenta' : 'Inicia sesión para continuar'}
+          </p>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {error && (
-              <div className="p-3 bg-red-950/60 border border-red-800/60 rounded-md text-sm text-red-200">
-                {error}
+          {signupSuccess ? (
+            <div className="space-y-4">
+              <div className="p-4 bg-green-950/60 border border-green-800/60 rounded-md text-sm text-green-200">
+                <p className="font-semibold mb-1">¡Registro exitoso!</p>
+                <p>
+                  Te enviamos un correo de confirmación a <strong>{email}</strong>. Revisa tu bandeja de entrada y spam.
+                </p>
               </div>
-            )}
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-1.5">
-                Correo electrónico
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="tu@email.com"
-                required
-                disabled={loading}
-                className="w-full bg-slate-900 text-slate-100 ring-1 ring-white/10 rounded-md px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                autoComplete="email"
-              />
+              <button
+                type="button"
+                onClick={handleBackToSignIn}
+                className="w-full py-2.5 rounded-lg text-sm font-semibold bg-slate-800 text-slate-100 ring-1 ring-white/10 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-white/20 transition-colors"
+              >
+                Volver a iniciar sesión
+              </button>
             </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="p-3 bg-red-950/60 border border-red-800/60 rounded-md text-sm text-red-200">
+                  {error}
+                </div>
+              )}
+
+              {isSignUp && (
+                <>
+                  <div>
+                    <label htmlFor="firstName" className="block text-sm font-medium text-slate-300 mb-1.5">
+                      Nombre
+                    </label>
+                    <input
+                      id="firstName"
+                      type="text"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Juan"
+                      required
+                      disabled={loading}
+                      className="w-full bg-slate-900 text-slate-100 ring-1 ring-white/10 rounded-md px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                      autoComplete="given-name"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="lastName" className="block text-sm font-medium text-slate-300 mb-1.5">
+                      Apellido
+                    </label>
+                    <input
+                      id="lastName"
+                      type="text"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Pérez"
+                      required
+                      disabled={loading}
+                      className="w-full bg-slate-900 text-slate-100 ring-1 ring-white/10 rounded-md px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                      autoComplete="family-name"
+                    />
+                  </div>
+                </>
+              )}
+
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium text-slate-300 mb-1.5">
+                  Correo electrónico
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tu@email.com"
+                  required
+                  disabled={loading}
+                  className="w-full bg-slate-900 text-slate-100 ring-1 ring-white/10 rounded-md px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  autoComplete="email"
+                />
+              </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-1.5">
@@ -176,15 +263,22 @@ export function LoginPage() {
               {loading ? 'Cargando...' : isSignUp ? 'Crear acceso' : 'Iniciar sesión'}
             </button>
 
-            <button
-              type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
-              disabled={loading}
-              className="w-full text-sm text-slate-400 hover:text-slate-200 hover:underline disabled:opacity-50 transition-colors"
-            >
-              {isSignUp ? 'Ya tengo acceso' : 'Crear acceso nuevo'}
-            </button>
-          </form>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp)
+                  setSignupSuccess(false)
+                  setFirstName('')
+                  setLastName('')
+                  setError(null)
+                }}
+                disabled={loading}
+                className="w-full text-sm text-slate-400 hover:text-slate-200 hover:underline disabled:opacity-50 transition-colors"
+              >
+                {isSignUp ? 'Ya tengo acceso' : 'Crear acceso nuevo'}
+              </button>
+            </form>
+          )}
         </div>
       </div>
     </div>
