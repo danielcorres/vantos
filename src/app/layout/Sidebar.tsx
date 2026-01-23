@@ -39,7 +39,9 @@ export function Sidebar({ userEmail, onSignOut, onNavigate }: SidebarProps) {
     <div className="flex flex-col h-full bg-surface border-r border-border">
       {/* Logo/Header */}
       <div className="px-4 pt-4 pb-3 border-b border-border flex flex-col items-center">
-        <VantMark size={72} className="shrink-0" aria-label="VANT" />
+        <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center shrink-0">
+          <VantMark size={64} className="w-full h-full object-contain" aria-label="VANT" />
+        </div>
         <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">V 1.0</p>
       </div>
 
