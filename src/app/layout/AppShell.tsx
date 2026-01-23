@@ -7,13 +7,31 @@ import { getUserDisplayName } from '../../lib/profile'
 import { VantMark } from '../../components/branding/VantMark'
 import { VantLogo } from '../../components/branding/VantLogo'
 
+const SIDEBAR_EXPANDED = 256 // 64 * 4 (w-64)
+const SIDEBAR_COLLAPSED = 64 // w-16
+
 export function AppShell() {
   const navigate = useNavigate()
   const { user, loading: authLoading, error: authError, signOut } = useAuth()
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [isDesktop, setIsDesktop] = useState(false)
   const mountedRef = useRef(true)
   const displayNameLoadedRef = useRef(false)
+
+  // Detectar si es desktop
+  useEffect(() => {
+    const checkDesktop = () => {
+      setIsDesktop(window.innerWidth >= 768)
+    }
+    checkDesktop()
+    window.addEventListener('resize', checkDesktop)
+    return () => window.removeEventListener('resize', checkDesktop)
+  }, [])
+
+  // Calcular width del sidebar en desktop
+  const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED
 
   // Cargar nombre de perfil cuando user cambia
   useEffect(() => {
@@ -95,11 +113,15 @@ export function AppShell() {
   return (
     <div className="min-h-screen bg-bg flex">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:block w-64 border-r border-border bg-surface sticky top-0 h-screen overflow-hidden">
+      <aside
+        className="hidden md:block border-r border-border bg-surface sticky top-0 h-screen overflow-hidden transition-all duration-300"
+        style={{ width: `${sidebarWidth}px` }}
+      >
         <Sidebar
           userEmail={displayName || user.email || undefined}
           onSignOut={handleSignOut}
           isMobile={false}
+          onCollapsedChange={setSidebarCollapsed}
         />
       </aside>
 
@@ -128,12 +150,13 @@ export function AppShell() {
           />
           {/* Sidebar Panel */}
           <aside
-            className="fixed top-0 left-0 bottom-0 w-64 bg-surface border-r border-border z-50 md:hidden shadow-xl transform transition-transform"
+            className="fixed top-0 left-0 w-64 bg-surface border-r border-border z-50 md:hidden shadow-xl transform transition-transform flex flex-col"
+            style={{ height: '100dvh' }}
             role="dialog"
             aria-modal="true"
             aria-label="Menú de navegación"
           >
-            <div className="flex items-center justify-between p-4 border-b border-border h-14">
+            <div className="flex items-center justify-between p-4 border-b border-border h-14 shrink-0">
               <h2 className="text-base font-semibold text-text">Menú</h2>
               <button
                 onClick={() => setSidebarOpen(false)}
@@ -143,22 +166,25 @@ export function AppShell() {
                 <IconX />
               </button>
             </div>
-            <div className="h-[calc(100vh-3.5rem)] overflow-y-auto">
-              <Sidebar
-                userEmail={displayName || user.email || undefined}
-                onSignOut={handleSignOut}
-                onNavigate={() => setSidebarOpen(false)}
-                isMobile={true}
-                isOpen={sidebarOpen}
-                onClose={() => setSidebarOpen(false)}
-              />
-            </div>
+            <Sidebar
+              userEmail={displayName || user.email || undefined}
+              onSignOut={handleSignOut}
+              onNavigate={() => setSidebarOpen(false)}
+              isMobile={true}
+              isOpen={sidebarOpen}
+              onClose={() => setSidebarOpen(false)}
+            />
           </aside>
         </>
       )}
 
       {/* Main Content */}
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div
+        className="flex-1 min-w-0 flex flex-col transition-all duration-300"
+        style={{
+          marginLeft: isDesktop ? `${sidebarWidth}px` : '0',
+        }}
+      >
         <main className="flex-1 pt-14 md:pt-0">
           <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
             <Outlet />

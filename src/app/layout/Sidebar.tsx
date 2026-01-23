@@ -16,6 +16,7 @@ import {
 } from './icons'
 import { useAuth } from '../../shared/auth/AuthProvider'
 import { VantLogo } from '../../components/branding/VantLogo'
+import { VantMark } from '../../components/branding/VantMark'
 import { getHomePathForRole } from '../../modules/auth/getHomePathForRole'
 
 type SidebarProps = {
@@ -25,6 +26,7 @@ type SidebarProps = {
   isMobile?: boolean
   isOpen?: boolean
   onClose?: () => void
+  onCollapsedChange?: (collapsed: boolean) => void
 }
 
 type MenuItem = {
@@ -41,12 +43,19 @@ type MenuSection = {
   visible: (role: string | null, loading: boolean) => boolean
 }
 
-export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, isOpen = false, onClose }: SidebarProps) {
+export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, isOpen = false, onClose, onCollapsedChange }: SidebarProps) {
   const location = useLocation()
   const { role, loading: authLoading } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
   const [tooltipItem, setTooltipItem] = useState<string | null>(null)
   const tooltipTimeoutRef = useRef<number | null>(null)
+
+  // Notificar cambios en collapsed al padre
+  useEffect(() => {
+    if (onCollapsedChange) {
+      onCollapsedChange(collapsed)
+    }
+  }, [collapsed, onCollapsedChange])
 
   // Obtener home path dinámicamente
   const homePath = getHomePathForRole(role)
@@ -216,25 +225,33 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
 
   return (
     <div
-      className={`flex flex-col h-full bg-surface border-r border-border transition-all duration-300 ${
+      className={`flex flex-col bg-surface border-r border-border transition-all duration-300 ${
         collapsed && !isMobile ? 'w-16' : 'w-64'
-      } ${isMobile ? 'w-64' : ''}`}
+      } ${isMobile ? 'w-64 h-full' : 'h-full'}`}
     >
       {/* Logo/Header */}
-      <div className={`px-4 pt-4 pb-3 border-b border-border flex flex-col items-center ${collapsed && !isMobile ? 'px-2' : ''}`}>
-        {!collapsed || isMobile ? (
+      <div className={`px-4 pt-4 pb-3 border-b border-border flex flex-col items-center shrink-0 ${collapsed && !isMobile ? 'px-2' : ''}`}>
+        {isMobile ? (
+          // Móvil: siempre VantLogo, más grande
           <>
-            <VantLogo size={38} mode="light" className="shrink-0 mx-auto" aria-label="vant" />
+            <VantLogo size={48} mode="light" className="shrink-0 mx-auto" aria-label="vant" />
             <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">V 1.0</p>
           </>
+        ) : collapsed ? (
+          // Desktop colapsado: VantMark centrado
+          <VantMark size={32} mode="light" className="shrink-0 mx-auto" aria-label="vant" />
         ) : (
-          <VantLogo size={32} mode="light" className="shrink-0 mx-auto" aria-label="vant" />
+          // Desktop expandido: VantLogo más grande
+          <>
+            <VantLogo size={48} mode="light" className="shrink-0 mx-auto" aria-label="vant" />
+            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">V 1.0</p>
+          </>
         )}
       </div>
 
       {/* Botón colapsar (solo desktop) */}
       {!isMobile && (
-        <div className="flex justify-end p-2 border-b border-border">
+        <div className="flex justify-end p-2 border-b border-border shrink-0">
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="p-1.5 text-text hover:bg-black/5 rounded-lg transition-colors"
@@ -245,8 +262,8 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
         </div>
       )}
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-4">
+      {/* Navigation - scrolleable */}
+      <nav className="flex-1 overflow-y-auto p-3 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>
         {visibleSections.map((section, sectionIdx) => {
           const visibleItems = section.items.filter((item) => item.visible(role, authLoading))
           
@@ -312,8 +329,12 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
         })}
       </nav>
 
-      {/* Footer */}
-      <div className={`p-4 border-t border-border space-y-2 ${collapsed && !isMobile ? 'px-2' : ''}`}>
+      {/* Footer - sticky en móvil */}
+      <div
+        className={`p-4 border-t border-border space-y-2 shrink-0 bg-surface ${
+          collapsed && !isMobile ? 'px-2' : ''
+        } ${isMobile ? 'sticky bottom-0' : ''}`}
+      >
         {(!collapsed || isMobile) && userEmail && (
           <div className="text-xs text-muted px-2 truncate">{userEmail}</div>
         )}
