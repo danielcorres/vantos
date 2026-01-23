@@ -96,7 +96,11 @@ export function AppShell() {
     <div className="min-h-screen bg-bg flex">
       {/* Desktop Sidebar */}
       <aside className="hidden md:block w-64 border-r border-border bg-surface sticky top-0 h-screen overflow-hidden">
-        <Sidebar userEmail={displayName || user.email || undefined} onSignOut={handleSignOut} />
+        <Sidebar
+          userEmail={displayName || user.email || undefined}
+          onSignOut={handleSignOut}
+          isMobile={false}
+        />
       </aside>
 
       {/* Mobile Header */}
@@ -113,16 +117,22 @@ export function AppShell() {
         </div>
       </header>
 
-      {/* Mobile Sidebar Overlay */}
+      {/* Mobile Sidebar Drawer */}
       {sidebarOpen && (
         <>
-          {/* Overlay */}
+          {/* Overlay semitransparente */}
           <div
-            className="fixed inset-0 bg-black/50 z-50 md:hidden"
+            className="fixed inset-0 bg-black/50 z-50 md:hidden transition-opacity"
             onClick={() => setSidebarOpen(false)}
+            aria-hidden="true"
           />
           {/* Sidebar Panel */}
-          <aside className="fixed top-0 left-0 bottom-0 w-64 bg-surface border-r border-border z-50 md:hidden shadow-xl">
+          <aside
+            className="fixed top-0 left-0 bottom-0 w-64 bg-surface border-r border-border z-50 md:hidden shadow-xl transform transition-transform"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menú de navegación"
+          >
             <div className="flex items-center justify-between p-4 border-b border-border h-14">
               <h2 className="text-base font-semibold text-text">Menú</h2>
               <button
@@ -138,6 +148,9 @@ export function AppShell() {
                 userEmail={displayName || user.email || undefined}
                 onSignOut={handleSignOut}
                 onNavigate={() => setSidebarOpen(false)}
+                isMobile={true}
+                isOpen={sidebarOpen}
+                onClose={() => setSidebarOpen(false)}
               />
             </div>
           </aside>
