@@ -87,6 +87,30 @@ export function Sidebar({ userEmail, onSignOut, onNavigate }: SidebarProps) {
           </div>
         </div>
 
+        {/* Sección Dashboard (para owner, director, seguimiento) */}
+        {!authLoading && canSeeOwnerDashboard && (
+          <div>
+            <div className="px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide mb-1">
+              Dashboard
+            </div>
+            <div className="space-y-1">
+              <NavLink
+                to="/owner/dashboard"
+                className={({ isActive }) =>
+                  `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                    isActive
+                      ? 'bg-primary/10 text-primary border-l-4 border-primary'
+                      : 'text-text hover:bg-black/5'
+                  }`
+                }
+                onClick={handleNavClick}
+              >
+                <span>Dashboard</span>
+              </NavLink>
+            </div>
+          </div>
+        )}
+
         {/* Sección Configuración (solo para owner) */}
         {!authLoading && canSeeConfig && (
           <div>
@@ -108,21 +132,6 @@ export function Sidebar({ userEmail, onSignOut, onNavigate }: SidebarProps) {
                 <IconTarget />
                 <span>Puntajes OKR</span>
               </NavLink>
-              {!authLoading && canSeeOwnerDashboard && (
-                <NavLink
-                  to="/owner/dashboard"
-                  className={({ isActive }) =>
-                    `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                      isActive
-                        ? 'bg-primary/10 text-primary border-l-4 border-primary'
-                        : 'text-text hover:bg-black/5'
-                    }`
-                  }
-                  onClick={handleNavClick}
-                >
-                  <span>Dashboard</span>
-                </NavLink>
-              )}
               {!authLoading && canSeeAssignments && (
                 <NavLink
                   to="/owner/assignments"
