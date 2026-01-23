@@ -29,9 +29,11 @@ type ProfileOption = {
 export function OwnerDashboardPage() {
   const navigate = useNavigate()
   const { user, systemOwnerId } = useAuth()
-  const { isOwner, loading: roleLoading, error: roleError, retry: retryRole } = useUserRole()
+  const { role: userRole, isOwner, loading: roleLoading, error: roleError, retry: retryRole } = useUserRole()
   
   const isSystemOwnerUser = isSystemOwner(user?.id, systemOwnerId)
+  // Permitir acceso a owner, director y seguimiento
+  const canAccessDashboard = userRole === 'owner' || userRole === 'director' || userRole === 'seguimiento'
   const [selectedManagerId, setSelectedManagerId] = useState<string | null>(null)
   const [selectedRecruiterId, setSelectedRecruiterId] = useState<string | null>(null)
   const [managers, setManagers] = useState<ProfileOption[]>([])
@@ -226,16 +228,16 @@ export function OwnerDashboardPage() {
       }
     }
 
-    if (isOwner && !roleLoading) {
+    if ((isOwner || userRole === 'director' || userRole === 'seguimiento') && !roleLoading) {
       loadFilters()
     }
-  }, [isOwner, roleLoading])
+  }, [isOwner, userRole, roleLoading])
 
   useEffect(() => {
-    if (!roleLoading && !isSystemOwnerUser) {
+    if (!roleLoading && !canAccessDashboard) {
       navigate('/', { replace: true })
     }
-  }, [isSystemOwnerUser, roleLoading, navigate])
+  }, [canAccessDashboard, roleLoading, navigate])
 
   const handleMinimumsSave = (newMinimums: WeeklyMinimumTargetsMap) => {
     setWeeklyMinimums(newMinimums)
@@ -325,11 +327,11 @@ export function OwnerDashboardPage() {
     )
   }
 
-  if (!isSystemOwnerUser) {
+  if (!canAccessDashboard) {
     return (
       <div className="text-center p-8">
         <div className="text-lg font-semibold mb-2">No autorizado</div>
-        <div className="text-sm text-muted">Solo el System Owner puede acceder a esta vista.</div>
+        <div className="text-sm text-muted">Solo owner, director y seguimiento pueden acceder a esta vista.</div>
       </div>
     )
   }
@@ -354,19 +356,21 @@ export function OwnerDashboardPage() {
           <p className="text-sm text-muted">Desempeño semanal y consistencia histórica de asesores</p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="group relative">
-            <button
-              onClick={() => setShowMinimumsModal(true)}
-              className="px-3 py-1.5 text-xs border border-border rounded bg-bg text-text hover:bg-black/5 transition-colors flex items-center gap-1.5"
-            >
-              <span>Mínimos</span>
-              <span className="text-[10px] text-muted">ⓘ</span>
-            </button>
-            <div className="absolute right-0 top-full mt-1 w-48 p-2 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none z-20 shadow-lg">
-              Editar mínimos semanales por asesor
-              <div className="absolute right-4 top-0 -translate-y-full w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-black"></div>
+          {isSystemOwnerUser && (
+            <div className="group relative">
+              <button
+                onClick={() => setShowMinimumsModal(true)}
+                className="px-3 py-1.5 text-xs border border-border rounded bg-bg text-text hover:bg-black/5 transition-colors flex items-center gap-1.5"
+              >
+                <span>Mínimos</span>
+                <span className="text-[10px] text-muted">ⓘ</span>
+              </button>
+              <div className="absolute right-0 top-full mt-1 w-48 p-2 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none z-20 shadow-lg">
+                Editar mínimos semanales por asesor
+                <div className="absolute right-4 top-0 -translate-y-full w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-black"></div>
+              </div>
             </div>
-          </div>
+          )}
           {IS_DEV && (
             <button
               onClick={handleCopySnapshot}
@@ -586,8 +590,8 @@ export function OwnerDashboardPage() {
         </div>
       </div>
 
-      {/* Modal de mínimos semanales */}
-      {ownerUserId && (
+      {/* Modal de mínimos semanales - Solo para System Owner */}
+      {isSystemOwnerUser && ownerUserId && (
         <WeeklyMinimumsModal
           isOpen={showMinimumsModal}
           onClose={() => setShowMinimumsModal(false)}

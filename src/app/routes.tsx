@@ -32,7 +32,8 @@ function ErrorPage() {
   )
 }
 
-const OWNER_ROLES = ['owner'] as const
+const OWNER_ROLES = ['owner', 'director', 'seguimiento'] as const
+const OWNER_DASHBOARD_ROLES = ['owner', 'director', 'seguimiento'] as const
 const ADVISOR_AREA_ROLES = ['advisor', 'owner', 'manager', 'recruiter', 'director', 'seguimiento', 'developer', 'super_admin'] as const
 
 export const router = createBrowserRouter([
@@ -125,7 +126,7 @@ export const router = createBrowserRouter([
       {
         path: 'owner/dashboard',
         element: (
-          <RoleGuard allowedRoles={[...OWNER_ROLES]}>
+          <RoleGuard allowedRoles={[...OWNER_DASHBOARD_ROLES]}>
             <OwnerDashboardPage />
           </RoleGuard>
         ),

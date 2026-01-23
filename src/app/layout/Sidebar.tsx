@@ -19,6 +19,7 @@ export function Sidebar({ userEmail, onSignOut, onNavigate }: SidebarProps) {
   const { role, loading: authLoading } = useAuth()
   const canSeeConfig = role === 'owner'
   const canSeeAssignments = role === 'owner' || role === 'director'
+  const canSeeOwnerDashboard = role === 'owner' || role === 'director' || role === 'seguimiento'
 
   const handleNavClick = () => {
     // Cerrar drawer en mobile al navegar
@@ -107,19 +108,21 @@ export function Sidebar({ userEmail, onSignOut, onNavigate }: SidebarProps) {
                 <IconTarget />
                 <span>Puntajes OKR</span>
               </NavLink>
-              <NavLink
-                to="/owner/dashboard"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-primary/10 text-primary border-l-4 border-primary'
-                      : 'text-text hover:bg-black/5'
-                  }`
-                }
-                onClick={handleNavClick}
-              >
-                <span>Dashboard Owner</span>
-              </NavLink>
+              {!authLoading && canSeeOwnerDashboard && (
+                <NavLink
+                  to="/owner/dashboard"
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                      isActive
+                        ? 'bg-primary/10 text-primary border-l-4 border-primary'
+                        : 'text-text hover:bg-black/5'
+                    }`
+                  }
+                  onClick={handleNavClick}
+                >
+                  <span>Dashboard</span>
+                </NavLink>
+              )}
               {!authLoading && canSeeAssignments && (
                 <NavLink
                   to="/owner/assignments"
