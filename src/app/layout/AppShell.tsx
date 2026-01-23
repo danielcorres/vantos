@@ -5,6 +5,7 @@ import { Sidebar } from './Sidebar'
 import { IconMenu, IconX } from './icons'
 import { getUserDisplayName } from '../../lib/profile'
 import { VantMark } from '../../components/branding/VantMark'
+import { VantLogo } from '../../components/branding/VantLogo'
 
 export function AppShell() {
   const navigate = useNavigate()
@@ -100,21 +101,15 @@ export function AppShell() {
 
       {/* Mobile Header */}
       <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-surface border-b border-border">
-        <div className="flex items-center justify-between h-14 px-4">
+        <div className="flex items-center justify-center h-14 px-4 relative">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="p-2 text-text hover:bg-black/5 rounded-lg transition-colors"
+            className="absolute left-4 p-2 text-text hover:bg-black/5 rounded-lg transition-colors"
             aria-label="Abrir menú"
           >
             <IconMenu />
           </button>
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center">
-              <VantMark size={36} className="w-full h-full object-contain" aria-label="VANT" />
-            </div>
-            <span className="text-base font-semibold text-text">VANT</span>
-          </div>
-          <div className="w-9" /> {/* Spacer */}
+          <VantLogo size={32} mode="light" className="mx-auto" aria-label="vant" />
         </div>
       </header>
 

@@ -36,9 +36,9 @@ export function VantLogo({
   
   const src = `${path}?v=${BRANDING_VERSION}`
 
-  // Tamaños: size controla altura, width respeta proporción viewBox (120/32 = 3.75)
+  // Tamaños: size controla altura, width respeta proporción viewBox (64/32 = 2)
   const h = size
-  const defaultWidth = size * 3.75
+  const defaultWidth = size * 2
   const w = width ?? defaultWidth
 
   // Error handler (solo en dev)

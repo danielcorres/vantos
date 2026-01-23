@@ -14,7 +14,7 @@ type LoginBrandingProps = {
 export function LoginBranding({ mode = 'dark', animated = false, className = '' }: LoginBrandingProps) {
   return (
     <div className={`flex flex-col items-center gap-4 ${className}`}>
-      <VantLogo size={80} mode={mode} animated={animated} className="mx-auto" aria-label="vant" />
+      <VantLogo size={64} mode={mode} animated={animated} className="mx-auto" aria-label="vant" />
     </div>
   )
 }
