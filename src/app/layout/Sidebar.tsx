@@ -230,12 +230,12 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
       } ${isMobile ? 'w-64 h-full' : 'h-full'}`}
     >
       {/* Logo/Header */}
-      <div className={`px-4 pt-4 pb-3 border-b border-border flex flex-col items-center shrink-0 ${collapsed && !isMobile ? 'px-2' : ''}`}>
+      <div className={`px-4 pt-3 pb-2 border-b border-border flex flex-col items-center shrink-0 ${collapsed && !isMobile ? 'px-2' : ''}`}>
         {isMobile ? (
           // Móvil: siempre VantLogo, más grande
           <>
             <VantLogo size={48} mode="light" className="shrink-0 mx-auto" aria-label="vant" />
-            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">V 1.0</p>
+            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 text-center">V 1.0</p>
           </>
         ) : collapsed ? (
           // Desktop colapsado: VantMark centrado
@@ -244,14 +244,14 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
           // Desktop expandido: VantLogo más grande
           <>
             <VantLogo size={48} mode="light" className="shrink-0 mx-auto" aria-label="vant" />
-            <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 text-center">V 1.0</p>
+            <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 text-center">V 1.0</p>
           </>
         )}
       </div>
 
       {/* Botón colapsar (solo desktop) */}
       {!isMobile && (
-        <div className="flex justify-end p-2 border-b border-border shrink-0">
+        <div className="flex justify-end p-1.5 border-b border-border shrink-0">
           <button
             onClick={() => setCollapsed(!collapsed)}
             className="p-1.5 text-text hover:bg-black/5 rounded-lg transition-colors"
@@ -263,7 +263,7 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
       )}
 
       {/* Navigation - scrolleable */}
-      <nav className="flex-1 overflow-y-auto p-3 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <nav className="flex-1 overflow-y-auto p-2 space-y-2" style={{ WebkitOverflowScrolling: 'touch' }}>
         {visibleSections.map((section, sectionIdx) => {
           const visibleItems = section.items.filter((item) => item.visible(role, authLoading))
           
@@ -273,16 +273,16 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
             <div key={sectionIdx}>
               {/* Título de sección */}
               {(!collapsed || isMobile) && (
-                <div className="px-4 py-2 text-xs font-semibold text-muted uppercase tracking-wide mb-1">
+                <div className="px-4 py-1 text-xs font-semibold text-muted uppercase tracking-wide mb-0.5">
                   {section.title}
                 </div>
               )}
               {collapsed && !isMobile && (
-                <div className="h-px bg-border my-2 mx-2" />
+                <div className="h-px bg-border my-1 mx-2" />
               )}
 
               {/* Items */}
-              <div className="space-y-1">
+              <div className="space-y-0.5">
                 {visibleItems.map((item) => {
                   const isActive = checkIsActive(item.path, item.exact)
                   const Icon = item.icon
@@ -299,7 +299,7 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
                         end={item.exact}
                         className={({ isActive: navIsActive }) => {
                           const active = navIsActive || isActive
-                          return `flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                          return `flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                             collapsed && !isMobile ? 'justify-center px-2' : ''
                           } ${
                             active
@@ -331,19 +331,19 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
 
       {/* Footer - sticky en móvil */}
       <div
-        className={`p-4 border-t border-border space-y-2 shrink-0 bg-surface ${
+        className={`p-3 border-t border-border space-y-1.5 shrink-0 bg-surface ${
           collapsed && !isMobile ? 'px-2' : ''
         } ${isMobile ? 'sticky bottom-0' : ''}`}
       >
         {(!collapsed || isMobile) && userEmail && (
-          <div className="text-xs text-muted px-2 truncate">{userEmail}</div>
+          <div className="text-xs text-muted px-2 truncate mb-0.5">{userEmail}</div>
         )}
         <button
           onClick={() => {
             handleNavClick()
             onSignOut()
           }}
-          className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium text-text hover:bg-black/5 transition-colors ${
+          className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-text hover:bg-black/5 transition-colors ${
             collapsed && !isMobile ? 'justify-center px-2' : ''
           }`}
         >
