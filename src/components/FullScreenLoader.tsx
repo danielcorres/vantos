@@ -1,4 +1,4 @@
-import { VantMark } from './branding/VantMark'
+import { VantLogo } from './branding/VantLogo'
 
 type FullScreenLoaderProps = {
   label?: string
@@ -8,7 +8,7 @@ type FullScreenLoaderProps = {
 export function FullScreenLoader({ label = 'Cargando...', showMark = true }: FullScreenLoaderProps) {
   return (
     <div className="flex flex-col justify-center items-center min-h-screen gap-4">
-      {showMark && <VantMark size={60} animated aria-label="vant" />}
+      {showMark && <VantLogo size={60} mode="light" animated aria-label="vant" />}
       <span className="text-muted">{label}</span>
     </div>
   )
