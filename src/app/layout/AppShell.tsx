@@ -16,19 +16,8 @@ export function AppShell() {
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-  const [isDesktop, setIsDesktop] = useState(false)
   const mountedRef = useRef(true)
   const displayNameLoadedRef = useRef(false)
-
-  // Detectar si es desktop
-  useEffect(() => {
-    const checkDesktop = () => {
-      setIsDesktop(window.innerWidth >= 768)
-    }
-    checkDesktop()
-    window.addEventListener('resize', checkDesktop)
-    return () => window.removeEventListener('resize', checkDesktop)
-  }, [])
 
   // Calcular width del sidebar en desktop
   const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED
@@ -179,12 +168,7 @@ export function AppShell() {
       )}
 
       {/* Main Content */}
-      <div
-        className="flex-1 min-w-0 flex flex-col transition-all duration-300"
-        style={{
-          marginLeft: isDesktop ? `${sidebarWidth}px` : '0',
-        }}
-      >
+      <div className="flex-1 min-w-0 flex flex-col">
         <main className="flex-1 pt-14 md:pt-0">
           <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
             <Outlet />
