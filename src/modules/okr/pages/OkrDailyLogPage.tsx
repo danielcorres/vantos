@@ -56,6 +56,8 @@ export function OkrDailyLogPage() {
   const [saveError, setSaveError] = useState<string | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [todayPlan, setTodayPlan] = useState<{ label: string; items: Array<{ metric_key: string; units: number }> } | null>(null)
+  // Estado temporal para inputs en mobile (permite string vacío mientras se escribe)
+  const [inputValues, setInputValues] = useState<Record<string, string>>({})
 
   const loadData = useCallback(async () => {
     let isMounted = true
@@ -118,6 +120,7 @@ export function OkrDailyLogPage() {
       if (!isMounted) return
       
       setEntries(dailyEntries)
+      setInputValues({}) // Limpiar valores temporales al cargar nuevos datos
       setHasChanges(false)
 
       // Cargar progreso
@@ -306,6 +309,7 @@ export function OkrDailyLogPage() {
     })
 
     setEntries(newEntries)
+    setInputValues({}) // Limpiar valores temporales al aplicar sugerencia
     setHasChanges(true)
     setToast({
       type: 'success',
@@ -314,6 +318,17 @@ export function OkrDailyLogPage() {
   }, [todayPlan, entries])
 
   const handleEntryChange = (metricKey: string, value: string) => {
+    // Permitir string vacío temporalmente
+    setInputValues((prev) => ({
+      ...prev,
+      [metricKey]: value,
+    }))
+
+    // Si está vacío, no actualizar entries todavía
+    if (value === '') {
+      return
+    }
+
     // Convertir usando parseInt como especificado
     const n = parseInt(String(value), 10)
     const finalValue = Number.isFinite(n) && n >= 0 ? n : 0
@@ -322,6 +337,68 @@ export function OkrDailyLogPage() {
       ...prev,
       [metricKey]: finalValue,
     }))
+    setHasChanges(true)
+  }
+
+  const handleEntryBlur = (metricKey: string) => {
+    const inputValue = inputValues[metricKey] ?? String(entries[metricKey] ?? 0)
+    
+    // Si está vacío al hacer blur, convertir a 0
+    if (inputValue === '') {
+      setEntries((prev) => ({
+        ...prev,
+        [metricKey]: 0,
+      }))
+      setInputValues((prev) => {
+        const next = { ...prev }
+        delete next[metricKey]
+        return next
+      })
+      setHasChanges(true)
+    } else {
+      // Normalizar el valor
+      const n = parseInt(String(inputValue), 10)
+      const finalValue = Number.isFinite(n) && n >= 0 ? n : 0
+      setEntries((prev) => ({
+        ...prev,
+        [metricKey]: finalValue,
+      }))
+      setInputValues((prev) => {
+        const next = { ...prev }
+        delete next[metricKey]
+        return next
+      })
+      setHasChanges(true)
+    }
+  }
+
+  const handleIncrement = (metricKey: string) => {
+    const currentValue = entries[metricKey] ?? 0
+    const newValue = currentValue + 1
+    setEntries((prev) => ({
+      ...prev,
+      [metricKey]: newValue,
+    }))
+    setInputValues((prev) => {
+      const next = { ...prev }
+      delete next[metricKey]
+      return next
+    })
+    setHasChanges(true)
+  }
+
+  const handleDecrement = (metricKey: string) => {
+    const currentValue = entries[metricKey] ?? 0
+    const newValue = Math.max(0, currentValue - 1)
+    setEntries((prev) => ({
+      ...prev,
+      [metricKey]: newValue,
+    }))
+    setInputValues((prev) => {
+      const next = { ...prev }
+      delete next[metricKey]
+      return next
+    })
     setHasChanges(true)
   }
 
@@ -351,6 +428,7 @@ export function OkrDailyLogPage() {
       // Refetch específico de entradas y progreso (no recargar todo)
       const dailyEntries = await okrQueries.getDailyEntries(selectedDate)
       setEntries(dailyEntries)
+      setInputValues({}) // Limpiar valores temporales después de guardar
       setHasChanges(false)
 
       const progressData = await okrQueries.getPointsProgress(selectedDate)
@@ -600,16 +678,44 @@ export function OkrDailyLogPage() {
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-bold mb-1">{points} pts</div>
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={value}
-                      onChange={(e) => handleEntryChange(metricKey, e.target.value)}
-                      disabled={saving}
-                      className="w-20 border border-border rounded-md px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary"
-                      placeholder="0"
-                    />
+                    <div className="flex items-center gap-1.5 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleDecrement(metricKey)}
+                        disabled={saving || value === 0}
+                        className="w-8 h-8 flex items-center justify-center border border-border rounded-md text-text hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        aria-label={`Decrementar ${metric.label}`}
+                      >
+                        −
+                      </button>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        value={metricKey in inputValues ? inputValues[metricKey] : (value === 0 ? '' : String(value))}
+                        onChange={(e) => {
+                          const val = e.target.value
+                          // Solo permitir dígitos o string vacío
+                          if (val === '' || /^\d+$/.test(val)) {
+                            handleEntryChange(metricKey, val)
+                          }
+                        }}
+                        onBlur={() => handleEntryBlur(metricKey)}
+                        disabled={saving}
+                        className="w-20 border border-border rounded-md px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="0"
+                        aria-label={`Cantidad para ${metric.label}`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleIncrement(metricKey)}
+                        disabled={saving}
+                        className="w-8 h-8 flex items-center justify-center border border-border rounded-md text-text hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        aria-label={`Incrementar ${metric.label}`}
+                      >
+                        +
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
