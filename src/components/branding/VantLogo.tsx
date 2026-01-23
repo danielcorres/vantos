@@ -54,7 +54,7 @@ export function VantLogo({
       alt={ariaLabel}
       width={w}
       height={h}
-      className={className}
+      className={`block ${className}`}
       aria-label={ariaLabel}
       draggable={false}
       onError={handleError}
