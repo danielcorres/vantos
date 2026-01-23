@@ -317,20 +317,33 @@ export function OkrDailyLogPage() {
     })
   }, [todayPlan, entries])
 
-  const handleEntryChange = (metricKey: string, value: string) => {
-    // Permitir string vacío temporalmente
+  const handleEntryChange = (metricKey: string, rawValue: string) => {
+    // Normalizar: eliminar espacios (permite pegar "1 000" → "1000")
+    const clean = rawValue.replace(/\s/g, '')
+
+    // Validar: solo permite string vacío o dígitos
+    if (clean !== '' && !/^\d*$/.test(clean)) {
+      return // Ignorar valores inválidos
+    }
+
+    // Actualizar estado temporal del input
     setInputValues((prev) => ({
       ...prev,
-      [metricKey]: value,
+      [metricKey]: clean,
     }))
 
-    // Si está vacío, no actualizar entries todavía
-    if (value === '') {
+    // Si está vacío, actualizar entries a 0 para que el total refleje 0 en tiempo real
+    if (clean === '') {
+      setEntries((prev) => ({
+        ...prev,
+        [metricKey]: 0,
+      }))
+      setHasChanges(true)
       return
     }
 
-    // Convertir usando parseInt como especificado
-    const n = parseInt(String(value), 10)
+    // Si hay dígitos, convertir y actualizar entries
+    const n = parseInt(clean, 10)
     const finalValue = Number.isFinite(n) && n >= 0 ? n : 0
 
     setEntries((prev) => ({
@@ -341,10 +354,12 @@ export function OkrDailyLogPage() {
   }
 
   const handleEntryBlur = (metricKey: string) => {
-    const inputValue = inputValues[metricKey] ?? String(entries[metricKey] ?? 0)
+    const rawInputValue = inputValues[metricKey] ?? String(entries[metricKey] ?? 0)
+    // Normalizar espacios (por si acaso)
+    const cleanInputValue = rawInputValue.replace(/\s/g, '')
     
-    // Si está vacío al hacer blur, convertir a 0
-    if (inputValue === '') {
+    // Si está vacío al hacer blur, dejar entries en 0 y limpiar estado temporal
+    if (cleanInputValue === '') {
       setEntries((prev) => ({
         ...prev,
         [metricKey]: 0,
@@ -356,13 +371,14 @@ export function OkrDailyLogPage() {
       })
       setHasChanges(true)
     } else {
-      // Normalizar el valor
-      const n = parseInt(String(inputValue), 10)
+      // Normalizar el valor numérico
+      const n = parseInt(cleanInputValue, 10)
       const finalValue = Number.isFinite(n) && n >= 0 ? n : 0
       setEntries((prev) => ({
         ...prev,
         [metricKey]: finalValue,
       }))
+      // Limpiar estado temporal (el input mostrará el valor numérico normalizado)
       setInputValues((prev) => {
         const next = { ...prev }
         delete next[metricKey]
@@ -683,7 +699,7 @@ export function OkrDailyLogPage() {
                         type="button"
                         onClick={() => handleDecrement(metricKey)}
                         disabled={saving || value === 0}
-                        className="w-8 h-8 flex items-center justify-center border border-border rounded-md text-text hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="w-11 h-11 flex items-center justify-center border border-border rounded-md text-text hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         aria-label={`Decrementar ${metric.label}`}
                       >
                         −
@@ -693,16 +709,11 @@ export function OkrDailyLogPage() {
                         inputMode="numeric"
                         pattern="[0-9]*"
                         value={metricKey in inputValues ? inputValues[metricKey] : (value === 0 ? '' : String(value))}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          // Solo permitir dígitos o string vacío
-                          if (val === '' || /^\d+$/.test(val)) {
-                            handleEntryChange(metricKey, val)
-                          }
-                        }}
+                        onChange={(e) => handleEntryChange(metricKey, e.target.value)}
+                        onFocus={(e) => e.currentTarget.select()}
                         onBlur={() => handleEntryBlur(metricKey)}
                         disabled={saving}
-                        className="w-20 border border-border rounded-md px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="w-20 border border-border rounded-md px-2 py-1.5 text-base text-right focus:outline-none focus:ring-2 focus:ring-primary"
                         placeholder="0"
                         aria-label={`Cantidad para ${metric.label}`}
                       />
@@ -710,7 +721,7 @@ export function OkrDailyLogPage() {
                         type="button"
                         onClick={() => handleIncrement(metricKey)}
                         disabled={saving}
-                        className="w-8 h-8 flex items-center justify-center border border-border rounded-md text-text hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="w-11 h-11 flex items-center justify-center border border-border rounded-md text-text hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         aria-label={`Incrementar ${metric.label}`}
                       >
                         +
