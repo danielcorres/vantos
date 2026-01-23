@@ -146,12 +146,14 @@ export function AppShell() {
 
       {/* Main Content */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-6xl mx-auto pt-14 md:pt-0">
-          <Outlet />
+        <main className="flex-1 pt-14 md:pt-0">
+          <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+            <Outlet />
+          </div>
         </main>
         {/* Footer Global */}
         <footer className="border-t border-border bg-surface py-4 px-4 sm:px-6 lg:px-8">
-          <div className="max-w-6xl mx-auto text-center">
+          <div className="w-full max-w-screen-2xl mx-auto text-center">
             <p className="text-xs text-muted">
               Todos los derechos reservados © Vant 2026
             </p>
