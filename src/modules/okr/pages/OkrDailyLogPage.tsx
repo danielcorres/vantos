@@ -785,16 +785,38 @@ export function OkrDailyLogPage() {
                       <span className="text-xs text-muted">{scores[metricKey] ?? 0}</span>
                     </td>
                     <td className="py-2.5 px-4">
-                      <div className="flex justify-end">
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <button
+                          type="button"
+                          onClick={() => handleDecrement(metricKey)}
+                          disabled={saving || value === 0}
+                          className="w-11 h-11 flex items-center justify-center border border-border rounded-md text-text hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          aria-label={`Decrementar ${metric.label}`}
+                        >
+                          −
+                        </button>
                         <input
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={value}
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={metricKey in inputValues ? inputValues[metricKey] : (value === 0 ? '' : String(value))}
                           onChange={(e) => handleEntryChange(metricKey, e.target.value)}
+                          onFocus={(e) => e.currentTarget.select()}
+                          onBlur={() => handleEntryBlur(metricKey)}
                           disabled={saving}
-                          className="w-20 border border-border rounded-md px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="w-20 border border-border rounded-md px-2 py-1.5 text-base text-right focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="0"
+                          aria-label={`Cantidad para ${metric.label}`}
                         />
+                        <button
+                          type="button"
+                          onClick={() => handleIncrement(metricKey)}
+                          disabled={saving}
+                          className="w-11 h-11 flex items-center justify-center border border-border rounded-md text-text hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          aria-label={`Incrementar ${metric.label}`}
+                        >
+                          +
+                        </button>
                       </div>
                     </td>
                     <td className="py-2.5 px-4 text-right">
