@@ -488,7 +488,6 @@ export function ManagerDashboardPage() {
         weeklyTarget={weeklyTarget}
         weeklyDays={weeklyDays}
         weekStartLocal={weekStartLocal}
-        weekEndLocal={weekEndLocal}
         todayLocal={todayLocal}
         scoresMap={scoresMap}
         eventsWeek={eventsWeek}

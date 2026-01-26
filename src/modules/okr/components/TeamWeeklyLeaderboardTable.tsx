@@ -16,7 +16,6 @@ export interface TeamWeeklyLeaderboardTableProps {
   weeklyTarget: number
   weeklyDays: number
   weekStartLocal: string
-  weekEndLocal: string
   todayLocal: string
   scoresMap: Map<string, number>
   eventsWeek: Array<{ recorded_at: string; metric_key: string; value: number | null; actor_user_id: string }>
@@ -42,7 +41,6 @@ export function TeamWeeklyLeaderboardTable({
   weeklyTarget,
   weeklyDays,
   weekStartLocal,
-  weekEndLocal,
   todayLocal,
   scoresMap,
   eventsWeek,
@@ -175,7 +173,6 @@ export function TeamWeeklyLeaderboardTable({
               <div className="absolute left-4 top-0 -translate-y-full w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-black"></div>
             </div>
           </div>
-          <p className="text-xs text-muted ml-auto">Semana: {weekStartLocal} - {weekEndLocal}</p>
         </div>
       </div>
       <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e0e0e0 transparent' }}>

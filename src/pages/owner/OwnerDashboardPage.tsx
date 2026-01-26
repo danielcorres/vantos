@@ -590,7 +590,6 @@ export function OwnerDashboardPage() {
         weeklyTarget={weeklyTarget}
         weeklyDays={weeklyDays}
         weekStartLocal={weekStartLocal}
-        weekEndLocal={weekEndLocal}
         todayLocal={todayLocalForDisplay}
         scoresMap={scoresMap}
         eventsWeek={eventsWeek}
