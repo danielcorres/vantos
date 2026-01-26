@@ -17,7 +17,7 @@ import { getMetricLabel } from '../../modules/okr/domain/metricLabels'
 import { fetchWeeklyMinimumTargetsForOwner, DEFAULT_WEEKLY_MINIMUMS, type WeeklyMinimumTargetsMap } from '../../modules/okr/dashboard/weeklyMinimumTargets'
 import { buildAdvisorProfile, type AdvisorProfileResult } from '../../modules/okr/dashboard/advisorProfile'
 import { buildMetricBreakdown } from '../../modules/okr/dashboard/advisorDetailHelpers'
-import { todayLocalYmd, addDaysYmd } from '../../shared/utils/dates'
+import { addDaysYmd } from '../../shared/utils/dates'
 import { calcWeekRangeLocal } from './utils/ownerDashboardHelpers'
 
 const IS_DEV = import.meta.env.DEV
@@ -46,7 +46,6 @@ export function OwnerDashboardPage() {
   const [showMinimumsModal, setShowMinimumsModal] = useState(false)
 
   // Leer semana desde query param, o usar semana actual por defecto
-  const todayLocal = todayLocalYmd()
   const currentWeekRange = calcWeekRangeLocal()
   const weekStartFromUrl = searchParams.get('weekStart')
   const selectedWeekStart = weekStartFromUrl || currentWeekRange.weekStartLocal
