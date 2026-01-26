@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useUserRole } from '../../shared/hooks/useUserRole'
 import { useAuth } from '../../shared/auth/AuthProvider'
 import { useTeamOkrDashboard } from '../../modules/okr/dashboard/useTeamOkrDashboard'
@@ -15,16 +15,35 @@ import { fetchWeeklyMinimumTargetsForOwner, DEFAULT_WEEKLY_MINIMUMS, type Weekly
 import { supabase } from '../../lib/supabaseClient'
 import { buildAdvisorProfile, type AdvisorProfileResult } from '../../modules/okr/dashboard/advisorProfile'
 import { buildMetricBreakdown } from '../../modules/okr/dashboard/advisorDetailHelpers'
+import { addDaysYmd } from '../../shared/utils/dates'
+import { calcWeekRangeLocal } from '../owner/utils/ownerDashboardHelpers'
 
 const IS_DEV = import.meta.env.DEV
 
 export function ManagerDashboardPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user, systemOwnerId } = useAuth()
   const { role, loading: roleLoading } = useUserRole()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   const isManager = role === 'manager' || role === 'owner'
+
+  // Leer semana desde query param, o usar semana actual por defecto
+  const currentWeekRange = calcWeekRangeLocal()
+  const weekStartFromUrl = searchParams.get('weekStart')
+  const selectedWeekStart = weekStartFromUrl || currentWeekRange.weekStartLocal
+
+  // Validar que la semana seleccionada no sea futura
+  const isValidWeek = selectedWeekStart <= currentWeekRange.weekStartLocal
+  const weekStartLocalToUse = isValidWeek ? selectedWeekStart : currentWeekRange.weekStartLocal
+
+  // Corregir URL si se intenta acceder a una semana futura
+  useEffect(() => {
+    if (weekStartFromUrl && !isValidWeek) {
+      setSearchParams({}, { replace: true })
+    }
+  }, [weekStartFromUrl, isValidWeek, setSearchParams])
 
   // Usar hook compartido para datos del dashboard
   const {
@@ -45,6 +64,7 @@ export function ManagerDashboardPage() {
   } = useTeamOkrDashboard({
     mode: 'manager',
     managerUserId: user?.id,
+    weekStartLocal: weekStartLocalToUse,
   })
 
   const { copySnapshot } = useDashboardSnapshot()
@@ -110,6 +130,27 @@ export function ManagerDashboardPage() {
       setTimeout(() => setToastMessage(null), 2000)
     }
   }
+
+  // Navegación de semanas
+  const handlePreviousWeek = () => {
+    const prevWeekStart = addDaysYmd(weekStartLocal, -7)
+    setSearchParams({ weekStart: prevWeekStart })
+  }
+
+  const handleCurrentWeek = () => {
+    setSearchParams({})
+  }
+
+  const handleNextWeek = () => {
+    const nextWeekStart = addDaysYmd(weekStartLocal, 7)
+    // Validar que no sea futura
+    if (nextWeekStart <= currentWeekRange.weekStartLocal) {
+      setSearchParams({ weekStart: nextWeekStart })
+    }
+  }
+
+  // Verificar si se puede navegar a la semana siguiente
+  const canNavigateNext = addDaysYmd(weekStartLocal, 7) <= currentWeekRange.weekStartLocal
 
   // Calcular alertas del equipo
   const teamAlerts = useMemo(() => {
@@ -272,19 +313,53 @@ export function ManagerDashboardPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold mb-1">Dashboard Manager</h1>
-          <p className="text-sm text-muted">Tu equipo: desempeño semanal y consistencia histórica</p>
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold mb-1">Dashboard Manager</h1>
+            <p className="text-sm text-muted">Tu equipo: desempeño semanal y consistencia histórica</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {IS_DEV && (
+              <button
+                onClick={handleCopySnapshot}
+                className="px-3 py-1.5 text-xs border border-border rounded bg-bg text-text hover:bg-black/5 transition-colors"
+              >
+                Copiar snapshot
+              </button>
+            )}
+          </div>
         </div>
-        {IS_DEV && (
-          <button
-            onClick={handleCopySnapshot}
-            className="px-3 py-1.5 text-xs border border-border rounded bg-bg text-text hover:bg-black/5 transition-colors"
-          >
-            Copiar snapshot
-          </button>
-        )}
+        {/* Controles de navegación de semana */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 border border-border rounded bg-bg">
+            <button
+              onClick={handlePreviousWeek}
+              className="px-2 py-1 text-sm hover:bg-black/5 transition-colors rounded"
+              title="Semana anterior"
+            >
+              ←
+            </button>
+            <button
+              onClick={handleCurrentWeek}
+              className="px-2 py-1 text-xs hover:bg-black/5 transition-colors rounded whitespace-nowrap"
+              title="Ir a semana actual"
+            >
+              Esta semana
+            </button>
+            <button
+              onClick={handleNextWeek}
+              disabled={!canNavigateNext}
+              className="px-2 py-1 text-sm hover:bg-black/5 transition-colors rounded disabled:opacity-50 disabled:cursor-not-allowed"
+              title={canNavigateNext ? "Semana siguiente" : "No se puede navegar a semanas futuras"}
+            >
+              →
+            </button>
+          </div>
+          <div className="text-xs text-muted whitespace-nowrap">
+            Semana del {weekStartLocal} – {weekEndLocal}
+          </div>
+        </div>
       </div>
 
       {/* Toast para snapshot */}
@@ -304,7 +379,7 @@ export function ManagerDashboardPage() {
       {/* A) Actividad total del equipo - Arriba */}
       {teamActivityTotals.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-muted">Actividad total del equipo (semana actual)</h3>
+          <h3 className="text-sm font-medium text-muted">Actividad total del equipo</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             {/* Primera fila: 4 columnas */}
             {teamActivityTotals.slice(0, 4).map((metric) => {
