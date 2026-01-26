@@ -105,21 +105,36 @@ export function buildScoresMap(scores: Array<{ metric_key: string; points_per_un
 }
 
 /**
- * Calcular rango de semana actual (lunes-domingo) en timezone Monterrey
+ * Calcular rango de semana (lunes-domingo) en timezone Monterrey
+ * @param weekStartLocal Opcional: fecha YYYY-MM-DD del lunes de la semana. Si no se proporciona, usa la semana actual.
  */
-export function calcWeekRangeLocal(): { weekStartLocal: string; weekEndLocal: string; nextWeekStartLocal: string } {
-  const todayStr = todayLocalYmd()
-  const [y, m, d] = todayStr.split('-').map(Number)
-  const date = new Date(y, m - 1, d)
-  const jsDay = date.getDay() // 0=Domingo, 1=Lunes, ..., 6=Sábado
-  const isoDay = jsDay === 0 ? 7 : jsDay // Convertir domingo de 0 a 7
-  const mondayOffset = -(isoDay - 1) // Offset al lunes (0 si es lunes)
+export function calcWeekRangeLocal(weekStartLocal?: string): { weekStartLocal: string; weekEndLocal: string; nextWeekStartLocal: string } {
+  let weekStart: string
+  if (weekStartLocal) {
+    // Validar que sea un lunes (opcional, pero útil para debugging)
+    const [y, m, d] = weekStartLocal.split('-').map(Number)
+    const date = new Date(y, m - 1, d)
+    const jsDay = date.getDay() // 0=Domingo, 1=Lunes, ..., 6=Sábado
+    const isoDay = jsDay === 0 ? 7 : jsDay
+    if (isoDay !== 1) {
+      console.warn(`[calcWeekRangeLocal] weekStartLocal "${weekStartLocal}" no es un lunes (día ${isoDay}), pero se usará como está`)
+    }
+    weekStart = weekStartLocal
+  } else {
+    // Calcular semana actual
+    const todayStr = todayLocalYmd()
+    const [y, m, d] = todayStr.split('-').map(Number)
+    const date = new Date(y, m - 1, d)
+    const jsDay = date.getDay() // 0=Domingo, 1=Lunes, ..., 6=Sábado
+    const isoDay = jsDay === 0 ? 7 : jsDay // Convertir domingo de 0 a 7
+    const mondayOffset = -(isoDay - 1) // Offset al lunes (0 si es lunes)
+    weekStart = addDaysYmd(todayStr, mondayOffset)
+  }
   
-  const weekStartLocal = addDaysYmd(todayStr, mondayOffset)
-  const weekEndLocal = addDaysYmd(weekStartLocal, 6) // Domingo
-  const nextWeekStartLocal = addDaysYmd(weekStartLocal, 7) // Lunes siguiente
+  const weekEndLocal = addDaysYmd(weekStart, 6) // Domingo
+  const nextWeekStartLocal = addDaysYmd(weekStart, 7) // Lunes siguiente
   
-  return { weekStartLocal, weekEndLocal, nextWeekStartLocal }
+  return { weekStartLocal: weekStart, weekEndLocal, nextWeekStartLocal }
 }
 
 /**

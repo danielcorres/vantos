@@ -27,6 +27,7 @@ export interface UseTeamOkrDashboardOptions {
     managerId?: string | null
     recruiterId?: string | null
   } // Solo usado si mode === 'owner'
+  weekStartLocal?: string // YYYY-MM-DD (lunes) - Si se proporciona, usa esta semana en vez de la actual
 }
 
 export interface UseTeamOkrDashboardResult {
@@ -66,7 +67,7 @@ export function useTeamOkrDashboard(
   const loadInProgressRef = useRef(false)
 
   const todayLocal = todayLocalYmd()
-  const { weekStartLocal, weekEndLocal, nextWeekStartLocal } = calcWeekRangeLocal()
+  const { weekStartLocal, weekEndLocal, nextWeekStartLocal } = calcWeekRangeLocal(options.weekStartLocal)
 
   const loadData = useCallback(async () => {
     if (!mountedRef.current || loadInProgressRef.current) return
@@ -151,11 +152,13 @@ export function useTeamOkrDashboard(
       const currentWeeklyTarget = settings.daily_base_target * settings.weekly_days
 
       // Query 4: Eventos de semana actual
+      // Convertir YYYY-MM-DD local (Monterrey) a UTC
+      // 00:00 Monterrey (UTC-6) = 06:00 UTC
       const [startYear, startMonth, startDay] = weekStartLocal.split('-').map(Number)
       const [nextYear, nextMonth, nextDay] = nextWeekStartLocal.split('-').map(Number)
 
-      const weekStartUTC = new Date(Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0))
-      const nextWeekUTC = new Date(Date.UTC(nextYear, nextMonth - 1, nextDay, 0, 0, 0))
+      const weekStartUTC = new Date(Date.UTC(startYear, startMonth - 1, startDay, 6, 0, 0))
+      const nextWeekUTC = new Date(Date.UTC(nextYear, nextMonth - 1, nextDay, 6, 0, 0))
 
       const { data: eventsWeek, error: eventsWeekError } = await supabase
         .from('activity_events')
@@ -178,10 +181,13 @@ export function useTeamOkrDashboard(
       setEventsWeek(eventsWeek || [])
 
       // Query 5: Eventos de últimas 12 semanas
-      const weekStarts = getLastNWeekStarts(todayLocal, 12)
+      // Anclar histórico desde weekStartLocal si está presente, sino desde todayLocal
+      const anchorDate = options.weekStartLocal || todayLocal
+      const weekStarts = getLastNWeekStarts(anchorDate, 12)
       const oldestWeekStart = weekStarts[weekStarts.length - 1]
       const [oldestYear, oldestMonth, oldestDay] = oldestWeekStart.split('-').map(Number)
-      const oldestUTC = new Date(Date.UTC(oldestYear, oldestMonth - 1, oldestDay, 0, 0, 0))
+      // 00:00 Monterrey (UTC-6) = 06:00 UTC
+      const oldestUTC = new Date(Date.UTC(oldestYear, oldestMonth - 1, oldestDay, 6, 0, 0))
 
       const { data: events12w, error: events12wError } = await supabase
         .from('activity_events')
@@ -275,7 +281,7 @@ export function useTeamOkrDashboard(
       }
       loadInProgressRef.current = false
     }
-  }, [mode, managerUserId, filters?.managerId, filters?.recruiterId, weekStartLocal, weekEndLocal, nextWeekStartLocal, todayLocal])
+  }, [mode, managerUserId, filters?.managerId, filters?.recruiterId, options.weekStartLocal, weekStartLocal, weekEndLocal, nextWeekStartLocal, todayLocal])
 
   const reload = useCallback(() => {
     loadData()

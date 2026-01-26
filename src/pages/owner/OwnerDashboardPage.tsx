@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 import { useUserRole } from '../../shared/hooks/useUserRole'
 import { useAuth } from '../../shared/auth/AuthProvider'
@@ -17,6 +17,8 @@ import { getMetricLabel } from '../../modules/okr/domain/metricLabels'
 import { fetchWeeklyMinimumTargetsForOwner, DEFAULT_WEEKLY_MINIMUMS, type WeeklyMinimumTargetsMap } from '../../modules/okr/dashboard/weeklyMinimumTargets'
 import { buildAdvisorProfile, type AdvisorProfileResult } from '../../modules/okr/dashboard/advisorProfile'
 import { buildMetricBreakdown } from '../../modules/okr/dashboard/advisorDetailHelpers'
+import { todayLocalYmd, addDaysYmd } from '../../shared/utils/dates'
+import { calcWeekRangeLocal } from './utils/ownerDashboardHelpers'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -28,6 +30,7 @@ type ProfileOption = {
 
 export function OwnerDashboardPage() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { user, systemOwnerId } = useAuth()
   const { role: userRole, isOwner, loading: roleLoading, error: roleError, retry: retryRole } = useUserRole()
   
@@ -42,6 +45,23 @@ export function OwnerDashboardPage() {
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   const [showMinimumsModal, setShowMinimumsModal] = useState(false)
 
+  // Leer semana desde query param, o usar semana actual por defecto
+  const todayLocal = todayLocalYmd()
+  const currentWeekRange = calcWeekRangeLocal()
+  const weekStartFromUrl = searchParams.get('weekStart')
+  const selectedWeekStart = weekStartFromUrl || currentWeekRange.weekStartLocal
+
+  // Validar que la semana seleccionada no sea futura
+  const isValidWeek = selectedWeekStart <= currentWeekRange.weekStartLocal
+  const weekStartLocalToUse = isValidWeek ? selectedWeekStart : currentWeekRange.weekStartLocal
+
+  // Corregir URL si se intenta acceder a una semana futura
+  useEffect(() => {
+    if (weekStartFromUrl && !isValidWeek) {
+      setSearchParams({}, { replace: true })
+    }
+  }, [weekStartFromUrl, isValidWeek, setSearchParams])
+
   // Usar hook compartido para datos del dashboard
   const {
     weekStats,
@@ -51,7 +71,7 @@ export function OwnerDashboardPage() {
     weeklyTarget,
     weekStartLocal,
     weekEndLocal,
-    todayLocal,
+    todayLocal: todayLocalFromHook,
     advisorIds,
     scoresMap,
     eventsWeek,
@@ -64,7 +84,11 @@ export function OwnerDashboardPage() {
       managerId: selectedManagerId,
       recruiterId: selectedRecruiterId,
     },
+    weekStartLocal: weekStartLocalToUse,
   })
+
+  // Usar todayLocal del hook para consistencia (aunque debería ser el mismo)
+  const todayLocalForDisplay = todayLocalFromHook
 
   const { copySnapshot } = useDashboardSnapshot()
   const [toastMessage, setToastMessage] = useState<string | null>(null)
@@ -310,6 +334,27 @@ export function OwnerDashboardPage() {
     }
   }
 
+  // Navegación de semanas
+  const handlePreviousWeek = () => {
+    const prevWeekStart = addDaysYmd(weekStartLocal, -7)
+    setSearchParams({ weekStart: prevWeekStart })
+  }
+
+  const handleCurrentWeek = () => {
+    setSearchParams({})
+  }
+
+  const handleNextWeek = () => {
+    const nextWeekStart = addDaysYmd(weekStartLocal, 7)
+    // Validar que no sea futura
+    if (nextWeekStart <= currentWeekRange.weekStartLocal) {
+      setSearchParams({ weekStart: nextWeekStart })
+    }
+  }
+
+  // Verificar si se puede navegar a la semana siguiente
+  const canNavigateNext = addDaysYmd(weekStartLocal, 7) <= currentWeekRange.weekStartLocal
+
   // Obtener color y label del estado
 
   if (roleLoading || loading) {
@@ -350,12 +395,13 @@ export function OwnerDashboardPage() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold mb-1">Dashboard Owner</h1>
-          <p className="text-sm text-muted">Desempeño semanal y consistencia histórica de asesores</p>
-        </div>
-        <div className="flex items-center gap-2">
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold mb-1">Dashboard Owner</h1>
+            <p className="text-sm text-muted">Desempeño semanal y consistencia histórica de asesores</p>
+          </div>
+          <div className="flex items-center gap-2">
           {isSystemOwnerUser && (
             <div className="group relative">
               <button
@@ -379,6 +425,37 @@ export function OwnerDashboardPage() {
               Copiar snapshot
             </button>
           )}
+          </div>
+        </div>
+        {/* Controles de navegación de semana */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 border border-border rounded bg-bg">
+            <button
+              onClick={handlePreviousWeek}
+              className="px-2 py-1 text-sm hover:bg-black/5 transition-colors rounded"
+              title="Semana anterior"
+            >
+              ◀
+            </button>
+            <button
+              onClick={handleCurrentWeek}
+              className="px-2 py-1 text-xs hover:bg-black/5 transition-colors rounded whitespace-nowrap"
+              title="Ir a semana actual"
+            >
+              Semana actual
+            </button>
+            <button
+              onClick={handleNextWeek}
+              disabled={!canNavigateNext}
+              className="px-2 py-1 text-sm hover:bg-black/5 transition-colors rounded disabled:opacity-50 disabled:cursor-not-allowed"
+              title={canNavigateNext ? "Semana siguiente" : "No se puede navegar a semanas futuras"}
+            >
+              ▶
+            </button>
+          </div>
+          <div className="text-xs text-muted whitespace-nowrap">
+            Semana: {weekStartLocal} - {weekEndLocal}
+          </div>
         </div>
       </div>
 
@@ -515,7 +592,7 @@ export function OwnerDashboardPage() {
         weeklyDays={weeklyDays}
         weekStartLocal={weekStartLocal}
         weekEndLocal={weekEndLocal}
-        todayLocal={todayLocal}
+        todayLocal={todayLocalForDisplay}
         scoresMap={scoresMap}
         eventsWeek={eventsWeek}
         onAdvisorClick={handleAdvisorClick}
