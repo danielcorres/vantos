@@ -7,10 +7,9 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../../../lib/supabaseClient'
 import { okrQueries } from '../data/okrQueries'
 import { todayLocalYmd } from '../../../shared/utils/dates'
-import { getLastNWeekStarts } from '../utils/weeklyHistoryHelpers'
+import { getLastNWeekStarts, calcWeekRangeLocal } from '../utils/weeklyHistoryHelpers'
 import {
   buildScoresMap,
-  calcWeekRangeLocal,
   computeAdvisorWeekStats,
   computeAdvisorHistoryStats,
   getScopedAdvisors,

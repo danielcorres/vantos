@@ -3,7 +3,7 @@
  * Calcula semanas ISO (lunes-domingo) y agrupa eventos por semana
  */
 
-import { addDaysYmd, timestampToYmdInTz, TZ_MTY } from '../../../shared/utils/dates'
+import { addDaysYmd, timestampToYmdInTz, TZ_MTY, todayLocalYmd } from '../../../shared/utils/dates'
 
 /**
  * Obtener el lunes (inicio de semana ISO) de una fecha YYYY-MM-DD
@@ -15,6 +15,39 @@ function getWeekStartFromDate(dateStr: string): string {
   const isoDay = jsDay === 0 ? 7 : jsDay // Convertir domingo de 0 a 7
   const mondayOffset = -(isoDay - 1) // Offset al lunes (0 si es lunes)
   return addDaysYmd(dateStr, mondayOffset)
+}
+
+/**
+ * Calcular rango de semana (lunes-domingo) en timezone Monterrey
+ * @param weekStartLocal Opcional: fecha YYYY-MM-DD del lunes de la semana. Si no se proporciona, usa la semana actual.
+ */
+export function calcWeekRangeLocal(weekStartLocal?: string): { weekStartLocal: string; weekEndLocal: string; nextWeekStartLocal: string } {
+  let weekStart: string
+  if (weekStartLocal) {
+    // Validar que sea un lunes (opcional, pero útil para debugging)
+    const [y, m, d] = weekStartLocal.split('-').map(Number)
+    const date = new Date(y, m - 1, d)
+    const jsDay = date.getDay() // 0=Domingo, 1=Lunes, ..., 6=Sábado
+    const isoDay = jsDay === 0 ? 7 : jsDay
+    if (isoDay !== 1) {
+      console.warn(`[calcWeekRangeLocal] weekStartLocal "${weekStartLocal}" no es un lunes (día ${isoDay}), pero se usará como está`)
+    }
+    weekStart = weekStartLocal
+  } else {
+    // Calcular semana actual
+    const todayStr = todayLocalYmd()
+    const [y, m, d] = todayStr.split('-').map(Number)
+    const date = new Date(y, m - 1, d)
+    const jsDay = date.getDay() // 0=Domingo, 1=Lunes, ..., 6=Sábado
+    const isoDay = jsDay === 0 ? 7 : jsDay // Convertir domingo de 0 a 7
+    const mondayOffset = -(isoDay - 1) // Offset al lunes (0 si es lunes)
+    weekStart = addDaysYmd(todayStr, mondayOffset)
+  }
+  
+  const weekEndLocal = addDaysYmd(weekStart, 6) // Domingo
+  const nextWeekStartLocal = addDaysYmd(weekStart, 7) // Lunes siguiente
+  
+  return { weekStartLocal: weekStart, weekEndLocal, nextWeekStartLocal }
 }
 
 /**

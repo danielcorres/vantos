@@ -10,11 +10,11 @@ import { timeAgo } from '../../../shared/utils/timeAgo'
 import { todayLocalYmd, addDaysYmd } from '../../../shared/utils/dates'
 import { useAuth } from '../../../shared/auth/AuthProvider'
 import { METRIC_LABELS } from '../domain/metricLabels'
+import { calcWeekRangeLocal } from '../utils/weeklyHistoryHelpers'
 
 const IS_DEV = import.meta.env.DEV
 import {
   buildScoresMap,
-  calcWeekRangeLocal,
   computeAdvisorWeekStats,
 } from '../../../pages/owner/utils/ownerDashboardHelpers'
 import {

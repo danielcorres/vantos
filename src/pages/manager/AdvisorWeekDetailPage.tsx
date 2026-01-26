@@ -9,9 +9,9 @@ import { supabase } from '../../lib/supabaseClient'
 import { okrQueries } from '../../modules/okr/data/okrQueries'
 import { useUserRole } from '../../shared/hooks/useUserRole'
 import { todayLocalYmd, timestampToYmdInTz, addDaysYmd } from '../../shared/utils/dates'
+import { calcWeekRangeLocal } from '../../modules/okr/utils/weeklyHistoryHelpers'
 import {
   buildScoresMap,
-  calcWeekRangeLocal,
   computeAdvisorWeekStats,
   type Advisor,
 } from '../owner/utils/ownerDashboardHelpers'
