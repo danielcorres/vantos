@@ -112,7 +112,7 @@ export function ManagerDashboardPage() {
 
 
   const handleAdvisorClick = (advisorId: string) => {
-    navigate(`/manager/advisor/${advisorId}`)
+    navigate(`/manager/advisor/${advisorId}?weekStart=${weekStartLocal}`)
   }
 
   const handleCopySnapshot = async () => {

@@ -51,7 +51,10 @@ export function AdvisorWeekDetailPage() {
   // Permitir acceso a owner, manager, director y seguimiento
   const canAccessAdvisorDetail = role === 'owner' || role === 'manager' || role === 'director' || role === 'seguimiento'
   const todayLocal = todayLocalYmd()
-  const { weekStartLocal, weekEndLocal, nextWeekStartLocal } = calcWeekRangeLocal()
+  
+  // Leer semana desde query param, o usar semana actual por defecto
+  const weekStartFromUrl = searchParams.get('weekStart')
+  const { weekStartLocal, weekEndLocal, nextWeekStartLocal } = calcWeekRangeLocal(weekStartFromUrl || undefined)
   const weeklyTarget = dailyTarget * weeklyDays
 
   // Convertir loadData a useCallback para evitar stale closures y doble fetch en StrictMode
