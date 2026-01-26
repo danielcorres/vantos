@@ -35,6 +35,8 @@ function ErrorPage() {
 const OWNER_ROLES = ['owner', 'director', 'seguimiento'] as const
 const OWNER_DASHBOARD_ROLES = ['owner', 'director', 'seguimiento'] as const
 const ADVISOR_AREA_ROLES = ['advisor', 'owner', 'manager', 'recruiter', 'director', 'seguimiento', 'developer', 'super_admin'] as const
+const PIPELINE_ROLES = ['advisor', 'manager', 'owner'] as const
+const PIPELINE_SETTINGS_ROLES = ['manager', 'owner'] as const
 
 export const router = createBrowserRouter([
   {
@@ -86,7 +88,7 @@ export const router = createBrowserRouter([
       {
         path: 'pipeline',
         element: (
-          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+          <RoleGuard allowedRoles={[...PIPELINE_ROLES]}>
             <PipelinePage />
           </RoleGuard>
         ),
@@ -94,7 +96,7 @@ export const router = createBrowserRouter([
       {
         path: 'pipeline/settings',
         element: (
-          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+          <RoleGuard allowedRoles={[...PIPELINE_SETTINGS_ROLES]}>
             <PipelineSettingsPage />
           </RoleGuard>
         ),
@@ -110,7 +112,7 @@ export const router = createBrowserRouter([
       {
         path: 'leads/:id',
         element: (
-          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+          <RoleGuard allowedRoles={[...PIPELINE_ROLES]}>
             <LeadDetailPage />
           </RoleGuard>
         ),
