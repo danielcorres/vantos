@@ -119,3 +119,21 @@ export function formatWeekRange(weekStartStr: string): string {
   }
   return `${startDay} ${startMonthName} ${startYear} – ${endDay} ${endMonthName} ${endYear}`
 }
+
+/**
+ * Formatear rango de semana de forma legible (ej. "26 ene 2026 – 1 feb 2026")
+ * @param weekStartLocal Fecha de inicio de semana en formato YYYY-MM-DD
+ * @param weekEndLocal Fecha de fin de semana en formato YYYY-MM-DD
+ * @returns String formateado con ambas fechas completas
+ */
+export function formatWeekRangePretty(weekStartLocal: string, weekEndLocal: string): string {
+  const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+  
+  const [startYear, startMonth, startDay] = weekStartLocal.split('-').map(Number)
+  const [endYear, endMonth, endDay] = weekEndLocal.split('-').map(Number)
+  
+  const startMonthName = months[startMonth - 1]
+  const endMonthName = months[endMonth - 1]
+  
+  return `${startDay} ${startMonthName} ${startYear} – ${endDay} ${endMonthName} ${endYear}`
+}

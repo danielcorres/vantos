@@ -18,7 +18,7 @@ import { fetchWeeklyMinimumTargetsForOwner, DEFAULT_WEEKLY_MINIMUMS, type Weekly
 import { buildAdvisorProfile, type AdvisorProfileResult } from '../../modules/okr/dashboard/advisorProfile'
 import { buildMetricBreakdown } from '../../modules/okr/dashboard/advisorDetailHelpers'
 import { addDaysYmd } from '../../shared/utils/dates'
-import { calcWeekRangeLocal } from '../../modules/okr/utils/weeklyHistoryHelpers'
+import { calcWeekRangeLocal, formatWeekRangePretty } from '../../modules/okr/utils/weeklyHistoryHelpers'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -453,7 +453,7 @@ export function OwnerDashboardPage() {
             </button>
           </div>
           <div className="text-xs text-muted whitespace-nowrap">
-            Semana: {weekStartLocal} - {weekEndLocal}
+            Semana: {formatWeekRangePretty(weekStartLocal, weekEndLocal)}
           </div>
         </div>
       </div>
