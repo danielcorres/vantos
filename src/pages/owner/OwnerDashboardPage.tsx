@@ -397,7 +397,7 @@ export function OwnerDashboardPage() {
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold mb-1">Dashboard Owner</h1>
+            <h1 className="text-2xl font-bold mb-1">Dashboard Owner · Vista global</h1>
             <p className="text-sm text-muted">Desempeño semanal y consistencia histórica de asesores</p>
           </div>
           <div className="flex items-center gap-2">
@@ -427,33 +427,30 @@ export function OwnerDashboardPage() {
           </div>
         </div>
         {/* Controles de navegación de semana */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="flex items-center gap-2 px-3 py-1.5 border border-border rounded bg-bg">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-muted">
+            Semana del {formatWeekRangePretty(weekStartLocal, weekEndLocal)}
+          </p>
+          <div className="flex items-center gap-2">
             <button
               onClick={handlePreviousWeek}
-              className="px-2 py-1 text-sm hover:bg-black/5 transition-colors rounded"
-              title="Semana anterior"
+              className="px-3 py-1.5 text-sm hover:bg-black/5 transition-colors rounded border border-border bg-bg"
             >
-              ◀
+              ← Semana anterior
             </button>
             <button
               onClick={handleCurrentWeek}
-              className="px-2 py-1 text-xs hover:bg-black/5 transition-colors rounded whitespace-nowrap"
-              title="Ir a semana actual"
+              className="px-3 py-1.5 text-sm hover:bg-black/5 transition-colors rounded border border-border bg-bg whitespace-nowrap"
             >
-              Semana actual
+              Esta semana
             </button>
             <button
               onClick={handleNextWeek}
               disabled={!canNavigateNext}
-              className="px-2 py-1 text-sm hover:bg-black/5 transition-colors rounded disabled:opacity-50 disabled:cursor-not-allowed"
-              title={canNavigateNext ? "Semana siguiente" : "No se puede navegar a semanas futuras"}
+              className="px-3 py-1.5 text-sm hover:bg-black/5 transition-colors rounded border border-border bg-bg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              ▶
+              Semana siguiente →
             </button>
-          </div>
-          <div className="text-xs text-muted whitespace-nowrap">
-            Semana: {formatWeekRangePretty(weekStartLocal, weekEndLocal)}
           </div>
         </div>
       </div>
@@ -538,7 +535,7 @@ export function OwnerDashboardPage() {
       {/* A) Suma de métricas del equipo - Reemplaza cards de resumen */}
       {teamMetricsTotals.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-muted">Actividad total del equipo (semana actual)</h3>
+          <h3 className="text-sm font-medium text-muted">Actividad total del equipo</h3>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
             {/* Primera fila: 4 columnas */}
             {teamMetricsTotals.slice(0, 4).map((metric) => (
