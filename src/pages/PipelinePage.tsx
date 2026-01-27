@@ -7,6 +7,7 @@ import { Toast } from '../shared/components/Toast'
 import { todayLocalYmd, formatDateMX } from '../shared/utils/dates'
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 import { getStageTagClasses, getStageAccentStyle, getStageHeaderStyle } from '../shared/utils/stageStyles'
+import { getFollowUpDisplay } from '../shared/utils/followUpStatus'
 
 type Stage = {
   id: string
@@ -38,26 +39,6 @@ function formatHumanDateShort(dateString: string | null | undefined): string {
   }
 }
 
-// Helper: Format next follow up date (ej: "Hoy", "30 ene")
-function formatNextFollowUp(dateString: string | null | undefined): string {
-  if (!dateString) return '—'
-  try {
-    const date = new Date(dateString)
-    const today = todayLocalYmd()
-    const dateYmd = date.toISOString().split('T')[0]
-    
-    if (dateYmd === today) return 'Hoy'
-    
-    // Formato: "30 ene"
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-    const day = date.getDate()
-    const month = months[date.getMonth()]
-    return `${day} ${month}`
-  } catch {
-    return '—'
-  }
-}
-
 // Helper: Get follow-up status from next_follow_up_at
 function getFollowUpStatus(nextFollowUpAt: string | null | undefined): 'overdue' | 'today' | 'future' | 'none' {
   if (!nextFollowUpAt) return 'none'
@@ -68,20 +49,6 @@ function getFollowUpStatus(nextFollowUpAt: string | null | undefined): 'overdue'
   if (followUpYmd < today) return 'overdue'
   if (followUpYmd === today) return 'today'
   return 'future'
-}
-
-// Helper: Get follow-up status color class (solo para el texto "Próx")
-function getFollowUpStatusColor(status: ReturnType<typeof getFollowUpStatus>): string {
-  if (status === 'overdue' || status === 'today') return 'text-red-700 font-medium'
-  if (status === 'future') return 'text-amber-700 font-medium'
-  return 'text-muted'
-}
-
-// Helper: Get follow-up emoji
-function getFollowUpEmoji(status: ReturnType<typeof getFollowUpStatus>): string {
-  if (status === 'overdue' || status === 'today') return '🔴'
-  if (status === 'future') return '🟡'
-  return '⚪'
 }
 
 // Helper: Sort leads by intelligent priority
@@ -501,12 +468,12 @@ export function PipelinePage() {
             <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
           </div>
           <div className="flex gap-2 items-center">
-            <div className="inline-flex rounded-lg border border-border bg-bg/50 p-0.5">
-              <button onClick={() => setPipelineMode('activos')} className="px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 bg-primary text-primary-contrast font-medium">
-                Activos <span className="rounded-full text-xs px-2 py-0 bg-white/20 ring-1 ring-white/40 tabular-nums">{activosCount}</span>
+            <div className="inline-flex rounded-lg border border-border bg-neutral-100/80 p-0.5 gap-0.5" role="tablist" aria-label="Vista del pipeline">
+              <button role="tab" aria-selected={true} onClick={() => setPipelineMode('activos')} className="px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium">
+                Activos <span className="rounded-full text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 ring-1 ring-neutral-300 tabular-nums">{activosCount}</span>
               </button>
-              <button onClick={() => setPipelineMode('archivados')} className="px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 text-muted hover:bg-black/5">
-                Archivados <span className="rounded-full text-xs px-2 py-0 bg-neutral-100 text-neutral-700 ring-1 ring-neutral-200 tabular-nums">{archivadosCount}</span>
+              <button role="tab" aria-selected={false} onClick={() => setPipelineMode('archivados')} className="px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200 hover:bg-neutral-200/60">
+                Archivados <span className="rounded-full text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 ring-1 ring-neutral-300 tabular-nums">{archivadosCount}</span>
               </button>
             </div>
             <button onClick={() => setIsCreateModalOpen(true)} className="btn btn-primary text-sm">+ Nuevo lead</button>
@@ -532,7 +499,7 @@ export function PipelinePage() {
         </div>
         <div className="flex gap-2 flex-wrap items-center">
           <div
-            className="inline-flex rounded-lg border border-border bg-bg/50 p-0.5"
+            className="inline-flex rounded-lg border border-border bg-neutral-100/80 p-0.5 gap-0.5"
             role="tablist"
             aria-label="Vista del pipeline"
           >
@@ -541,13 +508,11 @@ export function PipelinePage() {
               aria-selected={pipelineMode === 'activos'}
               onClick={() => setPipelineMode('activos')}
               className={`px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 ${
-                pipelineMode === 'activos' ? 'bg-primary text-primary-contrast font-medium' : 'text-muted hover:bg-black/5'
+                pipelineMode === 'activos' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200 hover:bg-neutral-200/60'
               }`}
             >
               Activos
-              <span className={`rounded-full text-xs px-2 py-0 tabular-nums ${
-                pipelineMode === 'activos' ? 'bg-white/20 ring-1 ring-white/40' : 'bg-neutral-100 text-neutral-700 ring-1 ring-neutral-200'
-              }`}>
+              <span className="rounded-full text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 ring-1 ring-neutral-300 tabular-nums">
                 {activosCount}
               </span>
             </button>
@@ -556,13 +521,11 @@ export function PipelinePage() {
               aria-selected={pipelineMode === 'archivados'}
               onClick={() => setPipelineMode('archivados')}
               className={`px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 ${
-                pipelineMode === 'archivados' ? 'bg-primary text-primary-contrast font-medium' : 'text-muted hover:bg-black/5'
+                pipelineMode === 'archivados' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200 hover:bg-neutral-200/60'
               }`}
             >
               Archivados
-              <span className={`rounded-full text-xs px-2 py-0 tabular-nums ${
-                pipelineMode === 'archivados' ? 'bg-white/20 ring-1 ring-white/40' : 'bg-neutral-100 text-neutral-700 ring-1 ring-neutral-200'
-              }`}>
+              <span className="rounded-full text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 ring-1 ring-neutral-300 tabular-nums">
                 {archivadosCount}
               </span>
             </button>
@@ -731,6 +694,7 @@ export function PipelinePage() {
                       {stageLeads.map((lead, index) => {
                         const isHighlighted = highlightLeadId === lead.id
                         const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
+                        const followUpDisplay = getFollowUpDisplay(lead.next_follow_up_at)
                         const isUrgent = followUpStatus === 'overdue' || followUpStatus === 'today'
                         const isFirstUrgent = index === 0 && isUrgent
                         const isEditingDate = editingDateLeadId === lead.id
@@ -810,12 +774,10 @@ export function PipelinePage() {
                                       onClick={(e) => e.stopPropagation()}
                                     />
                                   ) : (
-                                    <>
-                                      <span className={getFollowUpStatusColor(followUpStatus)}>
-                                        Próx: {formatNextFollowUp(lead.next_follow_up_at)}
-                                      </span>
-                                      <span>{getFollowUpEmoji(followUpStatus)}</span>
-                                    </>
+                                    <div className="flex flex-col gap-0.5">
+                                      <span className={followUpDisplay.classes}>{followUpDisplay.labelPrimary}</span>
+                                      <span className="text-xs text-muted">{followUpDisplay.labelSecondary}</span>
+                                    </div>
                                   )}
                                 </div>
                               </div>
@@ -873,6 +835,7 @@ export function PipelinePage() {
                           {stageLeads.map((lead, index) => {
                             const isHighlighted = highlightLeadId === lead.id
                             const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
+                            const followUpDisplay = getFollowUpDisplay(lead.next_follow_up_at)
                             const isUrgent = followUpStatus === 'overdue' || followUpStatus === 'today'
                             const isFirstUrgent = index === 0 && isUrgent
                             const isEditingDate = editingDateLeadId === lead.id
@@ -958,12 +921,10 @@ export function PipelinePage() {
                                           onClick={(e) => e.stopPropagation()}
                                         />
                                       ) : (
-                                        <>
-                                          <span className={getFollowUpStatusColor(followUpStatus)}>
-                                            Próx: {formatNextFollowUp(lead.next_follow_up_at)}
-                                          </span>
-                                          <span>{getFollowUpEmoji(followUpStatus)}</span>
-                                        </>
+                                        <div className="flex flex-col gap-0.5">
+                                          <span className={followUpDisplay.classes}>{followUpDisplay.labelPrimary}</span>
+                                          <span className="text-xs text-muted">{followUpDisplay.labelSecondary}</span>
+                                        </div>
                                       )}
                                     </div>
                                   </div>
