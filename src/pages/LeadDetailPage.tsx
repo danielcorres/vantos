@@ -124,6 +124,7 @@ export function LeadDetailPage() {
   const [markingContact, setMarkingContact] = useState(false)
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
   const [followUpOffsetDays, setFollowUpOffsetDays] = useState(2)
+  const [saveButtonFeedback, setSaveButtonFeedback] = useState(false)
 
   // Reduced motion
   const prefersReducedMotion = useReducedMotion()
@@ -237,6 +238,8 @@ export function LeadDetailPage() {
       await loadData()
       setToast({ kind: 'success', text: 'Guardado' })
       setTimeout(() => setToast(null), 2000)
+      setSaveButtonFeedback(true)
+      setTimeout(() => setSaveButtonFeedback(false), 1000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
@@ -375,33 +378,28 @@ export function LeadDetailPage() {
 
   return (
     <div>
-      {/* Header */}
+      {/* Header: fila 1 = nombre + chips; fila 2 = muted (tel/email/próximo+badge); derecha = nav + acciones rápidas */}
       <div
-        className="row space-between"
-        style={{
-          marginBottom: '16px',
-          flexWrap: 'wrap',
-          gap: '12px',
-        }}
+        className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
+        style={{ marginBottom: '16px' }}
       >
-        <div className="flex flex-col gap-2">
-          <div>
-            <h1 className="text-2xl font-bold mb-2">
+        <div className="flex flex-col gap-1.5 min-w-0">
+          {/* Fila 1: Nombre + chips */}
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-bold">
               {lead.full_name || 'Lead sin nombre'}
             </h1>
-            <div className="flex gap-2 flex-wrap">
-              {lead.source && (
-                <span className="px-2 py-0.5 text-xs bg-black/5 rounded text-muted">{lead.source}</span>
-              )}
-              {currentStage && (
-                <span className="px-2 py-0.5 text-xs bg-black/5 rounded text-muted">{currentStage.name}</span>
-              )}
-            </div>
+            {lead.source && (
+              <span className="px-2 py-0.5 text-xs bg-black/5 rounded text-muted">{lead.source}</span>
+            )}
+            {currentStage && (
+              <span className="px-2 py-0.5 text-xs bg-black/5 rounded text-muted">{currentStage.name}</span>
+            )}
           </div>
-          {/* Línea compacta: phone+Copy, email, próximo seguimiento + acciones rápidas */}
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+          {/* Fila 2 (muted): teléfono + copy, email + copy, próximo seguimiento + badge */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted">
             {lead.phone && (
-              <span className="flex items-center gap-1 flex-wrap">
+              <span className="flex items-center gap-0.5">
                 <span>{lead.phone}</span>
                 <button
                   type="button"
@@ -410,18 +408,19 @@ export function LeadDetailPage() {
                     setToast({ kind: 'success', text: 'Teléfono copiado' })
                     setTimeout(() => setToast(null), 2000)
                   }}
-                  className="btn btn-ghost px-1.5 py-1 text-xs"
+                  className="btn btn-ghost p-0.5 min-w-0 h-auto text-xs opacity-70 hover:opacity-100"
                   aria-label="Copiar teléfono"
+                  title="Copiar"
                 >
-                  Copiar
+                  ⎘
                 </button>
                 {!waNumber && (
-                  <span className="text-muted text-xs">WhatsApp: número incompleto</span>
+                  <span className="text-xs opacity-80">· WhatsApp: número incompleto</span>
                 )}
               </span>
             )}
             {lead.email && (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-0.5">
                 <span>{lead.email}</span>
                 <button
                   type="button"
@@ -430,17 +429,16 @@ export function LeadDetailPage() {
                     setToast({ kind: 'success', text: 'Email copiado' })
                     setTimeout(() => setToast(null), 2000)
                   }}
-                  className="btn btn-ghost px-1.5 py-1 text-xs"
+                  className="btn btn-ghost p-0.5 min-w-0 h-auto text-xs opacity-70 hover:opacity-100"
                   aria-label="Copiar email"
+                  title="Copiar"
                 >
-                  Copiar
+                  ⎘
                 </button>
               </span>
             )}
             <span className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-muted">
-                Próximo seguimiento: {humanizeNextFollowUp(nextYmd)}
-              </span>
+              <span>Próximo seguimiento: {humanizeNextFollowUp(nextYmd)}</span>
               {followUpStatus !== 'none' && (
                 <span
                   className={
@@ -448,7 +446,7 @@ export function LeadDetailPage() {
                       ? 'px-1.5 py-0 text-xs rounded bg-danger/15 text-danger'
                       : followUpStatus === 'today'
                         ? 'px-1.5 py-0 text-xs rounded bg-warning/15 text-warning'
-                        : 'px-1.5 py-0 text-xs rounded bg-black/5 text-muted'
+                        : 'px-1.5 py-0 text-xs rounded bg-black/5'
                   }
                 >
                   {followUpStatus === 'overdue' && 'Vencido'}
@@ -457,31 +455,37 @@ export function LeadDetailPage() {
                 </span>
               )}
             </span>
-            {(waNumber || lead.email) && (
-              <span className="flex items-center gap-1">
-                {waNumber ? (
-                  <a
-                    href={`https://wa.me/${waNumber}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="btn btn-ghost px-2 py-1 text-xs"
-                  >
-                    WhatsApp
-                  </a>
-                ) : null}
-                {lead.email && (
-                  <a
-                    href={`mailto:${lead.email}`}
-                    className="btn btn-ghost px-2 py-1 text-xs"
-                  >
-                    Email
-                  </a>
-                )}
-              </span>
-            )}
           </div>
         </div>
-        <div className="row" style={{ gap: '8px', flexWrap: 'wrap' }}>
+        {/* Derecha: acciones rápidas (WhatsApp / Llamar / Email) + navegación */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          {(waNumber || lead.phone || lead.email) && (
+            <div className="flex border border-border rounded-md overflow-hidden [&>a]:rounded-none [&>a]:border-r [&>a]:border-border [&>a:last-child]:border-r-0">
+              {waNumber ? (
+                <a
+                  href={`https://wa.me/${waNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-ghost px-2 py-1 text-xs"
+                >
+                  WhatsApp
+                </a>
+              ) : null}
+              {lead.phone ? (
+                <a
+                  href={`tel:${(lead.phone || '').replace(/\s/g, '')}`}
+                  className="btn btn-ghost px-2 py-1 text-xs"
+                >
+                  Llamar
+                </a>
+              ) : null}
+              {lead.email ? (
+                <a href={`mailto:${lead.email}`} className="btn btn-ghost px-2 py-1 text-xs">
+                  Email
+                </a>
+              ) : null}
+            </div>
+          )}
           <button
             onClick={() => {
               const pipelineUrl = searchParams.get('weekStart')
@@ -489,16 +493,11 @@ export function LeadDetailPage() {
                 : `/pipeline?lead=${lead.id}`
               navigate(pipelineUrl)
             }}
-            className="btn btn-ghost"
-            style={{ fontSize: '13px' }}
+            className="btn btn-ghost text-xs"
           >
             Ver en pipeline
           </button>
-          <button
-            onClick={() => navigate(-1)}
-            className="btn btn-ghost"
-            style={{ fontSize: '13px' }}
-          >
+          <button onClick={() => navigate(-1)} className="btn btn-ghost text-xs">
             Volver
           </button>
         </div>
@@ -529,68 +528,69 @@ export function LeadDetailPage() {
             transition: prefersReducedMotion ? 'none' : 'all 200ms ease-out',
           }}
         >
-          <div className="flex flex-wrap items-center gap-2 justify-between mb-3">
+          {/* Encabezado: título a la izquierda; a la derecha badge + "Próximo: {fecha}" */}
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
             <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
               Seguimiento
             </h3>
-            {followUpStatus !== 'none' && (
-              <span
-                className={
-                  followUpStatus === 'overdue'
-                    ? 'px-2 py-0.5 text-xs rounded bg-danger/15 text-danger'
-                    : followUpStatus === 'today'
-                      ? 'px-2 py-0.5 text-xs rounded bg-warning/15 text-warning'
-                      : 'px-2 py-0.5 text-xs rounded bg-black/5 text-muted'
-                }
-              >
-                {followUpStatus === 'overdue' && 'Vencido'}
-                {followUpStatus === 'today' && 'Hoy'}
-                {followUpStatus === 'upcoming' && 'Próximo'}
-              </span>
-            )}
+            <span className="flex items-center gap-2 text-sm text-muted">
+              {followUpStatus !== 'none' && (
+                <span
+                  className={
+                    followUpStatus === 'overdue'
+                      ? 'px-1.5 py-0 text-xs rounded bg-danger/15 text-danger'
+                      : followUpStatus === 'today'
+                        ? 'px-1.5 py-0 text-xs rounded bg-warning/15 text-warning'
+                        : 'px-1.5 py-0 text-xs rounded bg-black/5'
+                  }
+                >
+                  {followUpStatus === 'overdue' && 'Vencido'}
+                  {followUpStatus === 'today' && 'Hoy'}
+                  {followUpStatus === 'upcoming' && 'Próximo'}
+                </span>
+              )}
+              <span className="text-xs">Próximo: {humanizeNextFollowUp(nextYmd)}</span>
+            </span>
           </div>
+          {/* Acciones: primaria "Marcar contacto hoy" + segmented (+1/+2/+3) + secundaria "Guardar cambios" */}
           <div className="flex flex-wrap gap-2 mb-3 items-center">
             <button
               onClick={handleMarkContact}
               disabled={markingContact || saving}
-              className="btn btn-primary"
-              style={{ fontSize: '13px' }}
+              className="btn btn-primary text-xs"
             >
               {markingContact ? 'Registrando...' : 'Marcar contacto hoy'}
             </button>
-            <span className="flex items-center gap-1">
+            <div
+              className="inline-flex border border-border rounded-md overflow-hidden [&>button]:rounded-none [&>button]:border-r [&>button]:border-border [&>button:last-child]:border-r-0"
+              aria-label="Días para próximo seguimiento"
+            >
               {([1, 2, 3] as const).map((d) => (
                 <button
                   key={d}
                   type="button"
                   onClick={() => setFollowUpOffsetDays(d)}
-                  className={`btn btn-ghost px-1.5 py-0.5 text-xs ${followUpOffsetDays === d ? 'bg-black/10' : ''}`}
-                  aria-label={`Próximo seguimiento en +${d} días`}
+                  className={`btn btn-ghost px-2 py-1 text-xs min-w-0 ${followUpOffsetDays === d ? 'bg-black/10' : ''}`}
+                  aria-pressed={followUpOffsetDays === d}
+                  aria-label={`+${d} días`}
                 >
                   +{d}
                 </button>
               ))}
-            </span>
+            </div>
             <button
               onClick={handleSave}
               disabled={!hasChanges() || saving || markingContact}
-              className="btn btn-primary"
+              className="btn btn-ghost border border-border text-xs"
               style={{ fontSize: '13px' }}
             >
-              {saving ? 'Guardando...' : 'Guardar cambios'}
+              {saveButtonFeedback ? 'Guardado' : saving ? 'Guardando...' : 'Guardar cambios'}
             </button>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {/* Inputs: desktop 2 columnas */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label
-                htmlFor="next_follow_up_at"
-                style={{
-                  display: 'block',
-                  marginBottom: '4px',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                }}
-              >
+              <label htmlFor="next_follow_up_at" className="block text-xs font-medium text-muted mb-1">
                 Próximo seguimiento
               </label>
               <input
@@ -599,25 +599,11 @@ export function LeadDetailPage() {
                 value={nextFollowUpAt}
                 onChange={(e) => setNextFollowUpAt(e.target.value)}
                 disabled={saving}
-                style={{
-                  width: '100%',
-                  fontFamily: 'inherit',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                }}
+                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
               />
             </div>
             <div>
-              <label
-                htmlFor="last_contact_at"
-                style={{
-                  display: 'block',
-                  marginBottom: '4px',
-                  fontSize: '13px',
-                  fontWeight: '500',
-                }}
-              >
+              <label htmlFor="last_contact_at" className="block text-xs font-medium text-muted mb-1">
                 Último contacto
               </label>
               <input
@@ -626,13 +612,7 @@ export function LeadDetailPage() {
                 value={lastContactAt}
                 onChange={(e) => setLastContactAt(e.target.value)}
                 disabled={saving}
-                style={{
-                  width: '100%',
-                  fontFamily: 'inherit',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                }}
+                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
               />
             </div>
           </div>
@@ -698,7 +678,7 @@ export function LeadDetailPage() {
           </div>
         </div>
 
-        {/* 3. Datos / Notas */}
+        {/* 3. Datos / Notas — desktop: grid 2 cols (Nombre/Teléfono | Email/Fuente), Notas full width */}
         <div
           className="card lg:col-span-8"
           style={{
@@ -706,12 +686,12 @@ export function LeadDetailPage() {
             transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
           }}
         >
-          <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600, color: 'var(--muted)' }}>
+          <h3 className="text-sm font-semibold text-muted mb-3">
             Datos
           </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label htmlFor="full_name" style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
+              <label htmlFor="full_name" className="block text-xs font-medium text-muted mb-1">
                 Nombre completo *
               </label>
               <input
@@ -720,12 +700,12 @@ export function LeadDetailPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 disabled={saving}
-                style={{ width: '100%' }}
+                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
                 required
               />
             </div>
             <div>
-              <label htmlFor="phone" style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
+              <label htmlFor="phone" className="block text-xs font-medium text-muted mb-1">
                 Teléfono
               </label>
               <input
@@ -734,11 +714,11 @@ export function LeadDetailPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 disabled={saving}
-                style={{ width: '100%' }}
+                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
               />
             </div>
             <div>
-              <label htmlFor="email" style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
+              <label htmlFor="email" className="block text-xs font-medium text-muted mb-1">
                 Email
               </label>
               <input
@@ -747,11 +727,11 @@ export function LeadDetailPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={saving}
-                style={{ width: '100%' }}
+                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
               />
             </div>
             <div>
-              <label htmlFor="source" style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
+              <label htmlFor="source" className="block text-xs font-medium text-muted mb-1">
                 Fuente
               </label>
               <select
@@ -759,13 +739,7 @@ export function LeadDetailPage() {
                 value={source}
                 onChange={(e) => setSource(e.target.value)}
                 disabled={saving}
-                style={{
-                  width: '100%',
-                  fontFamily: 'inherit',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                }}
+                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
               >
                 <option value="">Seleccionar fuente</option>
                 {SOURCE_OPTIONS.map((opt) => (
@@ -775,8 +749,8 @@ export function LeadDetailPage() {
                 ))}
               </select>
             </div>
-            <div>
-              <label htmlFor="notes" style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
+            <div className="md:col-span-2">
+              <label htmlFor="notes" className="block text-xs font-medium text-muted mb-1">
                 Notas
               </label>
               <textarea
@@ -784,14 +758,8 @@ export function LeadDetailPage() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 disabled={saving}
-                rows={4}
-                style={{
-                  width: '100%',
-                  fontFamily: 'inherit',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                }}
+                rows={3}
+                className="w-full rounded-md border border-border px-2 py-1.5 text-sm resize-y"
               />
             </div>
           </div>
