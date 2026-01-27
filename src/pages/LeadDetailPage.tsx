@@ -7,7 +7,7 @@ import { todayLocalYmd, addDaysYmd, daysBetweenYmd, formatDateMX, diffDaysFloor,
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
-import { getStageTagClasses } from '../shared/utils/stageStyles'
+import { getStageTagClasses, displayStageName } from '../shared/utils/stageStyles'
 
 type LeadData = {
   id: string
@@ -601,20 +601,12 @@ export function LeadDetailPage() {
             )}
             {currentStage && (
               <span className={getStageTagClasses(currentStage.name)}>
-                {currentStage.name}
+                {displayStageName(currentStage.name)}
               </span>
             )}
           </div>
-          {/* Fila 2: link Pipeline (discreto) + teléfono/email */}
+          {/* Fila 2: teléfono/email (navegación primaria = Volver, sin duplicar link Pipeline) */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted">
-            <button
-              type="button"
-              onClick={() => navigate('/pipeline')}
-              className="text-xs text-muted hover:underline border-0 bg-transparent p-0 cursor-pointer font-inherit"
-            >
-              Pipeline
-            </button>
-            {(lead.phone || lead.email) && <span className="text-neutral-300">·</span>}
             {lead.phone && (
               <span className="flex items-center gap-0.5">
                 <span>{lead.phone}</span>
@@ -977,7 +969,7 @@ export function LeadDetailPage() {
               >
                 {stages.map((stage) => (
                   <option key={stage.id} value={stage.id}>
-                    {stage.name}
+                    {displayStageName(stage.name)}
                   </option>
                 ))}
               </select>

@@ -6,7 +6,7 @@ import { LeadCreateModal } from '../features/pipeline/components/LeadCreateModal
 import { Toast } from '../shared/components/Toast'
 import { todayLocalYmd, formatDateMX } from '../shared/utils/dates'
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
-import { getStageTagClasses, getStageAccentStyle, getStageHeaderStyle } from '../shared/utils/stageStyles'
+import { getStageTagClasses, getStageAccentStyle, getStageHeaderStyle, displayStageName } from '../shared/utils/stageStyles'
 
 type Stage = {
   id: string
@@ -51,11 +51,12 @@ function normalizeStageKey(name: string): string | null {
   return null
 }
 
-type StageActionCopy = { title: string; text: string; subtext: string; colorClass: string }
+type StageActionCopy = { text: string; line2: string | null; colorClass: string }
 
 /**
- * Copy por etapa para la celda "Seguimiento": guía de acción, no solo informativo.
- * Usa etapa actual del lead para título, texto principal y subtexto con fechas reales.
+ * Copy por etapa para la columna "Siguiente acción": máximo 2 líneas.
+ * Línea 1 = acción (colored). Línea 2 = fecha o Creado (muted), solo cuando aplique.
+ * Sin microtítulo interno; el header ya dice "Siguiente acción".
  */
 function getStageActionCopy(stageName: string, lead: Lead): StageActionCopy {
   const key = normalizeStageKey(stageName)
@@ -63,29 +64,32 @@ function getStageActionCopy(stageName: string, lead: Lead): StageActionCopy {
 
   switch (key) {
     case 'Nuevo':
-      return { title: 'Siguiente acción', text: 'Agendar primer contacto', subtext: 'Lead recién creado · Sin contacto previo', colorClass: 'text-sky-600' }
+      return { text: 'Agendar primer contacto', line2: fmt(lead.created_at) ? `Creado: ${fmt(lead.created_at)}` : null, colorClass: 'text-sky-600' }
     case 'Contactado':
-      return { title: 'Siguiente acción', text: 'Dar seguimiento al contacto', subtext: 'Último contacto registrado', colorClass: 'text-sky-600' }
+      return { text: 'Volver a llamar / dar seguimiento', line2: fmt(lead.created_at) ? `Creado: ${fmt(lead.created_at)}` : null, colorClass: 'text-sky-600' }
     case 'Cita agendada': {
       const fecha = lead.next_follow_up_at ? fmt(lead.next_follow_up_at) : '—'
-      return { title: 'Cita programada', text: fecha, subtext: 'Preparar reunión / confirmar asistencia', colorClass: 'text-neutral-700' }
+      return { text: 'Cita programada', line2: fecha !== '—' ? fecha : null, colorClass: 'text-neutral-700' }
     }
     case 'Cita realizada': {
-      const citaRealizada = lead.stage_changed_at ? fmt(lead.stage_changed_at) : null
-      const fechaAcordada = lead.next_follow_up_at ? fmt(lead.next_follow_up_at) : 'Pendiente'
-      const subtext = [citaRealizada ? `Cita realizada: ${citaRealizada}` : null, `Fecha acordada: ${fechaAcordada}`]
-        .filter(Boolean)
-        .join('\n')
-      return { title: 'Siguiente acción', text: 'Presentar propuesta', subtext, colorClass: 'text-sky-600' }
+      const fechaAcordada = lead.next_follow_up_at ? fmt(lead.next_follow_up_at) : null
+      const line2 = fechaAcordada ? `Fecha acordada: ${fechaAcordada}` : 'Define fecha de propuesta'
+      return { text: 'Presentar propuesta', line2, colorClass: 'text-sky-600' }
     }
-    case 'Propuesta':
-      return { title: 'Siguiente acción', text: 'Dar seguimiento a la propuesta', subtext: `Propuesta presentada el ${fmt(lead.stage_changed_at)}`, colorClass: 'text-sky-600' }
-    case 'Cerrado ganado':
-      return { title: 'Resultado', text: 'Venta cerrada', subtext: `Cierre realizado el ${fmt(lead.stage_changed_at)}`, colorClass: 'text-emerald-600' }
-    case 'Cerrado perdido':
-      return { title: 'Resultado', text: 'Oportunidad perdida', subtext: `Cierre perdido el ${fmt(lead.stage_changed_at)}`, colorClass: 'text-rose-600' }
+    case 'Propuesta': {
+      const fecha = lead.stage_changed_at ? fmt(lead.stage_changed_at) : null
+      return { text: 'Dar seguimiento a propuesta', line2: fecha ? `Presentada: ${fecha}` : null, colorClass: 'text-sky-600' }
+    }
+    case 'Cerrado ganado': {
+      const fecha = lead.stage_changed_at ? fmt(lead.stage_changed_at) : null
+      return { text: 'Venta cerrada', line2: fecha ? `Cierre: ${fecha}` : null, colorClass: 'text-emerald-600' }
+    }
+    case 'Cerrado perdido': {
+      const fecha = lead.stage_changed_at ? fmt(lead.stage_changed_at) : null
+      return { text: 'Oportunidad perdida', line2: fecha ? `Cierre: ${fecha}` : null, colorClass: 'text-rose-600' }
+    }
     default:
-      return { title: 'Siguiente acción', text: 'Dar seguimiento', subtext: lead.stage_changed_at ? fmt(lead.stage_changed_at) : '—', colorClass: 'text-neutral-600' }
+      return { text: 'Dar seguimiento', line2: lead.stage_changed_at ? fmt(lead.stage_changed_at) : null, colorClass: 'text-neutral-600' }
   }
 }
 
@@ -685,7 +689,7 @@ export function PipelinePage() {
                 style={getStageHeaderStyle(stage.name)}
               >
                 <div className="flex items-center gap-2">
-                  <span className="text-base font-semibold">{stage.name}</span>
+                  <span className="text-base font-semibold">{displayStageName(stage.name)}</span>
                   <span className="text-xs text-muted">
                     {stageLeads.length}
                     {urgentCount > 0 && ` · ${urgentCount} hoy`}
@@ -774,50 +778,44 @@ export function PipelinePage() {
                                 )}
                               </div>
 
-                              <div className="text-xs space-y-0.5">
-                                <div className="text-muted/80">
-                                  Creado: {formatHumanDateShort(lead.created_at)}
-                                </div>
-                                <div
-                                  onClick={(e) => startEditingDate(lead, e)}
-                                  className={`flex items-center gap-1 transition-all duration-200 ${
-                                    highlightedFollowUpCell === lead.id 
-                                      ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 py-0.5' 
-                                      : ''
-                                  }`}
-                                >
-                                  {isEditingDate ? (
-                                    <input
-                                      ref={(el) => {
-                                        if (el) {
-                                          dateInputRefs.current.set(lead.id, el)
-                                        } else {
-                                          dateInputRefs.current.delete(lead.id)
-                                        }
-                                      }}
-                                      type="date"
-                                      value={editingDateValue}
-                                      onChange={(e) => setEditingDateValue(e.target.value)}
-                                      onBlur={() => saveDateEdit(lead.id)}
-                                      onKeyDown={(e) => {
-                                        if (e.key === 'Enter') {
-                                          saveDateEdit(lead.id)
-                                        } else if (e.key === 'Escape') {
-                                          setEditingDateLeadId(null)
-                                        }
-                                      }}
-                                      disabled={updatingFollowUp === lead.id}
-                                      className="text-xs px-2 py-1 border border-border rounded bg-bg"
-                                      onClick={(e) => e.stopPropagation()}
-                                    />
-                                  ) : (
-                                    <div className="flex flex-col gap-0.5">
-                                      <span className="text-[10px] uppercase tracking-wide text-muted">{actionCopy.title}</span>
-                                      <span className={`text-sm font-medium ${actionCopy.colorClass}`}>{actionCopy.text}</span>
-                                      <span className="text-xs text-muted whitespace-pre-line">{actionCopy.subtext}</span>
-                                    </div>
-                                  )}
-                                </div>
+                              <div
+                                onClick={(e) => startEditingDate(lead, e)}
+                                className={`text-xs transition-all duration-200 ${
+                                  highlightedFollowUpCell === lead.id 
+                                    ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 py-0.5' 
+                                    : ''
+                                }`}
+                              >
+                                {isEditingDate ? (
+                                  <input
+                                    ref={(el) => {
+                                      if (el) {
+                                        dateInputRefs.current.set(lead.id, el)
+                                      } else {
+                                        dateInputRefs.current.delete(lead.id)
+                                      }
+                                    }}
+                                    type="date"
+                                    value={editingDateValue}
+                                    onChange={(e) => setEditingDateValue(e.target.value)}
+                                    onBlur={() => saveDateEdit(lead.id)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        saveDateEdit(lead.id)
+                                      } else if (e.key === 'Escape') {
+                                        setEditingDateLeadId(null)
+                                      }
+                                    }}
+                                    disabled={updatingFollowUp === lead.id}
+                                    className="text-xs px-2 py-1 border border-border rounded bg-bg"
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                ) : (
+                                  <div className="flex flex-col gap-0.5">
+                                    <span className={`text-sm font-medium ${actionCopy.colorClass}`}>{actionCopy.text}</span>
+                                    {actionCopy.line2 != null && <span className="text-muted">{actionCopy.line2}</span>}
+                                  </div>
+                                )}
                               </div>
 
                               <div
@@ -839,7 +837,7 @@ export function PipelinePage() {
                                 >
                                   {stages.map((s) => (
                                     <option key={s.id} value={s.id}>
-                                      {s.name}
+                                      {displayStageName(s.name)}
                                     </option>
                                   ))}
                                 </select>
@@ -919,53 +917,47 @@ export function PipelinePage() {
                                   )}
                                 </td>
                                 <td className="py-2 px-4">
-                                  <div className="space-y-0.5 text-xs">
-                                    <div className="text-muted/80">
-                                      Creado: {formatHumanDateShort(lead.created_at)}
-                                    </div>
-                                    <div
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        startEditingDate(lead, e)
-                                      }}
-                                      className={`flex items-center gap-1 transition-all duration-200 ${
-                                        highlightedFollowUpCell === lead.id 
-                                          ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 py-0.5' 
-                                          : ''
-                                      }`}
-                                    >
-                                      {isEditingDate ? (
-                                        <input
-                                          ref={(el) => {
-                                            if (el) {
-                                              dateInputRefs.current.set(lead.id, el)
-                                            } else {
-                                              dateInputRefs.current.delete(lead.id)
-                                            }
-                                          }}
-                                          type="date"
-                                          value={editingDateValue}
-                                          onChange={(e) => setEditingDateValue(e.target.value)}
-                                          onBlur={() => saveDateEdit(lead.id)}
-                                          onKeyDown={(e) => {
-                                            if (e.key === 'Enter') {
-                                              saveDateEdit(lead.id)
-                                            } else if (e.key === 'Escape') {
-                                              setEditingDateLeadId(null)
-                                            }
-                                          }}
-                                          disabled={updatingFollowUp === lead.id}
-                                          className="text-xs px-2 py-1 border border-border rounded bg-bg"
-                                          onClick={(e) => e.stopPropagation()}
-                                        />
-                                      ) : (
-                                        <div className="flex flex-col gap-0.5">
-                                          <span className="text-[10px] uppercase tracking-wide text-muted">{actionCopy.title}</span>
-                                          <span className={`text-sm font-medium ${actionCopy.colorClass}`}>{actionCopy.text}</span>
-                                          <span className="text-xs text-muted whitespace-pre-line">{actionCopy.subtext}</span>
-                                        </div>
-                                      )}
-                                    </div>
+                                  <div
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      startEditingDate(lead, e)
+                                    }}
+                                    className={`text-xs transition-all duration-200 ${
+                                      highlightedFollowUpCell === lead.id 
+                                        ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 py-0.5' 
+                                        : ''
+                                    }`}
+                                  >
+                                    {isEditingDate ? (
+                                      <input
+                                        ref={(el) => {
+                                          if (el) {
+                                            dateInputRefs.current.set(lead.id, el)
+                                          } else {
+                                            dateInputRefs.current.delete(lead.id)
+                                          }
+                                        }}
+                                        type="date"
+                                        value={editingDateValue}
+                                        onChange={(e) => setEditingDateValue(e.target.value)}
+                                        onBlur={() => saveDateEdit(lead.id)}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            saveDateEdit(lead.id)
+                                          } else if (e.key === 'Escape') {
+                                            setEditingDateLeadId(null)
+                                          }
+                                        }}
+                                        disabled={updatingFollowUp === lead.id}
+                                        className="text-xs px-2 py-1 border border-border rounded bg-bg"
+                                        onClick={(e) => e.stopPropagation()}
+                                      />
+                                    ) : (
+                                      <div className="flex flex-col gap-0.5">
+                                        <span className={`text-sm font-medium ${actionCopy.colorClass}`}>{actionCopy.text}</span>
+                                        {actionCopy.line2 != null && <span className="text-muted">{actionCopy.line2}</span>}
+                                      </div>
+                                    )}
                                   </div>
                                 </td>
                                 <td className="py-3 px-4">
@@ -986,7 +978,7 @@ export function PipelinePage() {
                                   >
                                     {stages.map((s) => (
                                       <option key={s.id} value={s.id}>
-                                        {s.name}
+                                        {displayStageName(s.name)}
                                       </option>
                                     ))}
                                   </select>
