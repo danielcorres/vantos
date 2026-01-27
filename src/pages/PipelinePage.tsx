@@ -7,7 +7,6 @@ import { Toast } from '../shared/components/Toast'
 import { todayLocalYmd, formatDateMX } from '../shared/utils/dates'
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 import { getStageTagClasses, getStageAccentStyle, getStageHeaderStyle } from '../shared/utils/stageStyles'
-import { getFollowUpDisplay } from '../shared/utils/followUpStatus'
 
 type Stage = {
   id: string
@@ -36,6 +35,51 @@ function formatHumanDateShort(dateString: string | null | undefined): string {
     return `${day} ${month}`
   } catch {
     return ''
+  }
+}
+
+function normalizeStageKey(name: string): string | null {
+  if (!name || typeof name !== 'string') return null
+  const lower = name.trim().toLowerCase()
+  if (lower.includes('nuevo')) return 'Nuevo'
+  if (lower.includes('contactado')) return 'Contactado'
+  if (lower.includes('cita') && lower.includes('agendada')) return 'Cita agendada'
+  if (lower.includes('cita') && lower.includes('realizada')) return 'Cita realizada'
+  if (lower === 'propuesta' || lower.includes('propuesta presentada')) return 'Propuesta'
+  if (lower.includes('cerrado') && lower.includes('ganado')) return 'Cerrado ganado'
+  if (lower.includes('cerrado') && lower.includes('perdido')) return 'Cerrado perdido'
+  return null
+}
+
+type StageActionCopy = { title: string; text: string; subtext: string; colorClass: string }
+
+/**
+ * Copy por etapa para la celda "Seguimiento": guía de acción, no solo informativo.
+ * Usa etapa actual del lead para título, texto principal y subtexto con fechas reales.
+ */
+function getStageActionCopy(stageName: string, lead: Lead): StageActionCopy {
+  const key = normalizeStageKey(stageName)
+  const fmt = formatHumanDateShort
+
+  switch (key) {
+    case 'Nuevo':
+      return { title: 'Siguiente acción', text: 'Agendar primer contacto', subtext: 'Lead recién creado · Sin contacto previo', colorClass: 'text-sky-600' }
+    case 'Contactado':
+      return { title: 'Siguiente acción', text: 'Dar seguimiento al contacto', subtext: 'Último contacto registrado', colorClass: 'text-sky-600' }
+    case 'Cita agendada': {
+      const fecha = lead.next_follow_up_at ? fmt(lead.next_follow_up_at) : '—'
+      return { title: 'Cita programada', text: fecha, subtext: 'Preparar reunión / confirmar asistencia', colorClass: 'text-neutral-700' }
+    }
+    case 'Cita realizada':
+      return { title: 'Siguiente acción', text: 'Preparar y presentar propuesta', subtext: `Cita realizada el ${fmt(lead.stage_changed_at)}`, colorClass: 'text-sky-600' }
+    case 'Propuesta':
+      return { title: 'Siguiente acción', text: 'Dar seguimiento a la propuesta', subtext: `Propuesta presentada el ${fmt(lead.stage_changed_at)}`, colorClass: 'text-sky-600' }
+    case 'Cerrado ganado':
+      return { title: 'Resultado', text: 'Venta cerrada', subtext: `Cierre realizado el ${fmt(lead.stage_changed_at)}`, colorClass: 'text-emerald-600' }
+    case 'Cerrado perdido':
+      return { title: 'Resultado', text: 'Oportunidad perdida', subtext: `Cierre perdido el ${fmt(lead.stage_changed_at)}`, colorClass: 'text-rose-600' }
+    default:
+      return { title: 'Siguiente acción', text: 'Dar seguimiento', subtext: lead.stage_changed_at ? fmt(lead.stage_changed_at) : '—', colorClass: 'text-neutral-600' }
   }
 }
 
@@ -681,7 +725,7 @@ export function PipelinePage() {
                       {stageLeads.map((lead, index) => {
                         const isHighlighted = highlightLeadId === lead.id
                         const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
-                        const followUpDisplay = getFollowUpDisplay(lead.next_follow_up_at)
+                        const actionCopy = getStageActionCopy(stage.name, lead)
                         const isUrgent = followUpStatus === 'overdue' || followUpStatus === 'today'
                         const isFirstUrgent = index === 0 && isUrgent
                         const isEditingDate = editingDateLeadId === lead.id
@@ -762,8 +806,9 @@ export function PipelinePage() {
                                     />
                                   ) : (
                                     <div className="flex flex-col gap-0.5">
-                                      <span className={followUpDisplay.classes}>{followUpDisplay.labelPrimary}</span>
-                                      <span className="text-xs text-muted">{followUpDisplay.labelSecondary}</span>
+                                      <span className="text-[10px] uppercase tracking-wide text-muted">{actionCopy.title}</span>
+                                      <span className={`text-sm font-medium ${actionCopy.colorClass}`}>{actionCopy.text}</span>
+                                      <span className="text-xs text-muted">{actionCopy.subtext}</span>
                                     </div>
                                   )}
                                 </div>
@@ -811,7 +856,7 @@ export function PipelinePage() {
                               Fuente
                             </th>
                             <th className="text-left py-2 px-4 text-xs font-medium text-muted/70 uppercase tracking-wide">
-                              Seguimiento
+                              Siguiente acción
                             </th>
                             <th className="text-left py-2 px-4 text-xs font-medium text-muted/70 uppercase tracking-wide">
                               Etapa
@@ -822,7 +867,7 @@ export function PipelinePage() {
                           {stageLeads.map((lead, index) => {
                             const isHighlighted = highlightLeadId === lead.id
                             const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
-                            const followUpDisplay = getFollowUpDisplay(lead.next_follow_up_at)
+                            const actionCopy = getStageActionCopy(stage.name, lead)
                             const isUrgent = followUpStatus === 'overdue' || followUpStatus === 'today'
                             const isFirstUrgent = index === 0 && isUrgent
                             const isEditingDate = editingDateLeadId === lead.id
@@ -909,8 +954,9 @@ export function PipelinePage() {
                                         />
                                       ) : (
                                         <div className="flex flex-col gap-0.5">
-                                          <span className={followUpDisplay.classes}>{followUpDisplay.labelPrimary}</span>
-                                          <span className="text-xs text-muted">{followUpDisplay.labelSecondary}</span>
+                                          <span className="text-[10px] uppercase tracking-wide text-muted">{actionCopy.title}</span>
+                                          <span className={`text-sm font-medium ${actionCopy.colorClass}`}>{actionCopy.text}</span>
+                                          <span className="text-xs text-muted">{actionCopy.subtext}</span>
                                         </div>
                                       )}
                                     </div>
