@@ -70,55 +70,28 @@ export const pipelineApi = {
   },
 
   /**
-   * Regla A: Activos = archived_at IS NULL y etapa NO "Cerrado ganado" ni "Cerrado perdido".
-   * Archivados = archived_at IS NOT NULL O etapa "Cerrado ganado" o "Cerrado perdido".
+   * Archivado es solo manual: leads.archived_at IS NOT NULL.
+   * Activos = archived_at IS NULL (incluye cerrados).
+   * Archivados = archived_at IS NOT NULL.
    */
   async getLeads(mode: 'activos' | 'archivados'): Promise<Lead[]> {
-    const stages = await this.getStages()
-    const closedNames = ['Cerrado ganado', 'Cerrado perdido']
-    const closedStageIds = stages.filter((s) => closedNames.includes(s.name)).map((s) => s.id)
-
     if (mode === 'activos') {
-      let query = supabase
+      const { data, error } = await supabase
         .from('leads')
         .select('*')
         .order('created_at', { ascending: false })
         .is('archived_at', null)
-      if (closedStageIds.length > 0) {
-        query = query.not('stage_id', 'in', `(${closedStageIds.map((id) => `"${id}"`).join(',')})`)
-      }
-      const { data, error } = await query
       if (error) throw error
       return (data || []).map(normalizeLead)
     }
 
-    // archivados: archived_at is not null OR stage_id in closed
-    const { data: archived, error: errArchived } = await supabase
+    const { data, error } = await supabase
       .from('leads')
       .select('*')
       .order('created_at', { ascending: false })
       .not('archived_at', 'is', null)
-
-    if (errArchived) throw errArchived
-
-    const { data: closed, error: errClosed } =
-      closedStageIds.length > 0
-        ? await supabase
-            .from('leads')
-            .select('*')
-            .order('created_at', { ascending: false })
-            .in('stage_id', closedStageIds)
-            .is('archived_at', null)
-        : { data: [] as Lead[], error: null }
-
-    if (errClosed) throw errClosed
-
-    const archivedIds = new Set((archived || []).map((l) => l.id))
-    const closedList = (closed || []).filter((l) => !archivedIds.has(l.id))
-    const merged = [...(archived || []), ...closedList].sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    )
-    return merged.map(normalizeLead)
+    if (error) throw error
+    return (data || []).map(normalizeLead)
   },
 
   async createLead(input: CreateLeadInput): Promise<Lead> {

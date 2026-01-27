@@ -541,12 +541,8 @@ export function PipelinePage() {
 
       {/* Contenido según modo */}
       {pipelineMode === 'archivados' ? (
-        /* Vista Archivados: tabla simple */
-        <>
-          <p className="text-xs text-muted mb-3">
-            Los leads en etapas Cerrado se consideran archivados automáticamente.
-          </p>
-          <div className="card overflow-x-auto">
+        /* Vista Archivados: solo leads con archived_at no null */
+        <div className="card overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left text-muted">
@@ -561,7 +557,7 @@ export function PipelinePage() {
               {leads.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-muted">
-                    No hay leads archivados ni cerrados.
+                    No hay leads archivados.
                   </td>
                 </tr>
               ) : (
@@ -596,7 +592,6 @@ export function PipelinePage() {
                             type="button"
                             onClick={async (e) => {
                               e.stopPropagation()
-                              const isClosed = stageName === 'Cerrado ganado' || stageName === 'Cerrado perdido'
                               try {
                                 await pipelineApi.updateLead(lead.id, {
                                   archived_at: null,
@@ -604,12 +599,7 @@ export function PipelinePage() {
                                   archive_reason: null,
                                 })
                                 await loadData()
-                                setToast({
-                                  type: 'success',
-                                  message: isClosed
-                                    ? 'Restaurado. Sigue en Cerrado, por eso no aparece en Activos.'
-                                    : 'Restaurado. Ya aparece en Activos.',
-                                })
+                                setToast({ type: 'success', message: 'Restaurado. Ya aparece en Activos.' })
                               } catch (err) {
                                 setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al restaurar' })
                               }
@@ -618,9 +608,7 @@ export function PipelinePage() {
                           >
                             Restaurar
                           </button>
-                        ) : (
-                          <span className="text-muted text-xs">Cerrado</span>
-                        )}
+                        ) : null}
                       </td>
                     </tr>
                   )
@@ -629,7 +617,6 @@ export function PipelinePage() {
             </tbody>
           </table>
         </div>
-        </>
       ) : (
         <>
       {/* Stages grouped view (Activos) */}

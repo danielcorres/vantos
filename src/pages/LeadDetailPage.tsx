@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { pipelineApi, type LeadStageHistoryRow } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
@@ -133,7 +133,6 @@ function isMilestoneStage(stageName: string): boolean {
 export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
 
   const [lead, setLead] = useState<LeadData | null>(null)
   const [stages, setStages] = useState<Stage[]>([])
@@ -167,6 +166,9 @@ export function LeadDetailPage() {
   // Archivar: modal + motivo
   const [showArchiveModal, setShowArchiveModal] = useState(false)
   const [archiveReasonInput, setArchiveReasonInput] = useState('')
+  // Dropdown Acciones (Archivar/Restaurar)
+  const [actionsOpen, setActionsOpen] = useState(false)
+  const actionsRef = useRef<HTMLDivElement>(null)
 
   // Reduced motion
   const prefersReducedMotion = useReducedMotion()
@@ -323,6 +325,18 @@ export function LeadDetailPage() {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [isEditingDatos, handleDiscard])
+
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (actionsRef.current && !actionsRef.current.contains(e.target as Node)) {
+        setActionsOpen(false)
+      }
+    }
+    if (actionsOpen) {
+      document.addEventListener('click', close)
+      return () => document.removeEventListener('click', close)
+    }
+  }, [actionsOpen])
 
   const handleSave = async () => {
     if (!id || !lead) return
@@ -570,7 +584,7 @@ export function LeadDetailPage() {
         style={{ marginBottom: '16px' }}
       >
         <div className="flex flex-col gap-1.5 min-w-0">
-          {/* Fila 1: Nombre + chips con color */}
+          {/* Fila 1: Nombre + chips; link discreto a Pipeline */}
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold">
               {lead.full_name || 'Lead sin nombre'}
@@ -591,8 +605,16 @@ export function LeadDetailPage() {
               </span>
             )}
           </div>
-          {/* Fila 2 (muted): teléfono + copy, email + copy */}
+          {/* Fila 2: link Pipeline (discreto) + teléfono/email */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted">
+            <button
+              type="button"
+              onClick={() => navigate('/pipeline')}
+              className="text-xs text-muted hover:underline border-0 bg-transparent p-0 cursor-pointer font-inherit"
+            >
+              Pipeline
+            </button>
+            {(lead.phone || lead.email) && <span className="text-neutral-300">·</span>}
             {lead.phone && (
               <span className="flex items-center gap-0.5">
                 <span>{lead.phone}</span>
@@ -634,58 +656,66 @@ export function LeadDetailPage() {
             )}
           </div>
         </div>
-        {/* Derecha: navegación según origen; luego acciones rápidas */}
-        {(() => {
-          const cameFromPipeline = Boolean(
-            searchParams.get('weekStart') || searchParams.get('lead') || searchParams.get('from') === 'pipeline'
-          )
-          const pipelineUrl = searchParams.get('weekStart')
-            ? `/pipeline?lead=${lead.id}&weekStart=${searchParams.get('weekStart')}`
-            : `/pipeline?lead=${lead.id}`
-          return (
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              {lead.archived_at ? (
-                <button
-                  type="button"
-                  onClick={handleRestore}
-                  disabled={saving}
-                  className="btn btn-ghost border border-border text-xs"
-                >
-                  {saving ? '…' : 'Restaurar'}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setShowArchiveModal(true)}
-                  disabled={saving}
-                  className="btn btn-ghost border border-border text-xs"
-                >
-                  Archivar
-                </button>
-              )}
-              {cameFromPipeline ? (
-                <button
-                  onClick={() => navigate(pipelineUrl)}
-                  className="btn btn-primary text-xs"
-                >
-                  Volver a pipeline
-                </button>
-              ) : (
-                <>
-                  <button onClick={() => navigate(-1)} className="btn btn-primary text-xs">
-                    Volver
-                  </button>
+        {/* Derecha: navegación (Volver) + Acciones ▾ + acciones rápidas contacto */}
+        <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="btn btn-primary text-xs"
+          >
+            Volver
+          </button>
+          <div className="relative" ref={actionsRef}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setActionsOpen((o) => !o)
+              }}
+              disabled={saving}
+              className="btn btn-ghost border border-border text-xs inline-flex items-center gap-1"
+              aria-expanded={actionsOpen}
+              aria-haspopup="true"
+            >
+              Acciones <span aria-hidden>▾</span>
+            </button>
+            {actionsOpen && (
+              <div
+                className="absolute right-0 top-full mt-1 min-w-[140px] rounded-md border border-border bg-bg py-1 shadow-lg z-10"
+                role="menu"
+              >
+                {lead.archived_at ? (
                   <button
-                    onClick={() => navigate(pipelineUrl)}
-                    className="btn btn-ghost border border-border text-xs"
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActionsOpen(false)
+                      handleRestore()
+                    }}
+                    disabled={saving}
+                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-black/5 disabled:opacity-50"
                   >
-                    Ir al pipeline
+                    {saving ? '…' : 'Restaurar'}
                   </button>
-                </>
-              )}
-              {(waNumber || lead.phone || lead.email) && (
-                <div className="flex border border-border rounded-md overflow-hidden [&>a]:rounded-none [&>a]:border-r [&>a]:border-border [&>a:last-child]:border-r-0">
-                  {waNumber ? (
+                ) : (
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setActionsOpen(false)
+                      setShowArchiveModal(true)
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-black/5"
+                  >
+                    Archivar…
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {(waNumber || lead.phone || lead.email) && (
+            <div className="flex border border-border rounded-md overflow-hidden [&>a]:rounded-none [&>a]:border-r [&>a]:border-border [&>a:last-child]:border-r-0">
+              {waNumber ? (
                 <a
                   href={`https://wa.me/${waNumber}`}
                   target="_blank"
@@ -708,11 +738,9 @@ export function LeadDetailPage() {
                   Email
                 </a>
               ) : null}
-                </div>
-              )}
             </div>
-          )
-        })()}
+          )}
+        </div>
       </div>
 
       {/* Error Message */}
