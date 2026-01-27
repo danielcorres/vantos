@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { pipelineApi } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
 import { todayLocalYmd, addDaysYmd, daysBetweenYmd } from '../shared/utils/dates'
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
+import { useDirtyState } from '../shared/hooks/useDirtyState'
+import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
 
 type LeadData = {
   id: string
@@ -152,9 +154,38 @@ export function LeadDetailPage() {
   const [moving, setMoving] = useState(false)
   const [markingContact, setMarkingContact] = useState(false)
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+  const [isEditingDatos, setIsEditingDatos] = useState(false)
+  const [actividadExpanded, setActividadExpanded] = useState(false)
 
   // Reduced motion
   const prefersReducedMotion = useReducedMotion()
+
+  const originalSnapshot = useMemo(() => {
+    if (!lead) return null
+    return {
+      full_name: lead.full_name || '',
+      phone: lead.phone || '',
+      email: lead.email || '',
+      source: lead.source || '',
+      notes: lead.notes || '',
+      last_contact_at: lead.last_contact_at ? lead.last_contact_at.split('T')[0] : '',
+      next_follow_up_at: lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : '',
+    }
+  }, [lead])
+  const currentSnapshot = useMemo(
+    () => ({
+      full_name: fullName,
+      phone,
+      email,
+      source,
+      notes,
+      last_contact_at: lastContactAt,
+      next_follow_up_at: nextFollowUpAt,
+    }),
+    [fullName, phone, email, source, notes, lastContactAt, nextFollowUpAt]
+  )
+  const rawDirty = useDirtyState(originalSnapshot, currentSnapshot)
+  const dirty = lead != null && rawDirty
 
   useEffect(() => {
     if (id) {
@@ -218,22 +249,7 @@ export function LeadDetailPage() {
     }
   }
 
-  const hasChanges = (): boolean => {
-    if (!lead) return false
-    const leadLastContact = lead.last_contact_at ? lead.last_contact_at.split('T')[0] : ''
-    const leadNextFollowUp = lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : ''
-    return (
-      fullName !== (lead.full_name || '') ||
-      phone !== (lead.phone || '') ||
-      email !== (lead.email || '') ||
-      source !== (lead.source || '') ||
-      notes !== (lead.notes || '') ||
-      lastContactAt !== leadLastContact ||
-      nextFollowUpAt !== leadNextFollowUp
-    )
-  }
-
-  const discardChanges = () => {
+  const discardChanges = useCallback(() => {
     if (!lead) return
     setFullName(lead.full_name || '')
     setPhone(lead.phone || '')
@@ -242,7 +258,7 @@ export function LeadDetailPage() {
     setNotes(lead.notes || '')
     setLastContactAt(lead.last_contact_at ? lead.last_contact_at.split('T')[0] : '')
     setNextFollowUpAt(lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : '')
-  }
+  }, [lead])
 
   const handleSave = async () => {
     if (!id || !lead) return
@@ -276,6 +292,7 @@ export function LeadDetailPage() {
       await loadData()
       setToast({ kind: 'success', text: 'Guardado' })
       setTimeout(() => setToast(null), 2000)
+      setIsEditingDatos(false)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
@@ -412,9 +429,26 @@ export function LeadDetailPage() {
   const followUpStatus = getNextFollowUpStatus(nextYmd)
   const waNumber = normalizeWhatsAppNumber(phoneDigits(lead.phone || ''))
 
+  const handleDiscard = () => {
+    discardChanges()
+    setIsEditingDatos(false)
+  }
+
+  useEffect(() => {
+    if (!isEditingDatos) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        discardChanges()
+        setIsEditingDatos(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isEditingDatos, discardChanges])
+
   return (
-    <div>
-      {/* Header: fila 1 = nombre + chips; fila 2 = muted (tel/email/próximo+badge); derecha = nav + acciones rápidas */}
+    <div style={{ paddingBottom: dirty ? UNSAVED_BAR_HEIGHT : 0 }}>
+      {/* Header: fila 1 = nombre + chips; fila 2 = muted (tel/email); derecha = nav + acciones rápidas */}
       <div
         className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
         style={{ marginBottom: '16px' }}
@@ -555,34 +589,14 @@ export function LeadDetailPage() {
         </div>
       )}
 
-      {/* Sticky bar: cambios sin guardar — solo cuando hasChanges() */}
-      {hasChanges() && (
-        <div
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-4 py-2 rounded-lg border border-border bg-surface shadow-lg"
-          role="status"
-          aria-live="polite"
-        >
-          <span className="text-sm text-muted whitespace-nowrap">Tienes cambios sin guardar</span>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="btn btn-primary text-xs"
-            >
-              {saving ? 'Guardando…' : 'Guardar cambios'}
-            </button>
-            <button
-              onClick={() => window.confirm('¿Descartar cambios?') && discardChanges()}
-              disabled={saving}
-              className="btn btn-ghost border border-border text-xs"
-            >
-              Descartar
-            </button>
-          </div>
-        </div>
-      )}
+      <UnsavedChangesBar
+        open={dirty}
+        onSave={handleSave}
+        onDiscard={handleDiscard}
+        isSaving={saving}
+      />
 
-      {/* Grid: mobile = 1 col (Seguimiento, Etapa, Datos, Información, Actividad); desktop = 2 cols */}
+      {/* Grid: mobile = 1 col (Seguimiento, Etapa, Datos, Actividad); desktop = 2 cols */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* 1. Seguimiento — primera card del main */}
         <div
@@ -721,106 +735,162 @@ export function LeadDetailPage() {
           </div>
         </div>
 
-        {/* 3. Datos / Notas — desktop: grid 2 cols (Nombre/Teléfono | Email/Fuente), Notas full width */}
+        {/* 3. Datos / Notas — card secundaria; por defecto modo lectura, "Editar datos" para editar */}
         <div
-          className="card lg:col-span-8"
+          className="lg:col-span-8 rounded-lg border border-border bg-bg/30 p-4"
           style={{
-            padding: '16px',
             transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
           }}
         >
-          <h3 className="text-sm font-semibold text-muted mb-3">
-            Datos
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            <div>
-              <label htmlFor="full_name" className="block text-xs font-medium text-muted mb-1">
-                Nombre completo *
-              </label>
-              <input
-                id="full_name"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                disabled={saving}
-                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="phone" className="block text-xs font-medium text-muted mb-1">
-                Teléfono
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                disabled={saving}
-                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="email" className="block text-xs font-medium text-muted mb-1">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={saving}
-                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="source" className="block text-xs font-medium text-muted mb-1">
-                Fuente
-              </label>
-              <select
-                id="source"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                disabled={saving}
-                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <h3 className="text-sm font-medium text-muted">
+              Datos
+            </h3>
+            {!isEditingDatos ? (
+              <button
+                type="button"
+                onClick={() => setIsEditingDatos(true)}
+                className="btn btn-ghost text-xs px-2 py-1"
+                aria-label="Editar datos"
               >
-                <option value="">Seleccionar fuente</option>
-                {SOURCE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="md:col-span-2">
-              <label htmlFor="notes" className="block text-xs font-medium text-muted mb-1">
-                Notas
-              </label>
-              <textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                disabled={saving}
-                rows={3}
-                className="w-full rounded-md border border-border px-2 py-1.5 text-sm resize-y"
-              />
-            </div>
+                <span aria-hidden>✏️</span> Editar datos
+              </button>
+            ) : null}
           </div>
+          {isEditingDatos ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="full_name" className="block text-xs font-medium text-muted mb-1">
+                  Nombre completo *
+                </label>
+                <input
+                  id="full_name"
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  disabled={saving}
+                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                  required
+                />
+              </div>
+              <div>
+                <label htmlFor="phone" className="block text-xs font-medium text-muted mb-1">
+                  Teléfono
+                </label>
+                <input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  disabled={saving}
+                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="email" className="block text-xs font-medium text-muted mb-1">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={saving}
+                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div>
+                <label htmlFor="source" className="block text-xs font-medium text-muted mb-1">
+                  Fuente
+                </label>
+                <select
+                  id="source"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  disabled={saving}
+                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                >
+                  <option value="">Seleccionar fuente</option>
+                  {SOURCE_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label htmlFor="notes" className="block text-xs font-medium text-muted mb-1">
+                  Notas
+                </label>
+                <textarea
+                  id="notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  disabled={saving}
+                  rows={3}
+                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm resize-y"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-xs text-muted block mb-0.5">Nombre completo</span>
+                <span className="text-text">{fullName || '—'}</span>
+              </div>
+              <div>
+                <span className="text-xs text-muted block mb-0.5">Teléfono</span>
+                <span className="text-text">{phone || '—'}</span>
+              </div>
+              <div>
+                <span className="text-xs text-muted block mb-0.5">Email</span>
+                <span className="text-text">{email || '—'}</span>
+              </div>
+              <div>
+                <span className="text-xs text-muted block mb-0.5">Fuente</span>
+                <span className="text-text">{source || '—'}</span>
+              </div>
+              <div className="md:col-span-2">
+                <span className="text-xs text-muted block mb-0.5">Notas</span>
+                <span className="text-text whitespace-pre-wrap">{notes || '—'}</span>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* 4. Actividad — main */}
-        <div className="card lg:col-span-8" style={{ padding: '16px' }}>
-          <h3 className="text-base font-semibold mb-3">
-            Actividad
-          </h3>
-          <p className="text-sm text-muted mb-4">
-            El historial de interacciones y movimientos de este lead aparecerá aquí.
-          </p>
-          <div className="space-y-2" aria-hidden>
-            <div className="h-3 rounded bg-black/5 w-full max-w-[80%]" />
-            <div className="h-3 rounded bg-black/5 w-full max-w-[60%]" />
-            <div className="h-3 rounded bg-black/5 w-full max-w-[90%]" />
-          </div>
+        {/* 4. Actividad — colapsada por defecto; placeholder si no hay eventos */}
+        <div className="lg:col-span-8 rounded-lg border border-border bg-bg/20 p-4">
+          <button
+            type="button"
+            onClick={() => setActividadExpanded((e) => !e)}
+            className="flex w-full items-center justify-between gap-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary rounded"
+            aria-expanded={actividadExpanded}
+            aria-controls="actividad-content"
+          >
+            <h3 className="text-sm font-medium text-muted">
+              Actividad
+            </h3>
+            <span className="text-muted text-xs" aria-hidden>
+              {actividadExpanded ? '▼' : '▶'}
+            </span>
+          </button>
+          {actividadExpanded && (
+            <div id="actividad-content" className="mt-3 pt-3 border-t border-border">
+              <p className="text-sm text-muted mb-3">
+                El historial de interacciones y movimientos de este lead aparecerá aquí.
+              </p>
+              <div className="space-y-2" aria-hidden>
+                <div className="h-3 rounded bg-black/5 w-full max-w-[80%]" />
+                <div className="h-3 rounded bg-black/5 w-full max-w-[60%]" />
+                <div className="h-3 rounded bg-black/5 w-full max-w-[90%]" />
+              </div>
+            </div>
+          )}
+          {!actividadExpanded && (
+            <p className="text-xs text-muted mt-1">
+              Sin eventos recientes
+            </p>
+          )}
         </div>
       </div>
     </div>
