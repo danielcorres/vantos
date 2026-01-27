@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { PipelineStage } from '../pipeline.api'
 import { todayLocalYmd, addDaysYmd } from '../../../shared/utils/dates'
+import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 
 interface LeadCreateModalProps {
   stages: PipelineStage[]
@@ -37,6 +38,7 @@ export function LeadCreateModal({
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const prefersReducedMotion = useReducedMotion()
 
   useEffect(() => {
     if (isOpen && stages.length > 0) {
@@ -91,10 +93,16 @@ export function LeadCreateModal({
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       onClick={handleClose}
+      style={{
+        animation: prefersReducedMotion ? 'none' : 'fadeIn 150ms ease-out',
+      }}
     >
       <div
         className="card w-full max-w-md max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
+        style={{
+          animation: prefersReducedMotion ? 'none' : 'slideUp 200ms ease-out',
+        }}
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border/50">
           <h2 className="text-lg font-semibold">Nuevo lead</h2>

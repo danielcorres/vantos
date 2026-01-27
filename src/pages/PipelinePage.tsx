@@ -5,6 +5,7 @@ import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
 import { LeadCreateModal } from '../features/pipeline/components/LeadCreateModal'
 import { Toast } from '../shared/components/Toast'
 import { todayLocalYmd } from '../shared/utils/dates'
+import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 
 type Stage = {
   id: string
@@ -132,9 +133,15 @@ export function PipelinePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
+  const [highlightScope, setHighlightScope] = useState<'created' | 'moved' | 'followup' | null>(null)
+  const [highlightedFollowUpCell, setHighlightedFollowUpCell] = useState<string | null>(null)
+  const [expandedStageIds, setExpandedStageIds] = useState<Set<string>>(new Set())
   
   // Toast state
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  
+  // Reduced motion
+  const prefersReducedMotion = useReducedMotion()
 
   // Move stage state
   const [selectedStageId, setSelectedStageId] = useState<Record<string, string>>({})
@@ -156,6 +163,7 @@ export function PipelinePage() {
 
   const leadCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const dateInputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
+  const stageContentRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   useEffect(() => {
     const checkMobile = () => {
@@ -175,14 +183,22 @@ export function PipelinePage() {
     if (stages.length > 0 && leads.length > 0) {
       setCollapsedStages((prev) => {
         const next = new Set(prev)
+        const newExpanded = new Set<string>()
         stages.forEach((stage) => {
           const stageLeads = leads.filter((l) => l.stage_id === stage.id)
           if (stageLeads.length === 0) {
             next.add(stage.id)
           } else {
             next.delete(stage.id)
+            newExpanded.add(stage.id)
           }
         })
+        // Track expanded stages for urgent glow
+        setExpandedStageIds(newExpanded)
+        // Remove glow after initial animation
+        setTimeout(() => {
+          setExpandedStageIds(new Set())
+        }, 800)
         return next
       })
     }
@@ -205,7 +221,10 @@ export function PipelinePage() {
       setTimeout(() => {
         const cardElement = leadCardRefs.current.get(leadId)
         if (cardElement) {
-          cardElement.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          cardElement.scrollIntoView({ 
+            behavior: prefersReducedMotion ? 'auto' : 'smooth', 
+            block: 'center' 
+          })
         }
       }, 100)
       setTimeout(() => setHighlightLeadId(null), 3000)
@@ -251,7 +270,33 @@ export function PipelinePage() {
       await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
 
       await loadData()
-      setToast({ type: 'success', message: 'Etapa actualizada ✅' })
+      
+      // Highlight and expand destination stage
+      setHighlightLeadId(leadId)
+      setHighlightScope('moved')
+      setCollapsedStages((prev) => {
+        const next = new Set(prev)
+        next.delete(toStageId)
+        return next
+      })
+      
+      // Scroll to lead in new stage
+      setTimeout(() => {
+        const cardElement = leadCardRefs.current.get(leadId)
+        if (cardElement) {
+          cardElement.scrollIntoView({ 
+            behavior: prefersReducedMotion ? 'auto' : 'smooth', 
+            block: 'center' 
+          })
+        }
+      }, 150)
+      
+      setTimeout(() => {
+        setHighlightLeadId(null)
+        setHighlightScope(null)
+      }, 1000)
+      
+      setToast({ type: 'success', message: 'Actualizado' })
     } catch (err) {
       setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al mover lead' })
     } finally {
@@ -269,7 +314,14 @@ export function PipelinePage() {
       })
 
       await loadData()
-      setToast({ type: 'success', message: 'Fecha actualizada ✅' })
+      
+      // Highlight only the follow-up cell
+      setHighlightedFollowUpCell(leadId)
+      setTimeout(() => {
+        setHighlightedFollowUpCell(null)
+      }, 800)
+      
+      setToast({ type: 'success', message: 'Actualizado' })
       setEditingDateLeadId(null)
     } catch (err) {
       setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al actualizar fecha' })
@@ -290,7 +342,37 @@ export function PipelinePage() {
   }) => {
     const newLead = await pipelineApi.createLead(data)
     setIsCreateModalOpen(false)
-    navigate(`/leads/${newLead.id}`)
+    
+    // Reload data to get the new lead
+    await loadData()
+    
+    // Highlight and expand stage
+    setHighlightLeadId(newLead.id)
+    setHighlightScope('created')
+    setCollapsedStages((prev) => {
+      const next = new Set(prev)
+      next.delete(data.stage_id)
+      return next
+    })
+    
+    // Scroll to new lead
+    setTimeout(() => {
+      const cardElement = leadCardRefs.current.get(newLead.id)
+      if (cardElement) {
+        cardElement.scrollIntoView({ 
+          behavior: prefersReducedMotion ? 'auto' : 'smooth', 
+          block: 'center' 
+        })
+      }
+    }, 200)
+    
+    // Remove highlight after animation
+    setTimeout(() => {
+      setHighlightLeadId(null)
+      setHighlightScope(null)
+    }, 1200)
+    
+    setToast({ type: 'success', message: 'Lead creado' })
   }
 
   // Toggle stage collapse
@@ -299,6 +381,20 @@ export function PipelinePage() {
       const next = new Set(prev)
       if (next.has(stageId)) {
         next.delete(stageId)
+        // Track expanded for urgent glow
+        setExpandedStageIds((expanded) => {
+          const newExpanded = new Set(expanded)
+          newExpanded.add(stageId)
+          return newExpanded
+        })
+        // Remove glow after animation
+        setTimeout(() => {
+          setExpandedStageIds((expanded) => {
+            const newExpanded = new Set(expanded)
+            newExpanded.delete(stageId)
+            return newExpanded
+          })
+        }, 800)
       } else {
         next.add(stageId)
       }
@@ -459,7 +555,7 @@ export function PipelinePage() {
               {/* Stage header (accordion) */}
               <button
                 onClick={() => toggleStage(stage.id)}
-                className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-black/5 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-black/5 transition-colors duration-150"
               >
                 <div className="flex items-center gap-2">
                   <span className="text-base font-semibold">{stage.name}</span>
@@ -468,13 +564,35 @@ export function PipelinePage() {
                     {urgentCount > 0 && ` · ${urgentCount} hoy`}
                   </span>
                 </div>
-                <span className="text-muted text-sm">
-                  {isCollapsed ? '▼' : '▲'}
+                <span 
+                  className="text-muted text-sm" 
+                  style={{
+                    transition: prefersReducedMotion ? 'none' : 'transform 200ms ease-out',
+                    transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)'
+                  }}
+                >
+                  ▼
                 </span>
               </button>
 
-              {/* Stage content */}
-              {!isCollapsed && (
+              {/* Stage content with animation */}
+              <div
+                ref={(el) => {
+                  if (el) {
+                    stageContentRefs.current.set(stage.id, el)
+                  } else {
+                    stageContentRefs.current.delete(stage.id)
+                  }
+                }}
+                className="overflow-hidden"
+                style={{
+                  transition: prefersReducedMotion 
+                    ? 'none' 
+                    : 'max-height 200ms ease-out, opacity 200ms ease-out',
+                  maxHeight: isCollapsed ? '0' : '5000px',
+                  opacity: isCollapsed ? 0 : 1,
+                }}
+              >
                 <div className="border-t border-border">
                   {stageLeads.length === 0 ? (
                     <div className="p-4 text-center text-xs text-muted">
@@ -490,6 +608,7 @@ export function PipelinePage() {
                         const isFirstUrgent = index === 0 && isUrgent
                         const isEditingDate = editingDateLeadId === lead.id
                         const currentSelectedStage = selectedStageId[lead.id] || lead.stage_id || ''
+                        const showUrgentGlow = isFirstUrgent && expandedStageIds.has(stage.id)
 
                         return (
                           <div
@@ -502,10 +621,18 @@ export function PipelinePage() {
                               }
                             }}
                             onClick={() => navigate(`/leads/${lead.id}`)}
-                            className={`px-3 py-2 cursor-pointer hover:bg-muted/30 transition-colors ${
-                              isHighlighted ? 'bg-primary/5 ring-2 ring-primary' : ''
+                            className={`px-3 py-2 cursor-pointer ${
+                              prefersReducedMotion ? '' : 'transition-all duration-150 hover:bg-muted/40 hover:ring-1 hover:ring-border/40 active:scale-[0.998]'
+                            } ${
+                              isHighlighted && highlightScope === 'created' 
+                                ? 'bg-primary/5 ring-1 ring-primary/20' 
+                                : isHighlighted 
+                                  ? 'bg-primary/5 ring-2 ring-primary' 
+                                  : ''
                             } ${
                               isFirstUrgent ? 'border-l-4 border-l-red-500 bg-red-50/20' : ''
+                            } ${
+                              showUrgentGlow && !prefersReducedMotion ? 'ring-1 ring-primary/25' : ''
                             }`}
                           >
                             <div className="space-y-1.5">
@@ -524,7 +651,11 @@ export function PipelinePage() {
                                 </div>
                                 <div
                                   onClick={(e) => startEditingDate(lead, e)}
-                                  className="flex items-center gap-1"
+                                  className={`flex items-center gap-1 transition-all duration-200 ${
+                                    highlightedFollowUpCell === lead.id 
+                                      ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 py-0.5' 
+                                      : ''
+                                  }`}
                                 >
                                   {isEditingDate ? (
                                     <input
@@ -618,6 +749,7 @@ export function PipelinePage() {
                             const isFirstUrgent = index === 0 && isUrgent
                             const isEditingDate = editingDateLeadId === lead.id
                             const currentSelectedStage = selectedStageId[lead.id] || lead.stage_id || ''
+                            const showUrgentGlow = isFirstUrgent && expandedStageIds.has(stage.id)
 
                             return (
                               <tr
@@ -630,10 +762,18 @@ export function PipelinePage() {
                                   }
                                 }}
                                 onClick={() => navigate(`/leads/${lead.id}`)}
-                                className={`cursor-pointer hover:bg-muted/30 transition-colors ${
-                                  isHighlighted ? 'bg-primary/5 ring-2 ring-primary' : ''
+                                className={`cursor-pointer ${
+                                  prefersReducedMotion ? '' : 'transition-all duration-150 hover:bg-muted/40 hover:ring-1 hover:ring-border/40 active:scale-[0.998]'
+                                } ${
+                                  isHighlighted && highlightScope === 'created' 
+                                    ? 'bg-primary/5 ring-1 ring-primary/20' 
+                                    : isHighlighted 
+                                      ? 'bg-primary/5 ring-2 ring-primary' 
+                                      : ''
                                 } ${
                                   isFirstUrgent ? 'border-l-4 border-l-red-500 bg-red-50/20' : ''
+                                } ${
+                                  showUrgentGlow && !prefersReducedMotion ? 'ring-1 ring-primary/25' : ''
                                 }`}
                               >
                                 <td className="py-2 px-4">
@@ -658,7 +798,11 @@ export function PipelinePage() {
                                         e.stopPropagation()
                                         startEditingDate(lead, e)
                                       }}
-                                      className="flex items-center gap-1"
+                                      className={`flex items-center gap-1 transition-all duration-200 ${
+                                        highlightedFollowUpCell === lead.id 
+                                          ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 py-0.5' 
+                                          : ''
+                                      }`}
                                     >
                                       {isEditingDate ? (
                                         <input
@@ -726,7 +870,7 @@ export function PipelinePage() {
                     </div>
                   )}
                 </div>
-              )}
+              </div>
             </div>
           )
         })}
@@ -740,12 +884,13 @@ export function PipelinePage() {
         onSubmit={handleCreateLead}
       />
 
-      {/* Toast */}
+      {/* Toast - minimal feedback */}
       {toast && (
         <Toast
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(null)}
+          durationMs={1200}
         />
       )}
     </div>

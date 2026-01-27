@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import { pipelineApi } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
 import { todayLocalYmd, addDaysYmd } from '../shared/utils/dates'
+import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 
 type LeadData = {
   id: string
@@ -85,6 +86,9 @@ export function LeadDetailPage() {
   const [markingContact, setMarkingContact] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [moveMessage, setMoveMessage] = useState<string | null>(null)
+  
+  // Reduced motion
+  const prefersReducedMotion = useReducedMotion()
 
   useEffect(() => {
     if (id) {
@@ -428,7 +432,14 @@ export function LeadDetailPage() {
       )}
 
       {/* Datos Section */}
-      <div className="card" style={{ marginBottom: '16px', padding: '16px' }}>
+      <div 
+        className="card" 
+        style={{ 
+          marginBottom: '16px', 
+          padding: '16px',
+          transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
+        }}
+      >
         <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600', color: 'var(--muted)' }}>
           Datos
         </h3>
@@ -567,7 +578,15 @@ export function LeadDetailPage() {
       </div>
 
       {/* Seguimiento Section - Moved up for prominence */}
-      <div className="card" style={{ marginBottom: '16px', padding: '16px', borderLeft: '3px solid var(--primary)' }}>
+      <div 
+        className="card" 
+        style={{ 
+          marginBottom: '16px', 
+          padding: '16px', 
+          borderLeft: '3px solid var(--primary)',
+          transition: prefersReducedMotion ? 'none' : 'all 200ms ease-out',
+        }}
+      >
         <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>
           Seguimiento
         </h3>
@@ -651,7 +670,14 @@ export function LeadDetailPage() {
       </div>
 
       {/* Etapa Section */}
-      <div className="card" style={{ marginBottom: '16px', padding: '16px' }}>
+      <div 
+        className="card" 
+        style={{ 
+          marginBottom: '16px', 
+          padding: '16px',
+          transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
+        }}
+      >
         <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600', color: 'var(--muted)' }}>
           Etapa
         </h3>

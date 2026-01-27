@@ -17,11 +17,13 @@ export function Toast({ message, type = 'info', onClose, durationMs = 1800 }: To
   }, [durationMs, onClose])
 
   return (
-    <div className={`toast toast--${type}`}>
+    <div 
+      className={`toast toast--${type}`} 
+      style={{
+        animation: 'fadeInUp 200ms ease-out',
+      }}
+    >
       <span className="toast__msg">{message}</span>
-      <button className="toast__x" onClick={onClose} aria-label="Cerrar">
-        ×
-      </button>
     </div>
   )
 }
