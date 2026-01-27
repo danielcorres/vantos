@@ -34,6 +34,16 @@ export type CreateLeadInput = {
   next_follow_up_at?: string
 }
 
+export type LeadStageHistoryRow = {
+  id: string
+  lead_id: string
+  from_stage_id: string | null
+  to_stage_id: string
+  moved_at: string
+  occurred_at: string | null
+  idempotency_key: string
+}
+
 export const pipelineApi = {
   async getStages(): Promise<PipelineStage[]> {
     const { data, error } = await supabase
@@ -113,16 +123,33 @@ export const pipelineApi = {
     }
   },
 
+  /** Historial de etapas del lead, ordenado por moved_at asc */
+  async getLeadStageHistory(leadId: string): Promise<LeadStageHistoryRow[]> {
+    const { data, error } = await supabase
+      .from('lead_stage_history')
+      .select('id, lead_id, from_stage_id, to_stage_id, moved_at, occurred_at, idempotency_key')
+      .eq('lead_id', leadId)
+      .order('moved_at', { ascending: true })
+
+    if (error) throw error
+    return (data || []) as LeadStageHistoryRow[]
+  },
+
   async moveLeadStage(
     leadId: string,
     toStageId: string,
-    idempotencyKey: string
+    idempotencyKey: string,
+    occurredAt?: string | null
   ): Promise<void> {
-    const { error } = await supabase.rpc('move_lead_stage', {
+    const payload: Record<string, unknown> = {
       p_lead_id: leadId,
       p_to_stage_id: toStageId,
       p_idempotency_key: idempotencyKey,
-    })
+    }
+    if (occurredAt != null) {
+      payload.p_occurred_at = occurredAt
+    }
+    const { error } = await supabase.rpc('move_lead_stage', payload)
 
     if (error) throw error
   },

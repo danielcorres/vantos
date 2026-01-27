@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
-import { pipelineApi } from '../features/pipeline/pipeline.api'
+import { pipelineApi, type LeadStageHistoryRow } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
-import { todayLocalYmd, addDaysYmd, daysBetweenYmd } from '../shared/utils/dates'
+import { todayLocalYmd, addDaysYmd, daysBetweenYmd, formatDateMX, diffDaysFloor, ymdToLocalNoonISO } from '../shared/utils/dates'
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
@@ -126,6 +126,17 @@ function getStageTagClasses(stageName: string | undefined): string {
   return `${CHIP_BASE} bg-black/5 text-muted`
 }
 
+/** Etapas que son hitos: requieren fecha real (occurred_at) al mover */
+function isMilestoneStage(stageName: string): boolean {
+  const n = stageName.trim()
+  return (
+    n === 'Cita realizada' ||
+    n === 'Propuesta presentada' ||
+    n === 'Propuesta' ||
+    n === 'Cerrado/Ganado'
+  )
+}
+
 export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -133,6 +144,7 @@ export function LeadDetailPage() {
 
   const [lead, setLead] = useState<LeadData | null>(null)
   const [stages, setStages] = useState<Stage[]>([])
+  const [stageHistory, setStageHistory] = useState<LeadStageHistoryRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -156,6 +168,9 @@ export function LeadDetailPage() {
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
   const [isEditingDatos, setIsEditingDatos] = useState(false)
   const [actividadExpanded, setActividadExpanded] = useState(false)
+  // Modal fecha real (solo para etapas hito)
+  const [pendingStageMove, setPendingStageMove] = useState<{ toStageId: string } | null>(null)
+  const [occurredAtForModal, setOccurredAtForModal] = useState<string>(() => todayLocalYmd())
 
   // Reduced motion
   const prefersReducedMotion = useReducedMotion()
@@ -188,6 +203,40 @@ export function LeadDetailPage() {
   const isDirty = useDirtyState(originalSnapshot, currentSnapshot)
   const dirty = lead != null && isDirty
 
+  const stageNameById = useMemo(() => {
+    const m = new Map<string, string>()
+    stages.forEach((s) => m.set(s.id, s.name))
+    return m
+  }, [stages])
+
+  const { citaRealizadaAt, propuestaAt, cierreAt, enteredCurrentStageAt } = useMemo(() => {
+    const out = {
+      citaRealizadaAt: null as string | null,
+      propuestaAt: null as string | null,
+      cierreAt: null as string | null,
+      enteredCurrentStageAt: null as string | null,
+    }
+    if (!lead || !stageHistory.length) {
+      if (lead) out.enteredCurrentStageAt = lead.created_at
+      return out
+    }
+    for (const h of stageHistory) {
+      const name = stageNameById.get(h.to_stage_id) ?? ''
+      const when = h.occurred_at ?? h.moved_at
+      if (name === 'Cita realizada' && !out.citaRealizadaAt) out.citaRealizadaAt = when
+      if ((name === 'Propuesta presentada' || name === 'Propuesta') && !out.propuestaAt) out.propuestaAt = when
+      if (name === 'Cerrado/Ganado' && !out.cierreAt) out.cierreAt = when
+    }
+    const currentEntries = stageHistory.filter((h) => h.to_stage_id === lead.stage_id)
+    if (currentEntries.length) {
+      const last = currentEntries[currentEntries.length - 1]
+      out.enteredCurrentStageAt = last.occurred_at ?? last.moved_at
+    } else {
+      out.enteredCurrentStageAt = lead.created_at
+    }
+    return out
+  }, [lead, stageHistory, stageNameById])
+
   useEffect(() => {
     if (id) {
       loadData()
@@ -216,7 +265,7 @@ export function LeadDetailPage() {
     setNotFound(false)
 
     try {
-      const [leadData, stagesData] = await Promise.all([
+      const [leadData, stagesData, historyData] = await Promise.all([
         supabase
           .from('leads')
           .select(
@@ -228,6 +277,7 @@ export function LeadDetailPage() {
           .from('pipeline_stages')
           .select('id,name,position')
           .order('position', { ascending: true }),
+        pipelineApi.getLeadStageHistory(id),
       ])
 
       if (leadData.error) {
@@ -243,6 +293,7 @@ export function LeadDetailPage() {
 
       setLead(leadData.data as LeadData)
       setStages(stagesData.data || [])
+      setStageHistory(historyData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar datos')
     } finally {
@@ -343,7 +394,7 @@ export function LeadDetailPage() {
     }
   }
 
-  const handleMoveStage = async (targetStageId?: string) => {
+  const handleMoveStage = async (targetStageId?: string, occurredAt?: string | null) => {
     const stageId = targetStageId ?? selectedStageId
     if (!id || !lead || !stageId) return
     if (stageId === lead.stage_id) return
@@ -351,19 +402,45 @@ export function LeadDetailPage() {
     setMoving(true)
     setError(null)
     setToast(null)
+    setPendingStageMove(null)
 
     try {
       const idempotencyKey = generateIdempotencyKey(id, lead.stage_id, stageId)
-      await pipelineApi.moveLeadStage(id, stageId, idempotencyKey)
+      await pipelineApi.moveLeadStage(id, stageId, idempotencyKey, occurredAt ?? undefined)
       await loadData()
       setToast({ kind: 'success', text: 'Etapa actualizada' })
       setTimeout(() => setToast(null), 2000)
     } catch (err) {
       setSelectedStageId(lead.stage_id)
       setError(err instanceof Error ? err.message : 'Error al mover etapa')
+      setToast({ kind: 'error', text: err instanceof Error ? err.message : 'Error al mover etapa' })
+      setTimeout(() => setToast(null), 3000)
     } finally {
       setMoving(false)
     }
+  }
+
+  const handleStageSelectChange = (toStageId: string) => {
+    if (!lead || toStageId === lead.stage_id) return
+    setSelectedStageId(toStageId)
+    const stage = stages.find((s) => s.id === toStageId)
+    if (stage && isMilestoneStage(stage.name)) {
+      setPendingStageMove({ toStageId })
+      setOccurredAtForModal(todayLocalYmd())
+    } else {
+      handleMoveStage(toStageId)
+    }
+  }
+
+  const handleConfirmOccurredAt = () => {
+    if (!id || !lead || !pendingStageMove) return
+    const occurredAtISO = ymdToLocalNoonISO(occurredAtForModal)
+    handleMoveStage(pendingStageMove.toStageId, occurredAtISO)
+  }
+
+  const handleCancelOccurredAt = () => {
+    setPendingStageMove(null)
+    if (lead) setSelectedStageId(lead.stage_id)
   }
 
   const currentStage = stages.find((s) => s.id === lead?.stage_id)
@@ -596,7 +673,54 @@ export function LeadDetailPage() {
         isSaving={saving}
       />
 
-      {/* Grid: mobile = 1 col (Seguimiento, Etapa, Datos, Actividad); desktop = 2 cols */}
+      {/* Modal: confirmar fecha real al mover a etapa hito */}
+      {pendingStageMove && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="occurred-at-modal-title"
+        >
+          <div className="bg-bg border border-border rounded-lg shadow-lg max-w-sm w-full p-4">
+            <h3 id="occurred-at-modal-title" className="text-base font-semibold mb-2">
+              Confirmar fecha real
+            </h3>
+            <p className="text-sm text-muted mb-3">¿Cuándo ocurrió este evento?</p>
+            <div className="flex gap-2 mb-3">
+              <button
+                type="button"
+                onClick={() => setOccurredAtForModal(todayLocalYmd())}
+                className="btn btn-ghost border border-border text-xs py-1.5 px-2 rounded-md"
+              >
+                Hoy
+              </button>
+            </div>
+            <div className="mb-4">
+              <label htmlFor="occurred_at_date" className="block text-xs font-medium text-muted mb-1">
+                Fecha
+              </label>
+              <input
+                id="occurred_at_date"
+                type="date"
+                value={occurredAtForModal}
+                max={todayLocalYmd()}
+                onChange={(e) => setOccurredAtForModal(e.target.value)}
+                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={handleCancelOccurredAt} className="btn btn-ghost text-sm">
+                Cancelar
+              </button>
+              <button type="button" onClick={handleConfirmOccurredAt} className="btn btn-primary text-sm">
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Grid: mobile = 1 col (Seguimiento, Pipeline, Hitos, Datos, Actividad); desktop = 2 cols */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* 1. Seguimiento — primera card del main */}
         <div
@@ -675,7 +799,7 @@ export function LeadDetailPage() {
           </div>
         </div>
 
-        {/* 2. Etapa — sidebar */}
+        {/* 2. Pipeline — sidebar: etapa actual + tiempos + fechas */}
         <div
           className="card lg:col-span-4 lg:sticky lg:top-4 self-start"
           style={{
@@ -684,7 +808,7 @@ export function LeadDetailPage() {
           }}
         >
           <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600, color: 'var(--muted)' }}>
-            Etapa
+            Pipeline
           </h3>
           {moving && (
             <p className="text-xs text-muted mb-2">Guardando…</p>
@@ -695,19 +819,20 @@ export function LeadDetailPage() {
               style={{
                 display: 'block',
                 marginBottom: '4px',
-                fontSize: '14px',
+                fontSize: '12px',
                 fontWeight: '500',
+                color: 'var(--muted)',
               }}
             >
-              Etapa
+              Etapa actual
             </label>
             <select
               id="stage_select"
               value={selectedStageId}
               onChange={(e) => {
                 const v = e.target.value
-                setSelectedStageId(v)
-                if (v && v !== lead.stage_id) handleMoveStage(v)
+                if (v && v !== lead.stage_id) handleStageSelectChange(v)
+                else setSelectedStageId(v)
               }}
               disabled={moving || stages.length === 0}
               style={{
@@ -725,6 +850,40 @@ export function LeadDetailPage() {
               ))}
             </select>
           </div>
+          {/* Tiempos */}
+          <div className="mt-3 pt-3 border-t border-black/10">
+            <p className="text-xs font-medium text-muted mb-2">Tiempos</p>
+            <div className="text-xs text-muted space-y-1">
+              <div className="flex justify-between gap-2">
+                <span>Días desde Cita realizada</span>
+                <span className="text-text tabular-nums">
+                  {citaRealizadaAt ? Math.floor(diffDaysFloor(citaRealizadaAt, new Date())) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Días desde Propuesta presentada</span>
+                <span className="text-text tabular-nums">
+                  {propuestaAt ? Math.floor(diffDaysFloor(propuestaAt, new Date())) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Días en etapa actual</span>
+                <span className="text-text tabular-nums">
+                  {enteredCurrentStageAt ? Math.floor(diffDaysFloor(enteredCurrentStageAt, new Date())) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Tiempo total del lead</span>
+                <span className="text-text tabular-nums">
+                  {cierreAt
+                    ? Math.floor(diffDaysFloor(lead.created_at, cierreAt))
+                    : lead.created_at
+                      ? Math.floor(diffDaysFloor(lead.created_at, new Date()))
+                      : '—'}
+                </span>
+              </div>
+            </div>
+          </div>
           <div className="my-3 h-px bg-black/5" />
           <div className="text-xs text-muted flex flex-col gap-1">
             <div>Creado: {formatDateTime(lead.created_at)}</div>
@@ -732,6 +891,29 @@ export function LeadDetailPage() {
             {lead.stage_changed_at && (
               <div>Cambio de etapa: {formatDateTime(lead.stage_changed_at)}</div>
             )}
+          </div>
+        </div>
+
+        {/* 2b. Hitos — columna izquierda, debajo de Seguimiento; solo lectura */}
+        <div className="lg:col-span-8 rounded-lg border border-border bg-bg/30 p-4">
+          <h3 className="text-sm font-medium text-muted mb-3">Hitos</h3>
+          <div className="text-sm space-y-2">
+            <div className="flex justify-between gap-2">
+              <span className="text-muted">Creado</span>
+              <span className="tabular-nums">{formatDateMX(lead.created_at)}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted">Cita realizada</span>
+              <span className="tabular-nums">{formatDateMX(citaRealizadaAt)}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted">Propuesta presentada</span>
+              <span className="tabular-nums">{formatDateMX(propuestaAt)}</span>
+            </div>
+            <div className="flex justify-between gap-2">
+              <span className="text-muted">Cerrado/Ganado</span>
+              <span className="tabular-nums">{formatDateMX(cierreAt)}</span>
+            </div>
           </div>
         </div>
 
@@ -858,7 +1040,7 @@ export function LeadDetailPage() {
           )}
         </div>
 
-        {/* 4. Actividad — colapsada por defecto; placeholder si no hay eventos */}
+        {/* 4. Actividad — historial de etapas + placeholder; colapsada por defecto */}
         <div className="lg:col-span-8 rounded-lg border border-border bg-bg/20 p-4">
           <button
             type="button"
@@ -876,19 +1058,31 @@ export function LeadDetailPage() {
           </button>
           {actividadExpanded && (
             <div id="actividad-content" className="mt-3 pt-3 border-t border-border">
-              <p className="text-sm text-muted mb-3">
-                El historial de interacciones y movimientos de este lead aparecerá aquí.
-              </p>
-              <div className="space-y-2" aria-hidden>
-                <div className="h-3 rounded bg-black/5 w-full max-w-[80%]" />
-                <div className="h-3 rounded bg-black/5 w-full max-w-[60%]" />
-                <div className="h-3 rounded bg-black/5 w-full max-w-[90%]" />
-              </div>
+              {stageHistory.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-xs font-medium text-muted mb-2">Historial de etapas</p>
+                  {stageHistory.map((h) => {
+                    const fromName = h.from_stage_id ? (stageNameById.get(h.from_stage_id) ?? '—') : 'Inicio'
+                    const toName = stageNameById.get(h.to_stage_id) ?? '—'
+                    const when = h.occurred_at ?? h.moved_at
+                    return (
+                      <div key={h.id} className="text-sm flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                        <span className="tabular-nums text-muted">{formatDateMX(when)}</span>
+                        <span>De {fromName} → {toName}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              ) : (
+                <p className="text-sm text-muted">
+                  Sin historial de etapas aún.
+                </p>
+              )}
             </div>
           )}
           {!actividadExpanded && (
             <p className="text-xs text-muted mt-1">
-              Sin eventos recientes
+              {stageHistory.length > 0 ? `${stageHistory.length} movimiento(s) de etapa` : 'Sin eventos recientes'}
             </p>
           )}
         </div>

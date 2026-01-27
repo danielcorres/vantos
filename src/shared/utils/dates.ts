@@ -85,3 +85,44 @@ export function timestampToYmdInTz(timestamp: string | Date, timeZone = TZ_MTY):
   const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp
   return formatYmdInTz(date, timeZone)
 }
+
+/**
+ * Formatear fecha para mostrar en MX: DD/MM/YYYY. Si no hay valor, "—".
+ */
+export function formatDateMX(ts: string | Date | null | undefined): string {
+  if (ts == null || ts === '') return '—'
+  try {
+    const date = typeof ts === 'string' ? new Date(ts) : ts
+    if (Number.isNaN(date.getTime())) return '—'
+    const d = date.getDate()
+    const m = date.getMonth() + 1
+    const y = date.getFullYear()
+    return `${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`
+  } catch {
+    return '—'
+  }
+}
+
+/**
+ * Diferencia de días (Math.floor) entre dos timestamps; "to" - "from".
+ * Útil para "días desde X" = diffDaysFloor(xDate, today).
+ */
+export function diffDaysFloor(
+  from: string | Date,
+  to: string | Date
+): number {
+  const fromDate = typeof from === 'string' ? new Date(from) : from
+  const toDate = typeof to === 'string' ? new Date(to) : to
+  const diffMs = toDate.getTime() - fromDate.getTime()
+  return Math.floor(diffMs / (1000 * 60 * 60 * 24))
+}
+
+/**
+ * Convierte YYYY-MM-DD a ISO string con 12:00 en hora LOCAL (no UTC).
+ * Usar al enviar occurred_at para hitos: el día se interpreta en tiempo local.
+ */
+export function ymdToLocalNoonISO(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const dt = new Date(y, m - 1, d, 12, 0, 0) // 12:00 LOCAL
+  return dt.toISOString()
+}
