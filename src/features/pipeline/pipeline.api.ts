@@ -8,6 +8,10 @@ function normalizeLead(row: Record<string, unknown>): Lead {
     archived_at: (row.archived_at as string | null) ?? null,
     archived_by: (row.archived_by as string | null) ?? null,
     archive_reason: (row.archive_reason as string | null) ?? null,
+    cita_realizada_at: (row.cita_realizada_at as string | null) ?? null,
+    propuesta_presentada_at: (row.propuesta_presentada_at as string | null) ?? null,
+    cerrado_at: (row.cerrado_at as string | null) ?? null,
+    referral_name: (row.referral_name as string | null) ?? null,
   } as Lead
 }
 
@@ -35,6 +39,10 @@ export type Lead = {
   archived_at: string | null
   archived_by: string | null
   archive_reason: string | null
+  cita_realizada_at: string | null
+  propuesta_presentada_at: string | null
+  cerrado_at: string | null
+  referral_name: string | null
 }
 
 export type CreateLeadInput = {
@@ -125,6 +133,10 @@ export const pipelineApi = {
     archived_at?: string | null
     archived_by?: string | null
     archive_reason?: string | null
+    cita_realizada_at?: string | null
+    propuesta_presentada_at?: string | null
+    cerrado_at?: string | null
+    referral_name?: string | null
   }): Promise<Lead> {
     const { data, error } = await supabase
       .from('leads')

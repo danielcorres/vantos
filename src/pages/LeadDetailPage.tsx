@@ -3,11 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { pipelineApi, type LeadStageHistoryRow } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
-import { todayLocalYmd, addDaysYmd, daysBetweenYmd, formatDateMX, diffDaysFloor, ymdToLocalNoonISO } from '../shared/utils/dates'
+import { todayLocalYmd, formatDateMX, diffDaysFloor, ymdToLocalNoonISO } from '../shared/utils/dates'
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
-import { getStageTagClasses, displayStageName } from '../shared/utils/stageStyles'
+import { getStageTagClasses, displayStageName, getStageAccentStyle } from '../shared/utils/stageStyles'
 
 type LeadData = {
   id: string
@@ -25,6 +25,10 @@ type LeadData = {
   archived_at: string | null
   archived_by: string | null
   archive_reason: string | null
+  cita_realizada_at: string | null
+  propuesta_presentada_at: string | null
+  cerrado_at: string | null
+  referral_name: string | null
 }
 
 const SOURCE_OPTIONS = [
@@ -61,32 +65,6 @@ function formatDateTime(dateString: string | null | undefined): string {
 function isValidEmail(email: string): boolean {
   if (!email.trim()) return true // Empty is valid (optional field)
   return email.includes('@')
-}
-
-type NextFollowUpStatus = 'overdue' | 'today' | 'upcoming' | 'none'
-function getNextFollowUpStatus(nextYmd: string | null): NextFollowUpStatus {
-  if (!nextYmd || !nextYmd.trim()) return 'none'
-  const today = todayLocalYmd()
-  const d = daysBetweenYmd(today, nextYmd)
-  if (d < 0) return 'overdue'
-  if (d === 0) return 'today'
-  return 'upcoming'
-}
-
-function humanizeNextFollowUp(nextYmd: string | null): string {
-  if (!nextYmd || !nextYmd.trim()) return 'Sin fecha'
-  const today = todayLocalYmd()
-  const d = daysBetweenYmd(today, nextYmd)
-  if (d < 0) return `Venció hace ${-d} día${-d !== 1 ? 's' : ''}`
-  if (d === 0) return 'Hoy'
-  if (d === 1) return 'Mañana'
-  try {
-    const [y, m, day] = nextYmd.split('-').map(Number)
-    const date = new Date(y, m - 1, day)
-    return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
-  } catch {
-    return nextYmd
-  }
 }
 
 function phoneDigits(phone: string): string {
@@ -147,8 +125,10 @@ export function LeadDetailPage() {
   const [email, setEmail] = useState('')
   const [source, setSource] = useState('')
   const [notes, setNotes] = useState('')
-  const [lastContactAt, setLastContactAt] = useState('')
-  const [nextFollowUpAt, setNextFollowUpAt] = useState('')
+  const [referralName, setReferralName] = useState('')
+  const [citaRealizadaAtYmd, setCitaRealizadaAtYmd] = useState('')
+  const [propuestaPresentadaAtYmd, setPropuestaPresentadaAtYmd] = useState('')
+  const [cerradoAtYmd, setCerradoAtYmd] = useState('')
 
   // Stage change state
   const [selectedStageId, setSelectedStageId] = useState<string>('')
@@ -156,7 +136,6 @@ export function LeadDetailPage() {
   // Action states
   const [saving, setSaving] = useState(false)
   const [moving, setMoving] = useState(false)
-  const [markingContact, setMarkingContact] = useState(false)
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
   const [isEditingDatos, setIsEditingDatos] = useState(false)
   const [actividadExpanded, setActividadExpanded] = useState(false)
@@ -175,14 +154,17 @@ export function LeadDetailPage() {
 
   const originalSnapshot = useMemo(() => {
     if (!lead) return null
+    const ymd = (ts: string | null | undefined) => (ts ? ts.split('T')[0] : '')
     return {
       full_name: lead.full_name || '',
       phone: lead.phone || '',
       email: lead.email || '',
       source: lead.source || '',
       notes: lead.notes || '',
-      last_contact_at: lead.last_contact_at ? lead.last_contact_at.split('T')[0] : '',
-      next_follow_up_at: lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : '',
+      referral_name: lead.referral_name || '',
+      cita_realizada_at: ymd(lead.cita_realizada_at),
+      propuesta_presentada_at: ymd(lead.propuesta_presentada_at),
+      cerrado_at: ymd(lead.cerrado_at),
     }
   }, [lead])
   const currentSnapshot = useMemo(
@@ -192,10 +174,12 @@ export function LeadDetailPage() {
       email,
       source,
       notes,
-      last_contact_at: lastContactAt,
-      next_follow_up_at: nextFollowUpAt,
+      referral_name: referralName,
+      cita_realizada_at: citaRealizadaAtYmd,
+      propuesta_presentada_at: propuestaPresentadaAtYmd,
+      cerrado_at: cerradoAtYmd,
     }),
-    [fullName, phone, email, source, notes, lastContactAt, nextFollowUpAt]
+    [fullName, phone, email, source, notes, referralName, citaRealizadaAtYmd, propuestaPresentadaAtYmd, cerradoAtYmd]
   )
   // useDirtyState se ejecuta SIEMPRE (Rules of Hooks); la condición solo aplica al valor derivado
   const isDirty = useDirtyState(originalSnapshot, currentSnapshot)
@@ -207,33 +191,28 @@ export function LeadDetailPage() {
     return m
   }, [stages])
 
+  // Fechas clave vienen de leads; enteredCurrentStageAt para "días en etapa" desde historial
   const { citaRealizadaAt, propuestaAt, cierreAt, enteredCurrentStageAt } = useMemo(() => {
     const out = {
-      citaRealizadaAt: null as string | null,
-      propuestaAt: null as string | null,
-      cierreAt: null as string | null,
+      citaRealizadaAt: (lead?.cita_realizada_at as string | null) ?? null,
+      propuestaAt: (lead?.propuesta_presentada_at as string | null) ?? null,
+      cierreAt: (lead?.cerrado_at as string | null) ?? null,
       enteredCurrentStageAt: null as string | null,
     }
-    if (!lead || !stageHistory.length) {
-      if (lead) out.enteredCurrentStageAt = lead.created_at
-      return out
-    }
-    for (const h of stageHistory) {
-      const name = stageNameById.get(h.to_stage_id) ?? ''
-      const when = h.occurred_at ?? h.moved_at
-      if (name === 'Cita realizada' && !out.citaRealizadaAt) out.citaRealizadaAt = when
-      if ((name === 'Propuesta presentada' || name === 'Propuesta') && !out.propuestaAt) out.propuestaAt = when
-      if (name === 'Cerrado/Ganado' && !out.cierreAt) out.cierreAt = when
-    }
-    const currentEntries = stageHistory.filter((h) => h.to_stage_id === lead.stage_id)
-    if (currentEntries.length) {
-      const last = currentEntries[currentEntries.length - 1]
-      out.enteredCurrentStageAt = last.occurred_at ?? last.moved_at
+    if (!lead) return out
+    if (stageHistory.length) {
+      const currentEntries = stageHistory.filter((h) => h.to_stage_id === lead.stage_id)
+      if (currentEntries.length) {
+        const last = currentEntries[currentEntries.length - 1]
+        out.enteredCurrentStageAt = last.occurred_at ?? last.moved_at
+      } else {
+        out.enteredCurrentStageAt = lead.stage_changed_at ?? lead.created_at
+      }
     } else {
-      out.enteredCurrentStageAt = lead.created_at
+      out.enteredCurrentStageAt = lead.stage_changed_at ?? lead.created_at
     }
     return out
-  }, [lead, stageHistory, stageNameById])
+  }, [lead, stageHistory])
 
   useEffect(() => {
     if (id) {
@@ -244,13 +223,16 @@ export function LeadDetailPage() {
   // Initialize form when lead loads; do not overwrite selectedStageId while moving
   useEffect(() => {
     if (lead) {
+      const ymd = (ts: string | null | undefined) => (ts ? ts.split('T')[0] : '')
       setFullName(lead.full_name || '')
       setPhone(lead.phone || '')
       setEmail(lead.email || '')
       setSource(lead.source || '')
       setNotes(lead.notes || '')
-      setLastContactAt(lead.last_contact_at ? lead.last_contact_at.split('T')[0] : '')
-      setNextFollowUpAt(lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : '')
+      setReferralName(lead.referral_name || '')
+      setCitaRealizadaAtYmd(ymd(lead.cita_realizada_at))
+      setPropuestaPresentadaAtYmd(ymd(lead.propuesta_presentada_at))
+      setCerradoAtYmd(ymd(lead.cerrado_at))
       if (!moving) setSelectedStageId(lead.stage_id)
     }
   }, [lead, moving])
@@ -267,7 +249,7 @@ export function LeadDetailPage() {
         supabase
           .from('leads')
           .select(
-            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason'
+            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason,cita_realizada_at,propuesta_presentada_at,cerrado_at,referral_name'
           )
           .eq('id', id)
           .single(),
@@ -301,13 +283,16 @@ export function LeadDetailPage() {
 
   const discardChanges = useCallback(() => {
     if (!lead) return
+    const ymd = (ts: string | null | undefined) => (ts ? ts.split('T')[0] : '')
     setFullName(lead.full_name || '')
     setPhone(lead.phone || '')
     setEmail(lead.email || '')
     setSource(lead.source || '')
     setNotes(lead.notes || '')
-    setLastContactAt(lead.last_contact_at ? lead.last_contact_at.split('T')[0] : '')
-    setNextFollowUpAt(lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : '')
+    setReferralName(lead.referral_name || '')
+    setCitaRealizadaAtYmd(ymd(lead.cita_realizada_at))
+    setPropuestaPresentadaAtYmd(ymd(lead.propuesta_presentada_at))
+    setCerradoAtYmd(ymd(lead.cerrado_at))
   }, [lead])
 
   const handleDiscard = useCallback(() => {
@@ -363,8 +348,10 @@ export function LeadDetailPage() {
         email: email.trim() || null,
         source: source.trim() || null,
         notes: notes.trim() || null,
-        last_contact_at: lastContactAt || null,
-        next_follow_up_at: nextFollowUpAt || null,
+        referral_name: referralName.trim() || null,
+        cita_realizada_at: citaRealizadaAtYmd ? ymdToLocalNoonISO(citaRealizadaAtYmd) : null,
+        propuesta_presentada_at: propuestaPresentadaAtYmd ? ymdToLocalNoonISO(propuestaPresentadaAtYmd) : null,
+        cerrado_at: cerradoAtYmd ? ymdToLocalNoonISO(cerradoAtYmd) : null,
       })
 
       await loadData()
@@ -375,32 +362,6 @@ export function LeadDetailPage() {
       setError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
       setSaving(false)
-    }
-  }
-
-  const handleMarkContact = async () => {
-    if (!id) return
-
-    setMarkingContact(true)
-    setError(null)
-
-    try {
-      const today = todayLocalYmd()
-      const nextFollowUp = addDaysYmd(today, 2)
-
-      await pipelineApi.updateLead(id, {
-        last_contact_at: today,
-        next_follow_up_at: nextFollowUp,
-      })
-
-      // Refetch lead
-      await loadData()
-      setToast({ kind: 'success', text: 'Contacto registrado ✅' })
-      setTimeout(() => setToast(null), 2000)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al registrar contacto')
-    } finally {
-      setMarkingContact(false)
     }
   }
 
@@ -572,9 +533,9 @@ export function LeadDetailPage() {
     return null
   }
 
-  const nextYmd = lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : null
-  const followUpStatus = getNextFollowUpStatus(nextYmd)
   const waNumber = normalizeWhatsAppNumber(phoneDigits(lead.phone || ''))
+  const isStageClosed = currentStage?.name && /cerrado\s+(ganado|perdido)/i.test(currentStage.name)
+  const cerradoAccentStyle = isStageClosed && currentStage ? getStageAccentStyle(currentStage.name) : undefined
 
   return (
     <div style={{ paddingBottom: dirty ? UNSAVED_BAR_HEIGHT : 0 }}>
@@ -841,9 +802,9 @@ export function LeadDetailPage() {
         </div>
       )}
 
-      {/* Grid: mobile = 1 col (Seguimiento, Pipeline, Hitos, Datos, Actividad); desktop = 2 cols */}
+      {/* Grid: Fechas clave, Pipeline, Datos, Actividad; desktop = 2 cols */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* 1. Seguimiento — primera card del main */}
+        {/* 1. Fechas clave — editable, arriba de Datos */}
         <div
           className="card lg:col-span-8"
           style={{
@@ -852,70 +813,54 @@ export function LeadDetailPage() {
             transition: prefersReducedMotion ? 'none' : 'all 200ms ease-out',
           }}
         >
-          {/* Encabezado: título a la izquierda; a la derecha badge + "Próximo: {fecha}" */}
-          <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
-              Seguimiento
-            </h3>
-            <span className="flex items-center gap-2 text-sm text-muted">
-              {followUpStatus !== 'none' && (
-                <span
-                  className={
-                    followUpStatus === 'overdue'
-                      ? 'px-1.5 py-0 text-xs rounded bg-danger/15 text-danger'
-                      : followUpStatus === 'today'
-                        ? 'px-1.5 py-0 text-xs rounded bg-warning/15 text-warning'
-                        : 'px-1.5 py-0 text-xs rounded bg-black/5'
-                  }
-                >
-                  {followUpStatus === 'overdue' && 'Vencido'}
-                  {followUpStatus === 'today' && 'Hoy'}
-                  {followUpStatus === 'upcoming' && 'Próximo'}
-                </span>
-              )}
-              <span className="text-xs">Próximo: {humanizeNextFollowUp(nextYmd)}</span>
-            </span>
-          </div>
-          {/* Acciones: solo "Registrar contacto de hoy" + descripción; guardado principal en sticky bar */}
-          <div className="mb-3">
-            <button
-              onClick={handleMarkContact}
-              disabled={markingContact || saving}
-              className="btn btn-primary text-xs"
-            >
-              {markingContact ? 'Registrando…' : 'Registrar contacto de hoy'}
-            </button>
-            <p className="text-xs text-muted mt-1 max-w-[240px]">
-              Actualiza &quot;Último contacto&quot; a hoy y agenda el próximo seguimiento.
-            </p>
-          </div>
-          {/* Inputs: desktop 2 columnas */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600 }}>
+            Fechas clave
+          </h3>
+          <p className="text-xs text-muted mb-3">
+            Fechas reales del proceso. Se usan para métricas y tiempos.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label htmlFor="next_follow_up_at" className="block text-xs font-medium text-muted mb-1">
-                Próximo seguimiento
+              <label htmlFor="cita_realizada_at" className="block text-xs font-medium text-muted mb-1">
+                Cita realizada
               </label>
               <input
-                id="next_follow_up_at"
+                id="cita_realizada_at"
                 type="date"
-                value={nextFollowUpAt}
-                onChange={(e) => setNextFollowUpAt(e.target.value)}
-                disabled={saving}
+                value={citaRealizadaAtYmd}
+                onChange={(e) => setCitaRealizadaAtYmd(e.target.value)}
+                disabled={saving || !!lead.archived_at}
                 className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
               />
             </div>
             <div>
-              <label htmlFor="last_contact_at" className="block text-xs font-medium text-muted mb-1">
-                Último contacto
+              <label htmlFor="propuesta_presentada_at" className="block text-xs font-medium text-muted mb-1">
+                Propuesta presentada
               </label>
               <input
-                id="last_contact_at"
+                id="propuesta_presentada_at"
                 type="date"
-                value={lastContactAt}
-                onChange={(e) => setLastContactAt(e.target.value)}
-                disabled={saving}
+                value={propuestaPresentadaAtYmd}
+                onChange={(e) => setPropuestaPresentadaAtYmd(e.target.value)}
+                disabled={saving || !!lead.archived_at}
                 className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
               />
+            </div>
+            <div style={cerradoAccentStyle ? { borderLeftWidth: 3, borderLeftStyle: 'solid', borderLeftColor: cerradoAccentStyle.borderLeftColor, paddingLeft: 8 } : undefined}>
+              <label htmlFor="cerrado_at" className="block text-xs font-medium text-muted mb-1">
+                Cierre
+              </label>
+              <input
+                id="cerrado_at"
+                type="date"
+                value={cerradoAtYmd}
+                onChange={(e) => setCerradoAtYmd(e.target.value)}
+                disabled={saving || !!lead.archived_at}
+                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+              />
+              {!isStageClosed && (
+                <p className="text-xs text-muted mt-1">Se usa cuando el lead está cerrado.</p>
+              )}
             </div>
           </div>
         </div>
@@ -1019,30 +964,7 @@ export function LeadDetailPage() {
           </div>
         </div>
 
-        {/* 2b. Hitos — columna izquierda, debajo de Seguimiento; solo lectura */}
-        <div className="lg:col-span-8 rounded-lg border border-border bg-bg/30 p-4">
-          <h3 className="text-sm font-medium text-muted mb-3">Hitos</h3>
-          <div className="text-sm space-y-2">
-            <div className="flex justify-between gap-2">
-              <span className="text-muted">Creado</span>
-              <span className="tabular-nums">{formatDateMX(lead.created_at)}</span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-muted">Cita realizada</span>
-              <span className="tabular-nums">{formatDateMX(citaRealizadaAt)}</span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-muted">Propuesta presentada</span>
-              <span className="tabular-nums">{formatDateMX(propuestaAt)}</span>
-            </div>
-            <div className="flex justify-between gap-2">
-              <span className="text-muted">Cerrado/Ganado</span>
-              <span className="tabular-nums">{formatDateMX(cierreAt)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 3. Datos / Notas — card secundaria; por defecto modo lectura, "Editar datos" para editar */}
+        {/* 2. Datos / Notas — por defecto modo lectura, "Editar datos" para editar */}
         <div
           className="lg:col-span-8 rounded-lg border border-border bg-bg/30 p-4"
           style={{
@@ -1125,6 +1047,22 @@ export function LeadDetailPage() {
                   ))}
                 </select>
               </div>
+              {source && source.trim().toLowerCase() === 'referido' && (
+                <div>
+                  <label htmlFor="referral_name" className="block text-xs font-medium text-muted mb-1">
+                    Referido por
+                  </label>
+                  <input
+                    id="referral_name"
+                    type="text"
+                    value={referralName}
+                    onChange={(e) => setReferralName(e.target.value)}
+                    disabled={saving}
+                    className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                    placeholder="Nombre de quien refirió"
+                  />
+                </div>
+              )}
               <div className="md:col-span-2">
                 <label htmlFor="notes" className="block text-xs font-medium text-muted mb-1">
                   Notas
@@ -1157,6 +1095,12 @@ export function LeadDetailPage() {
                 <span className="text-xs text-muted block mb-0.5">Fuente</span>
                 <span className="text-text">{source || '—'}</span>
               </div>
+              {source && source.trim().toLowerCase() === 'referido' && (
+                <div>
+                  <span className="text-xs text-muted block mb-0.5">Referido por</span>
+                  <span className="text-text">{referralName || '—'}</span>
+                </div>
+              )}
               <div className="md:col-span-2">
                 <span className="text-xs text-muted block mb-0.5">Notas</span>
                 <span className="text-text whitespace-pre-wrap">{notes || '—'}</span>
@@ -1165,7 +1109,7 @@ export function LeadDetailPage() {
           )}
         </div>
 
-        {/* 4. Actividad — historial de etapas + placeholder; colapsada por defecto */}
+        {/* 3. Actividad — historial de etapas + placeholder; colapsada por defecto */}
         <div className="lg:col-span-8 rounded-lg border border-border bg-bg/20 p-4">
           <button
             type="button"
