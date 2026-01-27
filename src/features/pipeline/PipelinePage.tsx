@@ -51,7 +51,7 @@ export function PipelinePage() {
     try {
       const [stages, leads] = await Promise.all([
         pipelineApi.getStages(),
-        pipelineApi.getLeads(),
+        pipelineApi.getLeads('activos'),
       ])
       dispatch({ type: 'LOAD_SUCCESS', payload: { stages, leads } })
     } catch (err: any) {

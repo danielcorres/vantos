@@ -7,6 +7,7 @@ import { todayLocalYmd, addDaysYmd, daysBetweenYmd, formatDateMX, diffDaysFloor,
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
+import { getStageTagClasses } from '../shared/utils/stageStyles'
 
 type LeadData = {
   id: string
@@ -21,6 +22,9 @@ type LeadData = {
   updated_at: string
   last_contact_at: string | null
   next_follow_up_at: string | null
+  archived_at: string | null
+  archived_by: string | null
+  archive_reason: string | null
 }
 
 const SOURCE_OPTIONS = [
@@ -115,17 +119,6 @@ function getSourceTagClasses(source: string | null): string {
   }
 }
 
-function getStageTagClasses(stageName: string | undefined): string {
-  if (!stageName) return `${CHIP_BASE} bg-black/5 text-muted`
-  const s = stageName.toLowerCase()
-  if (s.includes('nuevo')) return `${CHIP_BASE} bg-slate-100 text-slate-700`
-  if (s.includes('cita') && s.includes('agendada')) return `${CHIP_BASE} bg-amber-100 text-amber-800`
-  if (s.includes('cita') && s.includes('realizada')) return `${CHIP_BASE} bg-indigo-100 text-indigo-800`
-  if (s.includes('cerrado') && s.includes('ganado')) return `${CHIP_BASE} bg-emerald-100 text-emerald-800`
-  if (s.includes('cerrado') && s.includes('perdido')) return `${CHIP_BASE} bg-rose-100 text-rose-700`
-  return `${CHIP_BASE} bg-black/5 text-muted`
-}
-
 /** Etapas que son hitos: requieren fecha real (occurred_at) al mover */
 function isMilestoneStage(stageName: string): boolean {
   const n = stageName.trim()
@@ -171,6 +164,9 @@ export function LeadDetailPage() {
   // Modal fecha real (solo para etapas hito)
   const [pendingStageMove, setPendingStageMove] = useState<{ toStageId: string } | null>(null)
   const [occurredAtForModal, setOccurredAtForModal] = useState<string>(() => todayLocalYmd())
+  // Archivar: modal + motivo
+  const [showArchiveModal, setShowArchiveModal] = useState(false)
+  const [archiveReasonInput, setArchiveReasonInput] = useState('')
 
   // Reduced motion
   const prefersReducedMotion = useReducedMotion()
@@ -269,7 +265,7 @@ export function LeadDetailPage() {
         supabase
           .from('leads')
           .select(
-            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at'
+            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason'
           )
           .eq('id', id)
           .single(),
@@ -443,6 +439,49 @@ export function LeadDetailPage() {
     if (lead) setSelectedStageId(lead.stage_id)
   }
 
+  const handleArchive = async () => {
+    if (!id) return
+    setSaving(true)
+    setError(null)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      await pipelineApi.updateLead(id, {
+        archived_at: new Date().toISOString(),
+        archived_by: user?.id ?? null,
+        archive_reason: archiveReasonInput.trim() || null,
+      })
+      setShowArchiveModal(false)
+      setArchiveReasonInput('')
+      await loadData()
+      setToast({ kind: 'success', text: 'Lead archivado' })
+      setTimeout(() => setToast(null), 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al archivar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleRestore = async () => {
+    if (!id) return
+    setSaving(true)
+    setError(null)
+    try {
+      await pipelineApi.updateLead(id, {
+        archived_at: null,
+        archived_by: null,
+        archive_reason: null,
+      })
+      await loadData()
+      setToast({ kind: 'success', text: 'Lead restaurado' })
+      setTimeout(() => setToast(null), 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al restaurar')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const currentStage = stages.find((s) => s.id === lead?.stage_id)
 
   if (loading) {
@@ -536,6 +575,11 @@ export function LeadDetailPage() {
             <h1 className="text-2xl font-bold">
               {lead.full_name || 'Lead sin nombre'}
             </h1>
+            {lead.archived_at && (
+              <span className="inline-block rounded-full px-2 py-0.5 text-xs ring-1 bg-neutral-100 text-neutral-700 ring-neutral-200">
+                Archivado
+              </span>
+            )}
             {lead.source && (
               <span className={getSourceTagClasses(lead.source)}>
                 {lead.source}
@@ -600,6 +644,25 @@ export function LeadDetailPage() {
             : `/pipeline?lead=${lead.id}`
           return (
             <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {lead.archived_at ? (
+                <button
+                  type="button"
+                  onClick={handleRestore}
+                  disabled={saving}
+                  className="btn btn-ghost border border-border text-xs"
+                >
+                  {saving ? '…' : 'Restaurar'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowArchiveModal(true)}
+                  disabled={saving}
+                  className="btn btn-ghost border border-border text-xs"
+                >
+                  Archivar
+                </button>
+              )}
               {cameFromPipeline ? (
                 <button
                   onClick={() => navigate(pipelineUrl)}
@@ -720,6 +783,44 @@ export function LeadDetailPage() {
         </div>
       )}
 
+      {/* Modal: archivar lead */}
+      {showArchiveModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="archive-modal-title"
+        >
+          <div className="bg-bg border border-border rounded-lg shadow-lg max-w-sm w-full p-4">
+            <h3 id="archive-modal-title" className="text-base font-semibold mb-2">
+              Archivar lead
+            </h3>
+            <p className="text-sm text-muted mb-3">¿Archivar este lead? Puedes agregar un motivo opcional.</p>
+            <div className="mb-4">
+              <label htmlFor="archive_reason" className="block text-xs font-medium text-muted mb-1">
+                Motivo (opcional)
+              </label>
+              <textarea
+                id="archive_reason"
+                value={archiveReasonInput}
+                onChange={(e) => setArchiveReasonInput(e.target.value)}
+                placeholder="Ej. No contesta, fuera de mercado..."
+                rows={2}
+                className="w-full rounded-md border border-border px-2 py-1.5 text-sm resize-none"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button type="button" onClick={() => { setShowArchiveModal(false); setArchiveReasonInput('') }} className="btn btn-ghost text-sm">
+                Cancelar
+              </button>
+              <button type="button" onClick={handleArchive} disabled={saving} className="btn btn-primary text-sm">
+                {saving ? '…' : 'Archivar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Grid: mobile = 1 col (Seguimiento, Pipeline, Hitos, Datos, Actividad); desktop = 2 cols */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* 1. Seguimiento — primera card del main */}
@@ -826,29 +927,33 @@ export function LeadDetailPage() {
             >
               Etapa actual
             </label>
-            <select
-              id="stage_select"
-              value={selectedStageId}
-              onChange={(e) => {
-                const v = e.target.value
-                if (v && v !== lead.stage_id) handleStageSelectChange(v)
-                else setSelectedStageId(v)
-              }}
-              disabled={moving || stages.length === 0}
-              style={{
-                width: '100%',
-                fontFamily: 'inherit',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '8px 12px',
-              }}
-            >
-              {stages.map((stage) => (
-                <option key={stage.id} value={stage.id}>
-                  {stage.name}
-                </option>
-              ))}
-            </select>
+            {lead.archived_at ? (
+              <p className="text-sm text-muted py-2">Restaura para editar</p>
+            ) : (
+              <select
+                id="stage_select"
+                value={selectedStageId}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v && v !== lead.stage_id) handleStageSelectChange(v)
+                  else setSelectedStageId(v)
+                }}
+                disabled={moving || stages.length === 0}
+                style={{
+                  width: '100%',
+                  fontFamily: 'inherit',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                }}
+              >
+                {stages.map((stage) => (
+                  <option key={stage.id} value={stage.id}>
+                    {stage.name}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
           {/* Tiempos */}
           <div className="mt-3 pt-3 border-t border-black/10">

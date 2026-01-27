@@ -1,5 +1,16 @@
 import { supabase } from '../../lib/supabaseClient'
 
+function normalizeLead(row: Record<string, unknown>): Lead {
+  return {
+    ...row,
+    last_contact_at: (row.last_contact_at as string | null) ?? null,
+    next_follow_up_at: (row.next_follow_up_at as string | null) ?? null,
+    archived_at: (row.archived_at as string | null) ?? null,
+    archived_by: (row.archived_by as string | null) ?? null,
+    archive_reason: (row.archive_reason as string | null) ?? null,
+  } as Lead
+}
+
 export type PipelineStage = {
   id: string
   name: string
@@ -19,9 +30,11 @@ export type Lead = {
   stage_changed_at: string
   created_at: string
   updated_at: string
-  // Seguimiento fields
   last_contact_at: string | null
   next_follow_up_at: string | null
+  archived_at: string | null
+  archived_by: string | null
+  archive_reason: string | null
 }
 
 export type CreateLeadInput = {
@@ -56,23 +69,56 @@ export const pipelineApi = {
     return data || []
   },
 
-  async getLeads(): Promise<Lead[]> {
-    // TODO: When backend provides SLA data directly in leads query or via view join,
-    // extend this to fetch from enriched source. For now, fetch from leads table
-    // and adapter in frontend will handle SLA fields (null if not available).
-    const { data, error } = await supabase
+  /**
+   * Regla A: Activos = archived_at IS NULL y etapa NO "Cerrado ganado" ni "Cerrado perdido".
+   * Archivados = archived_at IS NOT NULL O etapa "Cerrado ganado" o "Cerrado perdido".
+   */
+  async getLeads(mode: 'activos' | 'archivados'): Promise<Lead[]> {
+    const stages = await this.getStages()
+    const closedNames = ['Cerrado ganado', 'Cerrado perdido']
+    const closedStageIds = stages.filter((s) => closedNames.includes(s.name)).map((s) => s.id)
+
+    if (mode === 'activos') {
+      let query = supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .is('archived_at', null)
+      if (closedStageIds.length > 0) {
+        query = query.not('stage_id', 'in', `(${closedStageIds.map((id) => `"${id}"`).join(',')})`)
+      }
+      const { data, error } = await query
+      if (error) throw error
+      return (data || []).map(normalizeLead)
+    }
+
+    // archivados: archived_at is not null OR stage_id in closed
+    const { data: archived, error: errArchived } = await supabase
       .from('leads')
       .select('*')
       .order('created_at', { ascending: false })
+      .not('archived_at', 'is', null)
 
-    if (error) throw error
-    
-    // Normalize and extend with seguimiento fields
-    return (data || []).map((lead) => ({
-      ...lead,
-      last_contact_at: ((lead as Record<string, unknown>).last_contact_at as string | null) ?? null,
-      next_follow_up_at: ((lead as Record<string, unknown>).next_follow_up_at as string | null) ?? null,
-    }))
+    if (errArchived) throw errArchived
+
+    const { data: closed, error: errClosed } =
+      closedStageIds.length > 0
+        ? await supabase
+            .from('leads')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .in('stage_id', closedStageIds)
+            .is('archived_at', null)
+        : { data: [] as Lead[], error: null }
+
+    if (errClosed) throw errClosed
+
+    const archivedIds = new Set((archived || []).map((l) => l.id))
+    const closedList = (closed || []).filter((l) => !archivedIds.has(l.id))
+    const merged = [...(archived || []), ...closedList].sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    )
+    return merged.map(normalizeLead)
   },
 
   async createLead(input: CreateLeadInput): Promise<Lead> {
@@ -91,11 +137,7 @@ export const pipelineApi = {
       .single()
 
     if (error) throw error
-    return {
-      ...data,
-      last_contact_at: data.last_contact_at ?? null,
-      next_follow_up_at: data.next_follow_up_at ?? null,
-    }
+    return normalizeLead(data as Record<string, unknown>)
   },
 
   async updateLead(leadId: string, updates: {
@@ -107,6 +149,9 @@ export const pipelineApi = {
     stage_id?: string
     last_contact_at?: string | null
     next_follow_up_at?: string | null
+    archived_at?: string | null
+    archived_by?: string | null
+    archive_reason?: string | null
   }): Promise<Lead> {
     const { data, error } = await supabase
       .from('leads')
@@ -116,11 +161,7 @@ export const pipelineApi = {
       .single()
 
     if (error) throw error
-    return {
-      ...data,
-      last_contact_at: data.last_contact_at ?? null,
-      next_follow_up_at: data.next_follow_up_at ?? null,
-    }
+    return normalizeLead(data as Record<string, unknown>)
   },
 
   /** Historial de etapas del lead, ordenado por moved_at asc */

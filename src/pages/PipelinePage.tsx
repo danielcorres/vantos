@@ -4,8 +4,9 @@ import { pipelineApi, type Lead } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
 import { LeadCreateModal } from '../features/pipeline/components/LeadCreateModal'
 import { Toast } from '../shared/components/Toast'
-import { todayLocalYmd } from '../shared/utils/dates'
+import { todayLocalYmd, formatDateMX } from '../shared/utils/dates'
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
+import { getStageTagClasses, getStageAccentStyle } from '../shared/utils/stageStyles'
 
 type Stage = {
   id: string
@@ -154,6 +155,11 @@ export function PipelinePage() {
 
   // Create lead modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  // Pipeline mode: Activos (default) vs Archivados (regla A)
+  const [pipelineMode, setPipelineMode] = useState<'activos' | 'archivados'>('activos')
+  // Contadores para tabs (se refrescan al cargar y al archivar/restaurar)
+  const [activosCount, setActivosCount] = useState(0)
+  const [archivadosCount, setArchivadosCount] = useState(0)
 
   // Collapsed stages state (accordion) - default: open if has leads
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set())
@@ -176,7 +182,7 @@ export function PipelinePage() {
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [pipelineMode])
 
   // Initialize collapsed stages: open if has leads
   useEffect(() => {
@@ -235,9 +241,10 @@ export function PipelinePage() {
     setLoading(true)
     setError(null)
     try {
-      const [stagesData, leadsData] = await Promise.all([
+      const [stagesData, activosData, archivadosData] = await Promise.all([
         pipelineApi.getStages(),
-        pipelineApi.getLeads(),
+        pipelineApi.getLeads('activos'),
+        pipelineApi.getLeads('archivados'),
       ])
 
       setStages(stagesData.map((s) => ({
@@ -245,8 +252,9 @@ export function PipelinePage() {
         name: s.name,
         position: s.position,
       })))
-
-      setLeads(leadsData)
+      setActivosCount(activosData.length)
+      setArchivadosCount(archivadosData.length)
+      setLeads(pipelineMode === 'activos' ? activosData : archivadosData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar datos')
     } finally {
@@ -484,37 +492,32 @@ export function PipelinePage() {
     )
   }
 
-  if (leads.length === 0) {
+  if (pipelineMode === 'activos' && leads.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
             <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
           </div>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="btn btn-primary text-sm"
-          >
-            + Nuevo lead
-          </button>
+          <div className="flex gap-2 items-center">
+            <div className="inline-flex rounded-lg border border-border bg-bg/50 p-0.5">
+              <button onClick={() => setPipelineMode('activos')} className="px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 bg-primary text-primary-contrast font-medium">
+                Activos <span className="rounded-full text-xs px-2 py-0 bg-white/20 ring-1 ring-white/40 tabular-nums">{activosCount}</span>
+              </button>
+              <button onClick={() => setPipelineMode('archivados')} className="px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 text-muted hover:bg-black/5">
+                Archivados <span className="rounded-full text-xs px-2 py-0 bg-neutral-100 text-neutral-700 ring-1 ring-neutral-200 tabular-nums">{archivadosCount}</span>
+              </button>
+            </div>
+            <button onClick={() => setIsCreateModalOpen(true)} className="btn btn-primary text-sm">+ Nuevo lead</button>
+          </div>
         </div>
         <div className="card text-center p-12">
           <p className="mb-4 text-base">Aún no hay leads en el pipeline.</p>
           <p className="text-muted mb-6">Crea tu primer lead para comenzar.</p>
-          <button
-            onClick={() => setIsCreateModalOpen(true)}
-            className="btn btn-primary"
-          >
-            + Nuevo lead
-          </button>
+          <button onClick={() => setIsCreateModalOpen(true)} className="btn btn-primary">+ Nuevo lead</button>
         </div>
-        <LeadCreateModal
-          stages={stages.map(stageToPipelineStage)}
-          isOpen={isCreateModalOpen}
-          onClose={() => setIsCreateModalOpen(false)}
-          onSubmit={handleCreateLead}
-        />
+        <LeadCreateModal stages={stages.map(stageToPipelineStage)} isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onSubmit={handleCreateLead} />
       </div>
     )
   }
@@ -527,23 +530,146 @@ export function PipelinePage() {
           <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
           <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          <div
+            className="inline-flex rounded-lg border border-border bg-bg/50 p-0.5"
+            role="tablist"
+            aria-label="Vista del pipeline"
+          >
+            <button
+              role="tab"
+              aria-selected={pipelineMode === 'activos'}
+              onClick={() => setPipelineMode('activos')}
+              className={`px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 ${
+                pipelineMode === 'activos' ? 'bg-primary text-primary-contrast font-medium' : 'text-muted hover:bg-black/5'
+              }`}
+            >
+              Activos
+              <span className={`rounded-full text-xs px-2 py-0 tabular-nums ${
+                pipelineMode === 'activos' ? 'bg-white/20 ring-1 ring-white/40' : 'bg-neutral-100 text-neutral-700 ring-1 ring-neutral-200'
+              }`}>
+                {activosCount}
+              </span>
+            </button>
+            <button
+              role="tab"
+              aria-selected={pipelineMode === 'archivados'}
+              onClick={() => setPipelineMode('archivados')}
+              className={`px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 ${
+                pipelineMode === 'archivados' ? 'bg-primary text-primary-contrast font-medium' : 'text-muted hover:bg-black/5'
+              }`}
+            >
+              Archivados
+              <span className={`rounded-full text-xs px-2 py-0 tabular-nums ${
+                pipelineMode === 'archivados' ? 'bg-white/20 ring-1 ring-white/40' : 'bg-neutral-100 text-neutral-700 ring-1 ring-neutral-200'
+              }`}>
+                {archivadosCount}
+              </span>
+            </button>
+          </div>
           <button
             onClick={() => setIsCreateModalOpen(true)}
             className="btn btn-primary text-sm"
           >
             + Nuevo lead
           </button>
-          <button
-            onClick={() => navigate('/focus')}
-            className="btn btn-ghost text-sm"
-          >
-            Qué hacer hoy
-          </button>
         </div>
       </div>
 
-      {/* Stages grouped view */}
+      {/* Contenido según modo */}
+      {pipelineMode === 'archivados' ? (
+        /* Vista Archivados: tabla simple */
+        <>
+          <p className="text-xs text-muted mb-3">
+            Los leads en etapas Cerrado se consideran archivados automáticamente.
+          </p>
+          <div className="card overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-muted">
+                <th className="py-2 pr-4 font-medium">Lead</th>
+                <th className="py-2 pr-4 font-medium">Etapa</th>
+                <th className="py-2 pr-4 font-medium">Fuente</th>
+                <th className="py-2 pr-4 font-medium">Archivado el</th>
+                <th className="py-2 font-medium">Acción</th>
+              </tr>
+            </thead>
+            <tbody>
+              {leads.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-muted">
+                    No hay leads archivados ni cerrados.
+                  </td>
+                </tr>
+              ) : (
+                leads.map((lead) => {
+                  const stageName = stages.find((s) => s.id === lead.stage_id)?.name
+                  const isArchived = lead.archived_at != null
+                  return (
+                    <tr
+                      key={lead.id}
+                      className="border-b border-border/60 hover:bg-black/[0.02]"
+                      style={getStageAccentStyle(stageName)}
+                    >
+                      <td className="py-2.5 pr-4">
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/leads/${lead.id}`)}
+                          className="font-medium text-left hover:underline"
+                        >
+                          {lead.full_name}
+                        </button>
+                      </td>
+                      <td className="py-2.5 pr-4">
+                        <span className={getStageTagClasses(stageName)}>{stageName ?? '—'}</span>
+                      </td>
+                      <td className="py-2.5 pr-4 text-muted">{lead.source ?? '—'}</td>
+                      <td className="py-2.5 pr-4 text-muted tabular-nums">
+                        {isArchived ? formatDateMX(lead.archived_at) : '—'}
+                      </td>
+                      <td className="py-2.5">
+                        {isArchived ? (
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation()
+                              const isClosed = stageName === 'Cerrado ganado' || stageName === 'Cerrado perdido'
+                              try {
+                                await pipelineApi.updateLead(lead.id, {
+                                  archived_at: null,
+                                  archived_by: null,
+                                  archive_reason: null,
+                                })
+                                await loadData()
+                                setToast({
+                                  type: 'success',
+                                  message: isClosed
+                                    ? 'Restaurado. Sigue en Cerrado, por eso no aparece en Activos.'
+                                    : 'Restaurado. Ya aparece en Activos.',
+                                })
+                              } catch (err) {
+                                setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al restaurar' })
+                              }
+                            }}
+                            className="btn btn-ghost text-xs"
+                          >
+                            Restaurar
+                          </button>
+                        ) : (
+                          <span className="text-muted text-xs">Cerrado</span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        </>
+      ) : (
+        <>
+      {/* Stages grouped view (Activos) */}
       <div className="space-y-2">
         {stages.map((stage) => {
           const stageLeads = leadsByStage.get(stage.id) || []
@@ -634,6 +760,7 @@ export function PipelinePage() {
                             } ${
                               showUrgentGlow && !prefersReducedMotion ? 'ring-1 ring-primary/25' : ''
                             }`}
+                            style={!isFirstUrgent ? getStageAccentStyle(stage.name) : undefined}
                           >
                             <div className="space-y-1.5">
                               <div className="flex items-start justify-between gap-2">
@@ -775,6 +902,7 @@ export function PipelinePage() {
                                 } ${
                                   showUrgentGlow && !prefersReducedMotion ? 'ring-1 ring-primary/25' : ''
                                 }`}
+                                style={!isFirstUrgent ? getStageAccentStyle(stage.name) : undefined}
                               >
                                 <td className="py-2 px-4">
                                   <div className="font-medium text-sm leading-tight">{lead.full_name}</div>
@@ -875,6 +1003,8 @@ export function PipelinePage() {
           )
         })}
       </div>
+        </>
+      )}
 
       {/* Create Lead Modal */}
       <LeadCreateModal

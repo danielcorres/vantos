@@ -118,7 +118,7 @@ export function FocusPage() {
     setError(null)
 
     try {
-      const allLeads = await pipelineApi.getLeads()
+      const allLeads = await pipelineApi.getLeads('activos')
       // Solo leads con next_follow_up_at o sin fecha (para mostrar todos)
       setLeads(allLeads)
     } catch (err) {
