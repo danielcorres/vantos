@@ -95,6 +95,32 @@ function normalizeWhatsAppNumber(digits: string): string {
   return ''
 }
 
+function getSourceTagClasses(source: string | null): string {
+  if (!source) return 'bg-black/5 text-muted'
+  switch (source) {
+    case 'Referido':
+      return 'bg-emerald-100 text-emerald-800'
+    case 'Mercado natural':
+      return 'bg-sky-100 text-sky-800'
+    case 'Frío':
+      return 'bg-rose-100 text-rose-800'
+    case 'Social media':
+      return 'bg-violet-100 text-violet-800'
+    default:
+      return 'bg-black/5 text-muted'
+  }
+}
+
+function getStageTagClasses(stageName: string | undefined): string {
+  if (!stageName) return 'bg-black/5 text-muted'
+  const s = stageName.toLowerCase()
+  if (s.includes('nuevo')) return 'bg-slate-100 text-slate-700'
+  if (s.includes('cita') && s.includes('agendada')) return 'bg-amber-100 text-amber-800'
+  if (s.includes('cerrado') && s.includes('ganado')) return 'bg-emerald-100 text-emerald-800'
+  if (s.includes('cerrado') && s.includes('perdido')) return 'bg-rose-100 text-rose-700'
+  return 'bg-black/5 text-muted'
+}
+
 export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -123,7 +149,6 @@ export function LeadDetailPage() {
   const [moving, setMoving] = useState(false)
   const [markingContact, setMarkingContact] = useState(false)
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
-  const [followUpOffsetDays, setFollowUpOffsetDays] = useState(2)
   const [saveButtonFeedback, setSaveButtonFeedback] = useState(false)
 
   // Reduced motion
@@ -206,6 +231,17 @@ export function LeadDetailPage() {
     )
   }
 
+  const discardChanges = () => {
+    if (!lead) return
+    setFullName(lead.full_name || '')
+    setPhone(lead.phone || '')
+    setEmail(lead.email || '')
+    setSource(lead.source || '')
+    setNotes(lead.notes || '')
+    setLastContactAt(lead.last_contact_at ? lead.last_contact_at.split('T')[0] : '')
+    setNextFollowUpAt(lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : '')
+  }
+
   const handleSave = async () => {
     if (!id || !lead) return
 
@@ -255,7 +291,7 @@ export function LeadDetailPage() {
 
     try {
       const today = todayLocalYmd()
-      const nextFollowUp = addDaysYmd(today, followUpOffsetDays)
+      const nextFollowUp = addDaysYmd(today, 2)
 
       await pipelineApi.updateLead(id, {
         last_contact_at: today,
@@ -384,16 +420,20 @@ export function LeadDetailPage() {
         style={{ marginBottom: '16px' }}
       >
         <div className="flex flex-col gap-1.5 min-w-0">
-          {/* Fila 1: Nombre + chips */}
+          {/* Fila 1: Nombre + chips con color */}
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="text-2xl font-bold">
               {lead.full_name || 'Lead sin nombre'}
             </h1>
             {lead.source && (
-              <span className="px-2 py-0.5 text-xs bg-black/5 rounded text-muted">{lead.source}</span>
+              <span className={`px-2 py-0.5 text-xs rounded ${getSourceTagClasses(lead.source)}`}>
+                {lead.source}
+              </span>
             )}
             {currentStage && (
-              <span className="px-2 py-0.5 text-xs bg-black/5 rounded text-muted">{currentStage.name}</span>
+              <span className={`px-2 py-0.5 text-xs rounded ${getStageTagClasses(currentStage.name)}`}>
+                {currentStage.name}
+              </span>
             )}
           </div>
           {/* Fila 2 (muted): teléfono + copy, email + copy, próximo seguimiento + badge */}
@@ -457,8 +497,22 @@ export function LeadDetailPage() {
             </span>
           </div>
         </div>
-        {/* Derecha: acciones rápidas (WhatsApp / Llamar / Email) + navegación */}
+        {/* Derecha: navegación destacada primero; luego acciones rápidas */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <button
+            onClick={() => {
+              const pipelineUrl = searchParams.get('weekStart')
+                ? `/pipeline?lead=${lead.id}&weekStart=${searchParams.get('weekStart')}`
+                : `/pipeline?lead=${lead.id}`
+              navigate(pipelineUrl)
+            }}
+            className="btn btn-primary text-xs"
+          >
+            Ver en pipeline
+          </button>
+          <button onClick={() => navigate(-1)} className="btn btn-ghost border border-border text-xs">
+            Volver
+          </button>
           {(waNumber || lead.phone || lead.email) && (
             <div className="flex border border-border rounded-md overflow-hidden [&>a]:rounded-none [&>a]:border-r [&>a]:border-border [&>a:last-child]:border-r-0">
               {waNumber ? (
@@ -486,20 +540,6 @@ export function LeadDetailPage() {
               ) : null}
             </div>
           )}
-          <button
-            onClick={() => {
-              const pipelineUrl = searchParams.get('weekStart')
-                ? `/pipeline?lead=${lead.id}&weekStart=${searchParams.get('weekStart')}`
-                : `/pipeline?lead=${lead.id}`
-              navigate(pipelineUrl)
-            }}
-            className="btn btn-ghost text-xs"
-          >
-            Ver en pipeline
-          </button>
-          <button onClick={() => navigate(-1)} className="btn btn-ghost text-xs">
-            Volver
-          </button>
         </div>
       </div>
 
@@ -514,6 +554,33 @@ export function LeadDetailPage() {
       {toast && (
         <div className="py-2 px-3 text-sm text-muted border border-border rounded-lg bg-bg mb-4" role="status">
           {toast.text}
+        </div>
+      )}
+
+      {/* Sticky bar: cambios sin guardar — solo cuando hasChanges() */}
+      {hasChanges() && (
+        <div
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-3 px-4 py-2 rounded-lg border border-border bg-surface shadow-lg"
+          role="status"
+          aria-live="polite"
+        >
+          <span className="text-sm text-muted whitespace-nowrap">Tienes cambios sin guardar</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="btn btn-primary text-xs"
+            >
+              {saving ? 'Guardando…' : 'Guardar cambios'}
+            </button>
+            <button
+              onClick={discardChanges}
+              disabled={saving}
+              className="btn btn-ghost border border-border text-xs"
+            >
+              Descartar
+            </button>
+          </div>
         </div>
       )}
 
@@ -552,39 +619,26 @@ export function LeadDetailPage() {
               <span className="text-xs">Próximo: {humanizeNextFollowUp(nextYmd)}</span>
             </span>
           </div>
-          {/* Acciones: primaria "Marcar contacto hoy" + segmented (+1/+2/+3) + secundaria "Guardar cambios" */}
-          <div className="flex flex-wrap gap-2 mb-3 items-center">
-            <button
-              onClick={handleMarkContact}
-              disabled={markingContact || saving}
-              className="btn btn-primary text-xs"
-            >
-              {markingContact ? 'Registrando...' : 'Marcar contacto hoy'}
-            </button>
-            <div
-              className="inline-flex border border-border rounded-md overflow-hidden [&>button]:rounded-none [&>button]:border-r [&>button]:border-border [&>button:last-child]:border-r-0"
-              aria-label="Días para próximo seguimiento"
-            >
-              {([1, 2, 3] as const).map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setFollowUpOffsetDays(d)}
-                  className={`btn btn-ghost px-2 py-1 text-xs min-w-0 ${followUpOffsetDays === d ? 'bg-black/10' : ''}`}
-                  aria-pressed={followUpOffsetDays === d}
-                  aria-label={`+${d} días`}
-                >
-                  +{d}
-                </button>
-              ))}
+          {/* Acciones: "Registrar contacto de hoy" (primaria) + micro-desc; "Guardar cambios" (secundaria) */}
+          <div className="flex flex-wrap gap-3 mb-3 items-start">
+            <div>
+              <button
+                onClick={handleMarkContact}
+                disabled={markingContact || saving}
+                className="btn btn-primary text-xs"
+              >
+                {markingContact ? 'Registrando…' : 'Registrar contacto de hoy'}
+              </button>
+              <p className="text-xs text-muted mt-1 max-w-[240px]">
+                Actualiza &quot;Último contacto&quot; a hoy y agenda el próximo seguimiento.
+              </p>
             </div>
             <button
               onClick={handleSave}
               disabled={!hasChanges() || saving || markingContact}
-              className="btn btn-ghost border border-border text-xs"
-              style={{ fontSize: '13px' }}
+              className="btn btn-ghost border border-border text-xs self-center"
             >
-              {saveButtonFeedback ? 'Guardado' : saving ? 'Guardando...' : 'Guardar cambios'}
+              {saveButtonFeedback ? 'Guardado' : saving ? 'Guardando…' : 'Guardar cambios'}
             </button>
           </div>
           {/* Inputs: desktop 2 columnas */}
