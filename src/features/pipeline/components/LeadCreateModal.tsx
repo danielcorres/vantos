@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { PipelineStage } from '../pipeline.api'
+import { todayLocalYmd, addDaysYmd } from '../../../shared/utils/dates'
 
 interface LeadCreateModalProps {
   stages: PipelineStage[]
@@ -12,8 +13,16 @@ interface LeadCreateModalProps {
     source?: string
     notes?: string
     stage_id: string
+    next_follow_up_at?: string
   }) => Promise<void>
 }
+
+const SOURCE_OPTIONS = [
+  { value: 'Referido', label: 'Referido' },
+  { value: 'Mercado natural', label: 'Mercado natural' },
+  { value: 'Frío', label: 'Frío' },
+  { value: 'Social media', label: 'Social media' },
+] as const
 
 export function LeadCreateModal({
   stages,
@@ -22,24 +31,30 @@ export function LeadCreateModal({
   onSubmit,
 }: LeadCreateModalProps) {
   const [fullName, setFullName] = useState('')
-  const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState('')
   const [source, setSource] = useState('')
-  const [notes, setNotes] = useState('')
   const [stageId, setStageId] = useState(stages[0]?.id || '')
+  const [nextFollowUpAt, setNextFollowUpAt] = useState('')
+  const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     if (isOpen && stages.length > 0) {
       setStageId(stages[0].id)
+      // Default: mañana
+      const tomorrow = addDaysYmd(todayLocalYmd(), 1)
+      setNextFollowUpAt(tomorrow)
     }
   }, [isOpen, stages])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!fullName.trim()) {
-      setError('El nombre completo es requerido')
+      setError('El nombre es requerido')
+      return
+    }
+    if (!source) {
+      setError('La fuente es requerida')
       return
     }
 
@@ -49,11 +64,10 @@ export function LeadCreateModal({
     try {
       await onSubmit({
         full_name: fullName.trim(),
-        phone: phone.trim() || undefined,
-        email: email.trim() || undefined,
-        source: source.trim() || undefined,
+        source: source,
         notes: notes.trim() || undefined,
         stage_id: stageId,
+        next_follow_up_at: nextFollowUpAt || undefined,
       })
       handleClose()
     } catch (err: any) {
@@ -65,8 +79,6 @@ export function LeadCreateModal({
 
   const handleClose = () => {
     setFullName('')
-    setPhone('')
-    setEmail('')
     setSource('')
     setNotes('')
     setError(null)
@@ -77,185 +89,136 @@ export function LeadCreateModal({
 
   return (
     <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000,
-        padding: '20px',
-      }}
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       onClick={handleClose}
     >
       <div
-        className="card"
-        style={{
-          width: '100%',
-          maxWidth: '500px',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-        }}
+        className="card w-full max-w-md max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="row space-between" style={{ marginBottom: '20px' }}>
-          <h2 className="title" style={{ fontSize: '20px' }}>Nuevo lead</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Nuevo lead</h2>
           <button
             onClick={handleClose}
-            className="btn btn-ghost"
-            style={{ padding: '4px 8px' }}
+            className="btn btn-ghost text-sm px-2 py-1"
           >
             ×
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <label
-                htmlFor="full_name"
-                style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}
-              >
-                Nombre completo *
-              </label>
-              <input
-                id="full_name"
-                type="text"
-                value={fullName}
-                onChange={(e) => setFullName(e.target.value)}
-                required
-                disabled={loading}
-                style={{ width: '100%' }}
-              />
-            </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Nombre */}
+          <div>
+            <label htmlFor="full_name" className="block text-sm font-medium text-muted mb-1">
+              Nombre *
+            </label>
+            <input
+              id="full_name"
+              type="text"
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+              required
+              disabled={loading}
+              className="w-full px-3 py-2 text-sm border border-border rounded bg-bg text-text"
+              placeholder="Nombre completo"
+            />
+          </div>
 
-            <div>
-              <label
-                htmlFor="phone"
-                style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}
-              >
-                Teléfono
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                disabled={loading}
-                style={{ width: '100%' }}
-              />
-            </div>
+          {/* Fuente */}
+          <div>
+            <label htmlFor="source" className="block text-sm font-medium text-muted mb-1">
+              Fuente *
+            </label>
+            <select
+              id="source"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              required
+              disabled={loading}
+              className="w-full px-3 py-2 text-sm border border-border rounded bg-bg text-text"
+            >
+              <option value="">Seleccionar fuente</option>
+              {SOURCE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div>
-              <label
-                htmlFor="email"
-                style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}
-              >
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-                style={{ width: '100%' }}
-              />
-            </div>
+          {/* Etapa */}
+          <div>
+            <label htmlFor="stage_id" className="block text-sm font-medium text-muted mb-1">
+              Etapa
+            </label>
+            <select
+              id="stage_id"
+              value={stageId}
+              onChange={(e) => setStageId(e.target.value)}
+              disabled={loading}
+              className="w-full px-3 py-2 text-sm border border-border rounded bg-bg text-text"
+            >
+              {stages.map((stage) => (
+                <option key={stage.id} value={stage.id}>
+                  {stage.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-            <div>
-              <label
-                htmlFor="source"
-                style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}
-              >
-                Fuente
-              </label>
-              <input
-                id="source"
-                type="text"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                disabled={loading}
-                style={{ width: '100%' }}
-              />
-            </div>
+          {/* Próximo seguimiento */}
+          <div>
+            <label htmlFor="next_follow_up_at" className="block text-sm font-medium text-muted mb-1">
+              Próximo seguimiento
+            </label>
+            <input
+              id="next_follow_up_at"
+              type="date"
+              value={nextFollowUpAt}
+              onChange={(e) => setNextFollowUpAt(e.target.value)}
+              disabled={loading}
+              className="w-full px-3 py-2 text-sm border border-border rounded bg-bg text-text"
+            />
+          </div>
 
-            <div>
-              <label
-                htmlFor="notes"
-                style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}
-              >
-                Notas
-              </label>
-              <textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                disabled={loading}
-                rows={4}
-                style={{
-                  width: '100%',
-                  fontFamily: 'inherit',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                }}
-              />
-            </div>
+          {/* Nota rápida */}
+          <div>
+            <label htmlFor="notes" className="block text-sm font-medium text-muted mb-1">
+              Nota rápida (opcional)
+            </label>
+            <textarea
+              id="notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              disabled={loading}
+              rows={2}
+              className="w-full px-3 py-2 text-sm border border-border rounded bg-bg text-text resize-none"
+              placeholder="Nota breve..."
+            />
+          </div>
 
-            <div>
-              <label
-                htmlFor="stage_id"
-                style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: '500' }}
-              >
-                Etapa
-              </label>
-              <select
-                id="stage_id"
-                value={stageId}
-                onChange={(e) => setStageId(e.target.value)}
-                disabled={loading}
-                style={{
-                  width: '100%',
-                  fontFamily: 'inherit',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                }}
-              >
-                {stages.map((stage) => (
-                  <option key={stage.id} value={stage.id}>
-                    {stage.name}
-                  </option>
-                ))}
-              </select>
+          {error && (
+            <div className="card p-3 bg-red-50 border border-red-200">
+              <p className="text-sm text-red-700">{error}</p>
             </div>
+          )}
 
-            {error && (
-              <div className="error-box">{error}</div>
-            )}
-
-            <div className="row" style={{ gap: '8px', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={handleClose}
-                disabled={loading}
-                className="btn btn-ghost"
-              >
-                Cancelar
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="btn btn-primary"
-              >
-                {loading ? 'Creando...' : 'Crear'}
-              </button>
-            </div>
+          <div className="flex gap-2 justify-end">
+            <button
+              type="button"
+              onClick={handleClose}
+              disabled={loading}
+              className="btn btn-ghost text-sm"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn btn-primary text-sm"
+            >
+              {loading ? 'Creando...' : 'Crear'}
+            </button>
           </div>
         </form>
       </div>

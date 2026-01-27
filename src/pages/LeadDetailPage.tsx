@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { pipelineApi } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
+import { todayLocalYmd, addDaysYmd } from '../shared/utils/dates'
 
 type LeadData = {
   id: string
@@ -15,7 +16,16 @@ type LeadData = {
   stage_changed_at: string | null
   created_at: string
   updated_at: string
+  last_contact_at: string | null
+  next_follow_up_at: string | null
 }
+
+const SOURCE_OPTIONS = [
+  { value: 'Referido', label: 'Referido' },
+  { value: 'Mercado natural', label: 'Mercado natural' },
+  { value: 'Frío', label: 'Frío' },
+  { value: 'Social media', label: 'Social media' },
+] as const
 
 type Stage = {
   id: string
@@ -49,6 +59,7 @@ function isValidEmail(email: string): boolean {
 export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
 
   const [lead, setLead] = useState<LeadData | null>(null)
   const [stages, setStages] = useState<Stage[]>([])
@@ -62,6 +73,8 @@ export function LeadDetailPage() {
   const [email, setEmail] = useState('')
   const [source, setSource] = useState('')
   const [notes, setNotes] = useState('')
+  const [lastContactAt, setLastContactAt] = useState('')
+  const [nextFollowUpAt, setNextFollowUpAt] = useState('')
 
   // Stage change state
   const [selectedStageId, setSelectedStageId] = useState<string>('')
@@ -69,6 +82,7 @@ export function LeadDetailPage() {
   // Action states
   const [saving, setSaving] = useState(false)
   const [moving, setMoving] = useState(false)
+  const [markingContact, setMarkingContact] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [moveMessage, setMoveMessage] = useState<string | null>(null)
 
@@ -87,6 +101,8 @@ export function LeadDetailPage() {
       setSource(lead.source || '')
       setNotes(lead.notes || '')
       setSelectedStageId(lead.stage_id)
+      setLastContactAt(lead.last_contact_at ? lead.last_contact_at.split('T')[0] : '')
+      setNextFollowUpAt(lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : '')
     }
   }, [lead])
 
@@ -102,7 +118,7 @@ export function LeadDetailPage() {
         supabase
           .from('leads')
           .select(
-            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at'
+            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at'
           )
           .eq('id', id)
           .single(),
@@ -134,12 +150,16 @@ export function LeadDetailPage() {
 
   const hasChanges = (): boolean => {
     if (!lead) return false
+    const leadLastContact = lead.last_contact_at ? lead.last_contact_at.split('T')[0] : ''
+    const leadNextFollowUp = lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : ''
     return (
       fullName !== (lead.full_name || '') ||
       phone !== (lead.phone || '') ||
       email !== (lead.email || '') ||
       source !== (lead.source || '') ||
-      notes !== (lead.notes || '')
+      notes !== (lead.notes || '') ||
+      lastContactAt !== leadLastContact ||
+      nextFollowUpAt !== leadNextFollowUp
     )
   }
 
@@ -162,18 +182,15 @@ export function LeadDetailPage() {
     setSaveMessage(null)
 
     try {
-      const { error: updateError } = await supabase
-        .from('leads')
-        .update({
-          full_name: fullName.trim(),
-          phone: phone.trim() || null,
-          email: email.trim() || null,
-          source: source.trim() || null,
-          notes: notes.trim() || null,
-        })
-        .eq('id', id)
-
-      if (updateError) throw updateError
+      await pipelineApi.updateLead(id, {
+        full_name: fullName.trim(),
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        source: source.trim() || null,
+        notes: notes.trim() || null,
+        last_contact_at: lastContactAt || null,
+        next_follow_up_at: nextFollowUpAt || null,
+      })
 
       // Refetch lead
       await loadData()
@@ -184,6 +201,33 @@ export function LeadDetailPage() {
       setError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleMarkContact = async () => {
+    if (!id) return
+
+    setMarkingContact(true)
+    setError(null)
+
+    try {
+      const today = todayLocalYmd()
+      const nextFollowUp = addDaysYmd(today, 2) // +2 días por defecto
+
+      await pipelineApi.updateLead(id, {
+        last_contact_at: today,
+        next_follow_up_at: nextFollowUp,
+      })
+
+      // Refetch lead
+      await loadData()
+
+      setSaveMessage('Contacto registrado ✅')
+      setTimeout(() => setSaveMessage(null), 2000)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Error al registrar contacto')
+    } finally {
+      setMarkingContact(false)
     }
   }
 
@@ -310,12 +354,27 @@ export function LeadDetailPage() {
           gap: '12px',
         }}
       >
-        <h2 className="title" style={{ margin: 0, fontSize: '18px' }}>
-          {lead.full_name || 'Lead sin nombre'}
-        </h2>
+        <div>
+          <h2 className="title" style={{ margin: '0 0 8px 0', fontSize: '18px' }}>
+            {lead.full_name || 'Lead sin nombre'}
+          </h2>
+          <div className="flex gap-2 flex-wrap">
+            {lead.source && (
+              <span className="px-2 py-1 text-xs bg-black/5 rounded">{lead.source}</span>
+            )}
+            {currentStage && (
+              <span className="px-2 py-1 text-xs bg-black/5 rounded">{currentStage.name}</span>
+            )}
+          </div>
+        </div>
         <div className="row" style={{ gap: '8px', flexWrap: 'wrap' }}>
           <button
-            onClick={() => navigate(`/pipeline?lead=${lead.id}`)}
+            onClick={() => {
+              const pipelineUrl = searchParams.get('weekStart')
+                ? `/pipeline?lead=${lead.id}&weekStart=${searchParams.get('weekStart')}`
+                : `/pipeline?lead=${lead.id}`
+              navigate(pipelineUrl)
+            }}
             className="btn btn-ghost"
             style={{ fontSize: '13px' }}
           >
@@ -454,14 +513,26 @@ export function LeadDetailPage() {
             >
               Fuente
             </label>
-            <input
+            <select
               id="source"
-              type="text"
               value={source}
               onChange={(e) => setSource(e.target.value)}
               disabled={saving}
-              style={{ width: '100%' }}
-            />
+              style={{
+                width: '100%',
+                fontFamily: 'inherit',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+              }}
+            >
+              <option value="">Seleccionar fuente</option>
+              {SOURCE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -492,16 +563,6 @@ export function LeadDetailPage() {
             />
           </div>
 
-          <div className="row" style={{ gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-            <button
-              onClick={handleSave}
-              disabled={!hasChanges() || saving}
-              className="btn btn-primary"
-              style={{ fontSize: '13px' }}
-            >
-              {saving ? 'Guardando...' : 'Guardar cambios'}
-            </button>
-          </div>
         </div>
       </div>
 
@@ -580,6 +641,90 @@ export function LeadDetailPage() {
               style={{ fontSize: '13px' }}
             >
               {moving ? 'Moviendo...' : 'Mover etapa'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Seguimiento Section */}
+      <div className="card" style={{ marginBottom: '20px', padding: '16px' }}>
+        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
+          Seguimiento
+        </h3>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+          <div>
+            <label
+              htmlFor="last_contact_at"
+              style={{
+                display: 'block',
+                marginBottom: '4px',
+                fontSize: '14px',
+                fontWeight: '500',
+              }}
+            >
+              Último contacto
+            </label>
+            <input
+              id="last_contact_at"
+              type="date"
+              value={lastContactAt}
+              onChange={(e) => setLastContactAt(e.target.value)}
+              disabled={saving}
+              style={{
+                width: '100%',
+                fontFamily: 'inherit',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+              }}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="next_follow_up_at"
+              style={{
+                display: 'block',
+                marginBottom: '4px',
+                fontSize: '14px',
+                fontWeight: '500',
+              }}
+            >
+              Próximo seguimiento
+            </label>
+            <input
+              id="next_follow_up_at"
+              type="date"
+              value={nextFollowUpAt}
+              onChange={(e) => setNextFollowUpAt(e.target.value)}
+              disabled={saving}
+              style={{
+                width: '100%',
+                fontFamily: 'inherit',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+              }}
+            />
+          </div>
+
+          <div className="row" style={{ gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <button
+              onClick={handleMarkContact}
+              disabled={markingContact || saving}
+              className="btn btn-primary"
+              style={{ fontSize: '13px' }}
+            >
+              {markingContact ? 'Registrando...' : 'Marcar contacto hoy'}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!hasChanges() || saving || markingContact}
+              className="btn btn-primary"
+              style={{ fontSize: '13px' }}
+            >
+              {saving ? 'Guardando...' : 'Guardar cambios'}
             </button>
           </div>
         </div>

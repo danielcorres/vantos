@@ -19,12 +19,9 @@ export type Lead = {
   stage_changed_at: string
   created_at: string
   updated_at: string
-  // SLA fields (may come from view or be null)
-  sla_status?: 'breach' | 'warn' | 'ok' | 'none' | null
-  sla_due_at?: string | null
-  sla_days_left?: number | null
-  sla_days_remaining?: number | null
-  days_in_stage?: number | null
+  // Seguimiento fields
+  last_contact_at: string | null
+  next_follow_up_at: string | null
 }
 
 export type CreateLeadInput = {
@@ -34,6 +31,7 @@ export type CreateLeadInput = {
   source?: string
   notes?: string
   stage_id: string
+  next_follow_up_at?: string
 }
 
 export const pipelineApi = {
@@ -59,16 +57,11 @@ export const pipelineApi = {
 
     if (error) throw error
     
-    // Normalize and extend with SLA fields (adapter: set to null if not in response)
-    // These fields may come from v_lead_sla_alerts view in the future
+    // Normalize and extend with seguimiento fields
     return (data || []).map((lead) => ({
       ...lead,
-      // Adapter: Extract SLA fields if they exist in response, otherwise null
-      sla_status: (lead as Record<string, unknown>).sla_status as Lead['sla_status'] ?? null,
-      sla_due_at: ((lead as Record<string, unknown>).sla_due_at as string | null) ?? null,
-      sla_days_left: ((lead as Record<string, unknown>).sla_days_left as number | null) ?? null,
-      sla_days_remaining: ((lead as Record<string, unknown>).sla_days_remaining as number | null) ?? null,
-      days_in_stage: ((lead as Record<string, unknown>).days_in_stage as number | null) ?? null,
+      last_contact_at: ((lead as Record<string, unknown>).last_contact_at as string | null) ?? null,
+      next_follow_up_at: ((lead as Record<string, unknown>).next_follow_up_at as string | null) ?? null,
     }))
   },
 
@@ -82,12 +75,42 @@ export const pipelineApi = {
         source: input.source || null,
         notes: input.notes || null,
         stage_id: input.stage_id,
+        next_follow_up_at: input.next_follow_up_at || null,
       })
       .select()
       .single()
 
     if (error) throw error
-    return data
+    return {
+      ...data,
+      last_contact_at: data.last_contact_at ?? null,
+      next_follow_up_at: data.next_follow_up_at ?? null,
+    }
+  },
+
+  async updateLead(leadId: string, updates: {
+    full_name?: string
+    phone?: string | null
+    email?: string | null
+    source?: string | null
+    notes?: string | null
+    stage_id?: string
+    last_contact_at?: string | null
+    next_follow_up_at?: string | null
+  }): Promise<Lead> {
+    const { data, error } = await supabase
+      .from('leads')
+      .update(updates)
+      .eq('id', leadId)
+      .select()
+      .single()
+
+    if (error) throw error
+    return {
+      ...data,
+      last_contact_at: data.last_contact_at ?? null,
+      next_follow_up_at: data.next_follow_up_at ?? null,
+    }
   },
 
   async moveLeadStage(

@@ -1,18 +1,15 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '../lib/supabaseClient'
-import { pipelineApi } from '../features/pipeline/pipeline.api'
+import { pipelineApi, type Lead } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
 import { LeadCreateModal } from '../features/pipeline/components/LeadCreateModal'
 import { Toast } from '../shared/components/Toast'
+import { todayLocalYmd, addDaysYmd } from '../shared/utils/dates'
 
 type Stage = {
   id: string
   name: string
   position: number
-  sla_enabled: boolean | null
-  sla_days: number | null
-  sla_warn_days: number | null
 }
 
 // Helper: Convert Stage to PipelineStage for LeadCreateModal
@@ -25,159 +22,86 @@ function stageToPipelineStage(stage: Stage): { id: string; name: string; positio
   }
 }
 
-// Board row type from get_pipeline_board() RPC
-type BoardRow = {
-  lead_id: string
-  lead_name: string | null
-  stage_id: string
-  stage_name: string | null
-  entered_at: string | null
-  sla_enabled: boolean
-  sla_days: number | null
-  sla_warn_days: number | null
-  sla_due_at: string | null
-  sla_days_left: number | null
-  sla_state: 'overdue' | 'warn' | 'ok' | null
-  sla_priority: number | null
-}
-
-// Lead type for internal use (normalized from BoardRow)
-type Lead = {
-  id: string
-  name: string
-  stage_id: string
-  stage_name: string | null
-  entered_at: string | null
-  sla_state: 'overdue' | 'warn' | 'ok' | null
-  sla_due_at: string | null
-  sla_days_left: number | null
-  sla_priority: number | null
-}
-
-type ColumnCounts = {
-  overdue: number
-  warn: number
-  ok: number
-  none: number
-  total: number
-}
-
-// Helper: Format date to human readable
+// Helper: Format date to human readable (ej: "Hoy", "Ayer", "26 ene")
 function formatHumanDate(dateString: string | null | undefined): string {
   if (!dateString) return ''
   try {
     const date = new Date(dateString)
-    const now = new Date()
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-    const diffDays = Math.floor((today.getTime() - dateOnly.getTime()) / (1000 * 60 * 60 * 24))
-
-    if (diffDays === 0) return 'Hoy'
-    if (diffDays === 1) return 'Ayer'
-    if (diffDays > 1 && diffDays <= 7) return `Hace ${diffDays} días`
-    return date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' })
+    const today = todayLocalYmd()
+    const dateYmd = date.toISOString().split('T')[0]
+    
+    if (dateYmd === today) return 'Hoy'
+    
+    const yesterday = addDaysYmd(today, -1)
+    if (dateYmd === yesterday) return 'Ayer'
+    
+    // Formato: "26 ene"
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+    const day = date.getDate()
+    const month = months[date.getMonth()]
+    return `${day} ${month}`
   } catch {
     return ''
   }
 }
 
-// Helper: Get SLA status from lead
-function getSlaState(lead: Lead): 'overdue' | 'warn' | 'ok' | null {
-  return lead.sla_state || null
+// Helper: Get follow-up status from next_follow_up_at
+function getFollowUpStatus(nextFollowUpAt: string | null | undefined): 'overdue' | 'today' | 'future' | 'none' {
+  if (!nextFollowUpAt) return 'none'
+  
+  const today = todayLocalYmd()
+  const followUpYmd = nextFollowUpAt.split('T')[0]
+  
+  if (followUpYmd < today) return 'overdue'
+  if (followUpYmd === today) return 'today'
+  return 'future'
 }
 
-// Helper: Get SLA rank for sorting (lower = higher priority)
-function getSlaRank(state: ReturnType<typeof getSlaState>): number {
-  const rankMap: Record<string, number> = {
-    overdue: 0,
-    warn: 1,
-    ok: 2,
-  }
-  return rankMap[state || 'none'] ?? 3
+// Helper: Get follow-up status class
+function getFollowUpStatusClass(status: ReturnType<typeof getFollowUpStatus>): string {
+  if (status === 'overdue') return 'text-red-700 bg-red-50'
+  if (status === 'today') return 'text-amber-700 bg-amber-50'
+  return 'text-muted'
 }
 
-// Helper: Get SLA badge class
-function getSlaBadgeClass(status: Lead['sla_state']): string {
-  if (status === 'overdue') return 'badge badge-overdue'
-  if (status === 'warn') return 'badge badge-warn'
-  if (status === 'ok') return 'badge badge-ok'
-  return 'badge badge-none'
+// Helper: Get follow-up status label
+function getFollowUpStatusLabel(status: ReturnType<typeof getFollowUpStatus>): string {
+  if (status === 'overdue') return 'Seguimiento vencido'
+  if (status === 'today') return 'Seguimiento hoy'
+  if (status === 'future') return 'En tiempo'
+  return 'Sin fecha'
 }
 
-// Helper: Get SLA badge label
-function getSlaBadgeLabel(status: Lead['sla_state']): string {
-  if (!status) return 'Sin SLA'
-  if (status === 'overdue') return 'Vencido'
-  if (status === 'warn') return 'Por vencer'
-  if (status === 'ok') return 'En tiempo'
-  return 'Sin SLA'
-}
-
-// Helper: Get SLA border color
-function getSlaBorderClass(status: Lead['sla_state']): string {
-  if (status === 'overdue') return 'border-l-[3px] border-l-danger'
-  if (status === 'warn') return 'border-l-[3px] border-l-warning'
-  if (status === 'ok') return 'border-l-[3px] border-l-success'
-  return 'border-l-[3px] border-l-border'
-}
-
-// Helper: Aggregate counts for a column
-function aggregateCounts(leads: Lead[]): ColumnCounts {
-  return leads.reduce<ColumnCounts>(
-    (acc, lead) => {
-      const state = getSlaState(lead)
-      if (state === 'overdue') acc.overdue++
-      else if (state === 'warn') acc.warn++
-      else if (state === 'ok') acc.ok++
-      else acc.none++
-      acc.total++
-      return acc
-    },
-    { overdue: 0, warn: 0, ok: 0, none: 0, total: 0 }
-  )
-}
-
-// Helper: Sort leads by SLA priority
-function sortLeadsBySla(leads: Lead[]): Lead[] {
+// Helper: Sort leads by follow-up priority
+function sortLeadsByFollowUp(leads: Lead[]): Lead[] {
   return [...leads].sort((a, b) => {
-    const aState = getSlaState(a)
-    const bState = getSlaState(b)
-    const aRank = getSlaRank(aState)
-    const bRank = getSlaRank(bState)
-
-    if (aRank !== bRank) {
-      return aRank - bRank
+    const aStatus = getFollowUpStatus(a.next_follow_up_at)
+    const bStatus = getFollowUpStatus(b.next_follow_up_at)
+    
+    // Priority: overdue > today > future > none
+    const statusOrder: Record<string, number> = {
+      overdue: 0,
+      today: 1,
+      future: 2,
+      none: 3,
     }
-
-    // Same rank: use sla_priority if available
-    const aPriority = a.sla_priority ?? 9999
-    const bPriority = b.sla_priority ?? 9999
-    if (aPriority !== bPriority) {
-      return aPriority - bPriority
+    
+    const aOrder = statusOrder[aStatus] ?? 3
+    const bOrder = statusOrder[bStatus] ?? 3
+    
+    if (aOrder !== bOrder) {
+      return aOrder - bOrder
     }
-
-    // Same priority: use sla_due_at (earlier first)
-    const aDueAt = a.sla_due_at
-    const bDueAt = b.sla_due_at
-    if (aDueAt && bDueAt) {
-      return new Date(aDueAt).getTime() - new Date(bDueAt).getTime()
+    
+    // Same status: sort by next_follow_up_at (earlier first)
+    if (a.next_follow_up_at && b.next_follow_up_at) {
+      return new Date(a.next_follow_up_at).getTime() - new Date(b.next_follow_up_at).getTime()
     }
-    if (aDueAt) return -1
-    if (bDueAt) return 1
-
-    // Fallback: use entered_at
-    const aEntered = a.entered_at
-    const bEntered = b.entered_at
-    if (aEntered && bEntered) {
-      return new Date(aEntered).getTime() - new Date(bEntered).getTime()
-    }
-    if (aEntered) return -1
-    if (bEntered) return 1
-
-    // Final tiebreaker: name
-    const aName = (a.name || '').toLowerCase()
-    const bName = (b.name || '').toLowerCase()
-    return aName.localeCompare(bName)
+    if (a.next_follow_up_at) return -1
+    if (b.next_follow_up_at) return 1
+    
+    // Fallback: by name
+    return (a.full_name || '').localeCompare(b.full_name || '')
   })
 }
 
@@ -189,8 +113,9 @@ export function PipelinePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
+  const [selectedStageFilter, setSelectedStageFilter] = useState<string | null>(null)
   
-  // Drag & drop state
+  // Drag & drop state (desktop only)
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
   const [draggedOverStageId, setDraggedOverStageId] = useState<string | null>(null)
   const [movingLeadId, setMovingLeadId] = useState<string | null>(null)
@@ -204,6 +129,18 @@ export function PipelinePage() {
 
   // Create lead modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+
+  // Mobile detection
+  const [isMobile, setIsMobile] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     loadData()
@@ -224,65 +161,32 @@ export function PipelinePage() {
     }
   }, [searchParams])
 
-  const loadData = async (loadStages = true) => {
-    if (loadStages) {
-      setLoading(true)
-    }
+  const loadData = async () => {
+    setLoading(true)
     setError(null)
     try {
-      if (loadStages) {
-        const stagesData = await supabase
-          .from('pipeline_stages')
-          .select('id, name, position, sla_enabled, sla_days, sla_warn_days')
-          .order('position', { ascending: true })
-        
-        if (stagesData.error) throw stagesData.error
-        setStages(
-          (stagesData.data || []).map((s) => ({
-            ...s,
-            sla_enabled: s.sla_enabled ?? false,
-          }))
-        )
-      }
+      const [stagesData, leadsData] = await Promise.all([
+        pipelineApi.getStages(),
+        pipelineApi.getLeads(),
+      ])
 
-      // Fetch leads from RPC get_pipeline_board()
-      const { data: boardData, error: boardError } = await supabase.rpc(
-        'get_pipeline_board'
-      )
+      setStages(stagesData.map((s) => ({
+        id: s.id,
+        name: s.name,
+        position: s.position,
+      })))
 
-      if (boardError) throw boardError
-
-      // Normalize board rows to Lead type
-      setLeads(
-        (boardData || []).map((row: BoardRow) => {
-          const displayName =
-            row.lead_name || `Lead ${row.lead_id.slice(0, 8)}...`
-
-          return {
-            id: row.lead_id,
-            name: displayName,
-            stage_id: row.stage_id,
-            stage_name: row.stage_name,
-            entered_at: row.entered_at,
-            sla_state: row.sla_state || null,
-            sla_due_at: row.sla_due_at || null,
-            sla_days_left: row.sla_days_left || null,
-            sla_priority: row.sla_priority || null,
-          }
-        })
-      )
+      setLeads(leadsData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar datos')
     } finally {
-      if (loadStages) {
-        setLoading(false)
-      }
+      setLoading(false)
     }
   }
 
-  // Drag & drop handlers
+  // Drag & drop handlers (desktop only)
   const handleDragStart = (e: React.DragEvent, lead: Lead) => {
-    if (movingLeadId === lead.id) {
+    if (isMobile || movingLeadId === lead.id) {
       e.preventDefault()
       return
     }
@@ -292,6 +196,7 @@ export function PipelinePage() {
   }
 
   const handleDragOver = (e: React.DragEvent, stageId: string) => {
+    if (isMobile) return
     e.preventDefault()
     e.stopPropagation()
     if (draggedLead && draggedLead.stage_id !== stageId) {
@@ -301,12 +206,14 @@ export function PipelinePage() {
   }
 
   const handleDragLeave = (e: React.DragEvent) => {
+    if (isMobile) return
     e.preventDefault()
     e.stopPropagation()
     setDraggedOverStageId(null)
   }
 
   const handleDrop = async (e: React.DragEvent, toStageId: string) => {
+    if (isMobile) return
     e.preventDefault()
     e.stopPropagation()
     setDraggedOverStageId(null)
@@ -346,7 +253,7 @@ export function PipelinePage() {
 
       await pipelineApi.moveLeadStage(draggedLead.id, toStageId, idempotencyKey)
 
-      await loadData(false)
+      await loadData()
       setToast({ type: 'success', message: 'Etapa actualizada ✅' })
     } catch (err) {
       setLeads(previousLeads)
@@ -375,7 +282,7 @@ export function PipelinePage() {
 
       await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
 
-      await loadData(false)
+      await loadData()
       setToast({ type: 'success', message: 'Etapa actualizada ✅' })
     } catch (err) {
       setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al mover lead' })
@@ -392,36 +299,44 @@ export function PipelinePage() {
     source?: string
     notes?: string
     stage_id: string
+    next_follow_up_at?: string
   }) => {
     const newLead = await pipelineApi.createLead(data)
     setIsCreateModalOpen(false)
     navigate(`/leads/${newLead.id}`)
   }
 
+
   // Group leads by stage and sort
   const leadsByStage = useMemo(() => {
     const grouped = new Map<string, Lead[]>()
     stages.forEach((stage) => {
       const stageLeads = leads.filter((lead) => lead.stage_id === stage.id)
-      grouped.set(stage.id, sortLeadsBySla(stageLeads))
+      grouped.set(stage.id, sortLeadsByFollowUp(stageLeads))
     })
     return grouped
   }, [stages, leads])
 
+  // Filtered leads for mobile list view
+  const filteredLeads = useMemo(() => {
+    let filtered = leads
+    if (selectedStageFilter) {
+      filtered = filtered.filter((lead) => lead.stage_id === selectedStageFilter)
+    }
+    return sortLeadsByFollowUp(filtered)
+  }, [leads, selectedStageFilter])
+
   if (loading) {
     return (
-      <div>
-        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-          <h2 className="text-xl font-semibold m-0">Pipeline</h2>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
+            <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
+          </div>
         </div>
-        <div className="flex gap-3 overflow-x-auto pb-4">
-          {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="card flex-shrink-0"
-              style={{ width: '260px', height: '400px', background: 'var(--bg)' }}
-            />
-          ))}
+        <div className="text-center p-8">
+          <span className="text-muted">Cargando...</span>
         </div>
       </div>
     )
@@ -429,13 +344,16 @@ export function PipelinePage() {
 
   if (error) {
     return (
-      <div>
-        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-          <h2 className="text-xl font-semibold m-0">Pipeline</h2>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
+            <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
+          </div>
         </div>
-        <div className="error-box">
-          <p style={{ margin: '0 0 12px 0' }}>{error}</p>
-          <button onClick={() => loadData()} className="btn btn-primary">
+        <div className="card p-4 bg-red-50 border border-red-200">
+          <p className="text-sm text-red-700 mb-3">{error}</p>
+          <button onClick={() => loadData()} className="btn btn-primary text-sm">
             Reintentar
           </button>
         </div>
@@ -445,23 +363,18 @@ export function PipelinePage() {
 
   if (leads.length === 0) {
     return (
-      <div>
-        <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-          <h2 className="text-xl font-semibold m-0">Pipeline</h2>
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setIsCreateModalOpen(true)}
-              className="btn btn-primary text-sm"
-            >
-              Nuevo lead
-            </button>
-            <button
-              onClick={() => navigate('/pipeline/settings')}
-              className="btn btn-ghost text-sm"
-            >
-              Configurar SLA
-            </button>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
+            <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
           </div>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="btn btn-primary text-sm"
+          >
+            + Nuevo lead
+          </button>
         </div>
         <div className="card text-center p-12">
           <p className="mb-4 text-base">Aún no hay leads en el pipeline.</p>
@@ -470,7 +383,7 @@ export function PipelinePage() {
             onClick={() => setIsCreateModalOpen(true)}
             className="btn btn-primary"
           >
-            Nuevo lead
+            + Nuevo lead
           </button>
         </div>
         <LeadCreateModal
@@ -484,16 +397,19 @@ export function PipelinePage() {
   }
 
   return (
-    <div>
+    <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-        <h2 className="text-xl font-semibold m-0">Pipeline</h2>
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
+          <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
+        </div>
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => setIsCreateModalOpen(true)}
             className="btn btn-primary text-sm"
           >
-            Nuevo lead
+            + Nuevo lead
           </button>
           <button
             onClick={() => navigate('/focus')}
@@ -501,174 +417,258 @@ export function PipelinePage() {
           >
             Qué hacer hoy
           </button>
-          <button
-            onClick={() => navigate('/pipeline/settings')}
-            className="btn btn-ghost text-sm"
-          >
-            Configurar SLA
-          </button>
         </div>
       </div>
 
-      {/* Kanban Board */}
-      <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-thin">
-        {stages.map((stage) => {
-          const stageLeads = leadsByStage.get(stage.id) || []
-          const counts = aggregateCounts(stageLeads)
-          const isDragOver = draggedOverStageId === stage.id
-
-          return (
-            <div
-              key={stage.id}
-              className="card flex-shrink-0 flex flex-col"
-              style={{
-                width: '260px',
-                maxHeight: 'calc(100vh - 180px)',
-                border: isDragOver ? '2px solid var(--text)' : undefined,
-                transition: 'all 0.2s',
-                padding: '10px',
-              }}
-              onDragOver={(e) => handleDragOver(e, stage.id)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, stage.id)}
+      {/* Mobile: List view with stage filters */}
+      {isMobile ? (
+        <div className="space-y-4">
+          {/* Stage filters */}
+          <div className="flex gap-2 overflow-x-auto pb-2">
+            <button
+              onClick={() => setSelectedStageFilter(null)}
+              className={`px-3 py-1.5 text-xs rounded whitespace-nowrap ${
+                selectedStageFilter === null
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-bg border border-border text-text'
+              }`}
             >
-              {/* Column Header */}
-              <div className="mb-2 pb-2 border-b-2 border-border">
-                <div className="font-semibold text-sm mb-1.5">
-                  {stage.name}
-                </div>
-                <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
-                  <span className="text-muted">Total: {counts.total}</span>
-                  {counts.overdue > 0 && (
-                    <span className="badge badge-overdue text-[10px] px-1.5 py-0.5">
-                      {counts.overdue}
-                    </span>
-                  )}
-                  {counts.warn > 0 && (
-                    <span className="badge badge-warn text-[10px] px-1.5 py-0.5">
-                      {counts.warn}
-                    </span>
-                  )}
-                  {counts.ok > 0 && (
-                    <span className="badge badge-ok text-[10px] px-1.5 py-0.5">
-                      {counts.ok}
-                    </span>
-                  )}
-                </div>
-              </div>
+              Todos
+            </button>
+            {stages.map((stage) => (
+              <button
+                key={stage.id}
+                onClick={() => setSelectedStageFilter(stage.id)}
+                className={`px-3 py-1.5 text-xs rounded whitespace-nowrap ${
+                  selectedStageFilter === stage.id
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-bg border border-border text-text'
+                }`}
+              >
+                {stage.name}
+              </button>
+            ))}
+          </div>
 
-              {/* Leads List */}
-              <div className="flex-1 overflow-y-auto min-h-[150px]">
-                {stageLeads.length === 0 ? (
-                  <div className="text-center p-4 text-xs text-muted">
-                    Sin leads
+          {/* Leads list */}
+          <div className="space-y-2">
+            {filteredLeads.map((lead) => {
+              const isHighlighted = highlightLeadId === lead.id
+              const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
+              const stage = stages.find((s) => s.id === lead.stage_id)
+
+              return (
+                <div
+                  key={lead.id}
+                  ref={(el) => {
+                    if (el) {
+                      leadCardRefs.current.set(lead.id, el)
+                    } else {
+                      leadCardRefs.current.delete(lead.id)
+                    }
+                  }}
+                  className={`card p-3 ${
+                    isHighlighted ? 'ring-2 ring-primary' : ''
+                  }`}
+                  onClick={() => navigate(`/leads/${lead.id}`)}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-semibold text-sm mb-1">{lead.full_name}</div>
+                      <div className="flex items-center gap-2 flex-wrap text-xs text-muted">
+                        {lead.source && (
+                          <span className="px-2 py-0.5 bg-black/5 rounded">{lead.source}</span>
+                        )}
+                        {stage && (
+                          <span className="px-2 py-0.5 bg-black/5 rounded">{stage.name}</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  stageLeads.map((lead) => {
-                    const isHighlighted = highlightLeadId === lead.id
-                    const isMoving = movingLeadId === lead.id
-                    const isDragged = draggedLead?.id === lead.id
-                    const currentSelectedStage = selectedStageId[lead.id] || lead.stage_id || ''
+                  
+                  <div className="space-y-1 text-xs text-muted">
+                    {lead.last_contact_at && (
+                      <div>Último: {formatHumanDate(lead.last_contact_at)}</div>
+                    )}
+                    {lead.next_follow_up_at && (
+                      <div className={`px-2 py-1 rounded ${getFollowUpStatusClass(followUpStatus)}`}>
+                        Siguiente: {formatHumanDate(lead.next_follow_up_at)} · {getFollowUpStatusLabel(followUpStatus)}
+                      </div>
+                    )}
+                    {!lead.next_follow_up_at && (
+                      <div className="text-muted">Sin fecha de seguimiento</div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : (
+        /* Desktop: Kanban Board */
+        <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-thin">
+          {stages.map((stage) => {
+            const stageLeads = leadsByStage.get(stage.id) || []
+            const isDragOver = draggedOverStageId === stage.id
 
-                    return (
-                      <div
-                        key={lead.id}
-                        ref={(el) => {
-                          if (el) {
-                            leadCardRefs.current.set(lead.id, el)
-                          } else {
-                            leadCardRefs.current.delete(lead.id)
-                          }
-                        }}
-                        draggable={!isMoving}
-                        onDragStart={(e) => handleDragStart(e, lead)}
-                        className={`card mb-2 ${getSlaBorderClass(lead.sla_state)} ${
-                          isHighlighted ? 'ring-2 ring-primary' : ''
-                        }`}
-                        style={{
-                          padding: '8px',
-                          opacity: isMoving || isDragged ? 0.5 : 1,
-                          cursor: isMoving ? 'not-allowed' : 'grab',
-                          transition: 'all 0.2s',
-                          background: isHighlighted ? 'rgba(0, 0, 0, 0.02)' : 'var(--card)',
-                        }}
-                      >
-                        {/* Header compacto */}
-                        <div className="flex items-start justify-between gap-1.5 mb-1.5">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm leading-tight mb-0.5">
-                              {isMoving ? (
-                                <span className="text-xs text-muted">Moviendo...</span>
-                              ) : (
-                                lead.name
-                              )}
+            return (
+              <div
+                key={stage.id}
+                className="card flex-shrink-0 flex flex-col"
+                style={{
+                  width: '260px',
+                  maxHeight: 'calc(100vh - 180px)',
+                  border: isDragOver ? '2px solid var(--text)' : undefined,
+                  transition: 'all 0.2s',
+                  padding: '10px',
+                }}
+                onDragOver={(e) => handleDragOver(e, stage.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, stage.id)}
+              >
+                {/* Column Header */}
+                <div className="mb-2 pb-2 border-b-2 border-border">
+                  <div className="font-semibold text-sm mb-1.5">
+                    {stage.name}
+                  </div>
+                  <div className="text-xs text-muted">
+                    {stageLeads.length} {stageLeads.length === 1 ? 'lead' : 'leads'}
+                  </div>
+                </div>
+
+                {/* Leads List */}
+                <div className="flex-1 overflow-y-auto min-h-[150px]">
+                  {stageLeads.length === 0 ? (
+                    <div className="text-center p-4 text-xs text-muted">
+                      Sin leads
+                    </div>
+                  ) : (
+                    stageLeads.map((lead) => {
+                      const isHighlighted = highlightLeadId === lead.id
+                      const isMoving = movingLeadId === lead.id
+                      const isDragged = draggedLead?.id === lead.id
+                      const currentSelectedStage = selectedStageId[lead.id] || lead.stage_id || ''
+                      const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
+
+                      return (
+                        <div
+                          key={lead.id}
+                          ref={(el) => {
+                            if (el) {
+                              leadCardRefs.current.set(lead.id, el)
+                            } else {
+                              leadCardRefs.current.delete(lead.id)
+                            }
+                          }}
+                          draggable={!isMoving && !isMobile}
+                          onDragStart={(e) => handleDragStart(e, lead)}
+                          className={`card mb-2 ${
+                            followUpStatus === 'overdue' ? 'border-l-[3px] border-l-red-500' :
+                            followUpStatus === 'today' ? 'border-l-[3px] border-l-amber-500' :
+                            ''
+                          } ${
+                            isHighlighted ? 'ring-2 ring-primary' : ''
+                          }`}
+                          style={{
+                            padding: '8px',
+                            opacity: isMoving || isDragged ? 0.5 : 1,
+                            cursor: isMoving ? 'not-allowed' : isMobile ? 'pointer' : 'grab',
+                            transition: 'all 0.2s',
+                            background: isHighlighted ? 'rgba(0, 0, 0, 0.02)' : 'var(--card)',
+                          }}
+                          onClick={() => isMobile && navigate(`/leads/${lead.id}`)}
+                        >
+                          {/* Header */}
+                          <div className="flex items-start justify-between gap-1.5 mb-1.5">
+                            <div className="flex-1 min-w-0">
+                              <div className="font-semibold text-sm leading-tight mb-0.5">
+                                {isMoving ? (
+                                  <span className="text-xs text-muted">Moviendo...</span>
+                                ) : (
+                                  lead.full_name
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-muted">
+                                {lead.source && (
+                                  <span>{lead.source}</span>
+                                )}
+                              </div>
                             </div>
-                            {lead.entered_at && (
-                              <div className="text-[10px] text-muted">
-                                {formatHumanDate(lead.entered_at)}
+                          </div>
+
+                          {/* Seguimiento info */}
+                          <div className="space-y-1 mb-2 text-xs">
+                            {lead.last_contact_at && (
+                              <div className="text-muted">Último: {formatHumanDate(lead.last_contact_at)}</div>
+                            )}
+                            {lead.next_follow_up_at && (
+                              <div className={`px-1.5 py-0.5 rounded text-[10px] ${getFollowUpStatusClass(followUpStatus)}`}>
+                                Siguiente: {formatHumanDate(lead.next_follow_up_at)}
                               </div>
                             )}
                           </div>
+
+                          {/* Acciones */}
                           {!isMoving && (
-                            <div className={getSlaBadgeClass(lead.sla_state)}>
-                              {getSlaBadgeLabel(lead.sla_state)}
+                            <div className="flex items-center gap-1 flex-wrap">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  navigate(`/leads/${lead.id}`)
+                                }}
+                                className="btn btn-primary text-[10px] px-2 py-1 flex-1"
+                              >
+                                Abrir
+                              </button>
+                              {stages.length > 0 && (
+                                <>
+                                  <select
+                                    value={currentSelectedStage}
+                                    onChange={(e) =>
+                                      setSelectedStageId((prev) => ({
+                                        ...prev,
+                                        [lead.id]: e.target.value,
+                                      }))
+                                    }
+                                    disabled={isMoving}
+                                    className="select text-[10px] min-w-[80px] flex-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {stages.map((s) => (
+                                      <option key={s.id} value={s.id}>
+                                        {s.name}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleMoveStage(lead.id, lead)
+                                    }}
+                                    disabled={
+                                      isMoving ||
+                                      !currentSelectedStage ||
+                                      currentSelectedStage === lead.stage_id
+                                    }
+                                    className="btn btn-primary text-[10px] px-1.5 py-1"
+                                    title="Mover"
+                                  >
+                                    ✓
+                                  </button>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>
-
-                        {/* Acciones compactas */}
-                        {!isMoving && (
-                          <div className="flex items-center gap-1 flex-wrap">
-                            <button
-                              onClick={() => navigate(`/leads/${lead.id}`)}
-                              className="btn btn-primary text-[10px] px-2 py-1 flex-1"
-                            >
-                              Abrir
-                            </button>
-                            {stages.length > 0 && (
-                              <>
-                                <select
-                                  value={currentSelectedStage}
-                                  onChange={(e) =>
-                                    setSelectedStageId((prev) => ({
-                                      ...prev,
-                                      [lead.id]: e.target.value,
-                                    }))
-                                  }
-                                  disabled={isMoving}
-                                  className="select text-[10px] min-w-[80px] flex-1"
-                                >
-                                  {stages.map((s) => (
-                                    <option key={s.id} value={s.id}>
-                                      {s.name}
-                                    </option>
-                                  ))}
-                                </select>
-                                <button
-                                  onClick={() => handleMoveStage(lead.id, lead)}
-                                  disabled={
-                                    isMoving ||
-                                    !currentSelectedStage ||
-                                    currentSelectedStage === lead.stage_id
-                                  }
-                                  className="btn btn-primary text-[10px] px-1.5 py-1"
-                                  title="Mover"
-                                >
-                                  ✓
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })
-                )}
+                      )
+                    })
+                  )}
+                </div>
               </div>
-            </div>
-          )
-        })}
-      </div>
+            )
+          })}
+        </div>
+      )}
 
       {/* Create Lead Modal */}
       <LeadCreateModal
