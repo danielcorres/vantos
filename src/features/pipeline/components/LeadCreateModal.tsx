@@ -93,11 +93,11 @@ export function LeadCreateModal({
       onClick={handleClose}
     >
       <div
-        className="card w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="card w-full max-w-md max-h-[85vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold">Nuevo lead</h2>
+        <div className="flex items-center justify-between px-4 pt-4 pb-3 border-b border-border/50">
+          <h2 className="text-lg font-semibold">Nuevo lead</h2>
           <button
             onClick={handleClose}
             className="btn btn-ghost text-sm px-2 py-1"
@@ -106,10 +106,10 @@ export function LeadCreateModal({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="p-4 space-y-3">
           {/* Nombre */}
           <div>
-            <label htmlFor="full_name" className="block text-sm font-medium text-muted mb-1">
+            <label htmlFor="full_name" className="block text-xs font-medium text-muted mb-1">
               Nombre *
             </label>
             <input
@@ -119,14 +119,14 @@ export function LeadCreateModal({
               onChange={(e) => setFullName(e.target.value)}
               required
               disabled={loading}
-              className="w-full px-3 py-2 text-sm border border-border rounded bg-bg text-text"
+              className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
               placeholder="Nombre completo"
             />
           </div>
 
           {/* Fuente */}
           <div>
-            <label htmlFor="source" className="block text-sm font-medium text-muted mb-1">
+            <label htmlFor="source" className="block text-xs font-medium text-muted mb-1">
               Fuente *
             </label>
             <select
@@ -135,7 +135,7 @@ export function LeadCreateModal({
               onChange={(e) => setSource(e.target.value)}
               required
               disabled={loading}
-              className="w-full px-3 py-2 text-sm border border-border rounded bg-bg text-text"
+              className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
             >
               <option value="">Seleccionar fuente</option>
               {SOURCE_OPTIONS.map((opt) => (
@@ -148,7 +148,7 @@ export function LeadCreateModal({
 
           {/* Etapa */}
           <div>
-            <label htmlFor="stage_id" className="block text-sm font-medium text-muted mb-1">
+            <label htmlFor="stage_id" className="block text-xs font-medium text-muted mb-1">
               Etapa
             </label>
             <select
@@ -156,7 +156,7 @@ export function LeadCreateModal({
               value={stageId}
               onChange={(e) => setStageId(e.target.value)}
               disabled={loading}
-              className="w-full px-3 py-2 text-sm border border-border rounded bg-bg text-text"
+              className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
             >
               {stages.map((stage) => (
                 <option key={stage.id} value={stage.id}>
@@ -168,7 +168,7 @@ export function LeadCreateModal({
 
           {/* Próximo seguimiento */}
           <div>
-            <label htmlFor="next_follow_up_at" className="block text-sm font-medium text-muted mb-1">
+            <label htmlFor="next_follow_up_at" className="block text-xs font-medium text-muted mb-1">
               Próximo seguimiento
             </label>
             <input
@@ -177,13 +177,13 @@ export function LeadCreateModal({
               value={nextFollowUpAt}
               onChange={(e) => setNextFollowUpAt(e.target.value)}
               disabled={loading}
-              className="w-full px-3 py-2 text-sm border border-border rounded bg-bg text-text"
+              className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
             />
           </div>
 
           {/* Nota rápida */}
           <div>
-            <label htmlFor="notes" className="block text-sm font-medium text-muted mb-1">
+            <label htmlFor="notes" className="block text-xs font-medium text-muted mb-1">
               Nota rápida (opcional)
             </label>
             <textarea
@@ -192,30 +192,30 @@ export function LeadCreateModal({
               onChange={(e) => setNotes(e.target.value)}
               disabled={loading}
               rows={2}
-              className="w-full px-3 py-2 text-sm border border-border rounded bg-bg text-text resize-none"
+              className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text resize-none"
               placeholder="Nota breve..."
             />
           </div>
 
           {error && (
-            <div className="card p-3 bg-red-50 border border-red-200">
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="p-2.5 bg-red-50 border border-red-200 rounded text-xs text-red-700">
+              {error}
             </div>
           )}
 
-          <div className="flex gap-2 justify-end">
+          <div className="flex gap-2 justify-end pt-2">
             <button
               type="button"
               onClick={handleClose}
               disabled={loading}
-              className="btn btn-ghost text-sm"
+              className="btn btn-ghost text-xs"
             >
               Cancelar
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="btn btn-primary text-sm"
+              className="btn btn-primary text-sm font-medium"
             >
               {loading ? 'Creando...' : 'Crear'}
             </button>

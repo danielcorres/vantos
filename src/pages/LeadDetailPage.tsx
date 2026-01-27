@@ -349,21 +349,21 @@ export function LeadDetailPage() {
       <div
         className="row space-between"
         style={{
-          marginBottom: '20px',
+          marginBottom: '16px',
           flexWrap: 'wrap',
           gap: '12px',
         }}
       >
         <div>
-          <h2 className="title" style={{ margin: '0 0 8px 0', fontSize: '18px' }}>
+          <h1 className="text-2xl font-bold mb-2">
             {lead.full_name || 'Lead sin nombre'}
-          </h2>
+          </h1>
           <div className="flex gap-2 flex-wrap">
             {lead.source && (
-              <span className="px-2 py-1 text-xs bg-black/5 rounded">{lead.source}</span>
+              <span className="px-2 py-0.5 text-xs bg-black/5 rounded text-muted">{lead.source}</span>
             )}
             {currentStage && (
-              <span className="px-2 py-1 text-xs bg-black/5 rounded">{currentStage.name}</span>
+              <span className="px-2 py-0.5 text-xs bg-black/5 rounded text-muted">{currentStage.name}</span>
             )}
           </div>
         </div>
@@ -428,12 +428,12 @@ export function LeadDetailPage() {
       )}
 
       {/* Datos Section */}
-      <div className="card" style={{ marginBottom: '20px', padding: '16px' }}>
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
+      <div className="card" style={{ marginBottom: '16px', padding: '16px' }}>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600', color: 'var(--muted)' }}>
           Datos
         </h3>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div>
             <label
               htmlFor="full_name"
@@ -566,13 +566,97 @@ export function LeadDetailPage() {
         </div>
       </div>
 
+      {/* Seguimiento Section - Moved up for prominence */}
+      <div className="card" style={{ marginBottom: '16px', padding: '16px', borderLeft: '3px solid var(--primary)' }}>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>
+          Seguimiento
+        </h3>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div>
+            <label
+              htmlFor="next_follow_up_at"
+              style={{
+                display: 'block',
+                marginBottom: '4px',
+                fontSize: '13px',
+                fontWeight: '500',
+              }}
+            >
+              Próximo seguimiento
+            </label>
+            <input
+              id="next_follow_up_at"
+              type="date"
+              value={nextFollowUpAt}
+              onChange={(e) => setNextFollowUpAt(e.target.value)}
+              disabled={saving}
+              style={{
+                width: '100%',
+                fontFamily: 'inherit',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+              }}
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="last_contact_at"
+              style={{
+                display: 'block',
+                marginBottom: '4px',
+                fontSize: '13px',
+                fontWeight: '500',
+              }}
+            >
+              Último contacto
+            </label>
+            <input
+              id="last_contact_at"
+              type="date"
+              value={lastContactAt}
+              onChange={(e) => setLastContactAt(e.target.value)}
+              disabled={saving}
+              style={{
+                width: '100%',
+                fontFamily: 'inherit',
+                border: '1px solid var(--border)',
+                borderRadius: '8px',
+                padding: '8px 12px',
+              }}
+            />
+          </div>
+
+          <div className="row" style={{ gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+            <button
+              onClick={handleMarkContact}
+              disabled={markingContact || saving}
+              className="btn btn-primary"
+              style={{ fontSize: '13px' }}
+            >
+              {markingContact ? 'Registrando...' : 'Marcar contacto hoy'}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!hasChanges() || saving || markingContact}
+              className="btn btn-primary"
+              style={{ fontSize: '13px' }}
+            >
+              {saving ? 'Guardando...' : 'Guardar cambios'}
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Etapa Section */}
-      <div className="card" style={{ marginBottom: '20px', padding: '16px' }}>
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
+      <div className="card" style={{ marginBottom: '16px', padding: '16px' }}>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600', color: 'var(--muted)' }}>
           Etapa
         </h3>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           <div>
             <label
               style={{
@@ -646,97 +730,14 @@ export function LeadDetailPage() {
         </div>
       </div>
 
-      {/* Seguimiento Section */}
-      <div className="card" style={{ marginBottom: '20px', padding: '16px' }}>
-        <h3 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: '600' }}>
-          Seguimiento
-        </h3>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div>
-            <label
-              htmlFor="last_contact_at"
-              style={{
-                display: 'block',
-                marginBottom: '4px',
-                fontSize: '14px',
-                fontWeight: '500',
-              }}
-            >
-              Último contacto
-            </label>
-            <input
-              id="last_contact_at"
-              type="date"
-              value={lastContactAt}
-              onChange={(e) => setLastContactAt(e.target.value)}
-              disabled={saving}
-              style={{
-                width: '100%',
-                fontFamily: 'inherit',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '8px 12px',
-              }}
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="next_follow_up_at"
-              style={{
-                display: 'block',
-                marginBottom: '4px',
-                fontSize: '14px',
-                fontWeight: '500',
-              }}
-            >
-              Próximo seguimiento
-            </label>
-            <input
-              id="next_follow_up_at"
-              type="date"
-              value={nextFollowUpAt}
-              onChange={(e) => setNextFollowUpAt(e.target.value)}
-              disabled={saving}
-              style={{
-                width: '100%',
-                fontFamily: 'inherit',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '8px 12px',
-              }}
-            />
-          </div>
-
-          <div className="row" style={{ gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-            <button
-              onClick={handleMarkContact}
-              disabled={markingContact || saving}
-              className="btn btn-primary"
-              style={{ fontSize: '13px' }}
-            >
-              {markingContact ? 'Registrando...' : 'Marcar contacto hoy'}
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={!hasChanges() || saving || markingContact}
-              className="btn btn-primary"
-              style={{ fontSize: '13px' }}
-            >
-              {saving ? 'Guardando...' : 'Guardar cambios'}
-            </button>
-          </div>
-        </div>
-      </div>
 
       {/* Timestamps Section */}
-      <div className="card" style={{ marginBottom: '20px', padding: '16px' }}>
-        <h3 style={{ margin: '0 0 14px 0', fontSize: '16px', fontWeight: '600' }}>
+      <div className="card" style={{ marginBottom: '16px', padding: '16px' }}>
+        <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600', color: 'var(--muted)' }}>
           Información
         </h3>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '13px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
           <div>
             <span className="muted">Creado: </span>
             <span>{formatDateTime(lead.created_at)}</span>

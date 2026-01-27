@@ -448,7 +448,7 @@ export function PipelinePage() {
       </div>
 
       {/* Stages grouped view */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {stages.map((stage) => {
           const stageLeads = leadsByStage.get(stage.id) || []
           const isCollapsed = collapsedStages.has(stage.id)
@@ -459,16 +459,16 @@ export function PipelinePage() {
               {/* Stage header (accordion) */}
               <button
                 onClick={() => toggleStage(stage.id)}
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-black/5 transition-colors"
+                className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-black/5 transition-colors"
               >
-                <div className="flex items-center gap-3">
-                  <span className="text-lg font-semibold">{stage.name}</span>
-                  <span className="text-sm text-muted">
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-semibold">{stage.name}</span>
+                  <span className="text-xs text-muted">
                     {stageLeads.length}
                     {urgentCount > 0 && ` · ${urgentCount} hoy`}
                   </span>
                 </div>
-                <span className="text-muted text-xl">
+                <span className="text-muted text-sm">
                   {isCollapsed ? '▼' : '▲'}
                 </span>
               </button>
@@ -477,7 +477,7 @@ export function PipelinePage() {
               {!isCollapsed && (
                 <div className="border-t border-border">
                   {stageLeads.length === 0 ? (
-                    <div className="p-6 text-center text-sm text-muted">
+                    <div className="p-4 text-center text-xs text-muted">
                       Sin leads en esta etapa
                     </div>
                   ) : isMobile ? (
@@ -502,24 +502,24 @@ export function PipelinePage() {
                               }
                             }}
                             onClick={() => navigate(`/leads/${lead.id}`)}
-                            className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
+                            className={`px-3 py-2 cursor-pointer hover:bg-muted/30 transition-colors ${
                               isHighlighted ? 'bg-primary/5 ring-2 ring-primary' : ''
                             } ${
-                              isFirstUrgent ? 'border-l-4 border-l-red-500 bg-red-50/30' : ''
+                              isFirstUrgent ? 'border-l-4 border-l-red-500 bg-red-50/20' : ''
                             }`}
                           >
-                            <div className="space-y-2">
-                              <div>
-                                <div className="font-semibold text-sm mb-1">{lead.full_name}</div>
+                            <div className="space-y-1.5">
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="font-medium text-sm leading-tight">{lead.full_name}</div>
                                 {lead.source && (
-                                  <span className="text-xs px-2 py-0.5 bg-black/5 rounded">
+                                  <span className="text-[10px] px-1.5 py-0.5 bg-black/5 rounded text-muted whitespace-nowrap">
                                     {lead.source}
                                   </span>
                                 )}
                               </div>
 
-                              <div className="text-xs space-y-1">
-                                <div className="text-muted">
+                              <div className="text-xs space-y-0.5">
+                                <div className="text-muted/80">
                                   Creado: {formatHumanDateShort(lead.created_at)}
                                 </div>
                                 <div
@@ -563,7 +563,7 @@ export function PipelinePage() {
 
                               <div
                                 onClick={(e) => e.stopPropagation()}
-                                className="flex items-center gap-2"
+                                className="flex items-center gap-2 mt-1"
                               >
                                 <select
                                   value={currentSelectedStage}
@@ -594,23 +594,23 @@ export function PipelinePage() {
                     /* Desktop: Table view */
                     <div className="overflow-x-auto">
                       <table className="w-full">
-                        <thead className="bg-bg border-b-2 border-border">
+                        <thead className="bg-bg border-b border-border/50">
                           <tr>
-                            <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted uppercase tracking-wide">
+                            <th className="text-left py-2 px-4 text-xs font-medium text-muted/70 uppercase tracking-wide">
                               Lead
                             </th>
-                            <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted uppercase tracking-wide">
+                            <th className="text-left py-2 px-4 text-xs font-medium text-muted/70 uppercase tracking-wide">
                               Fuente
                             </th>
-                            <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted uppercase tracking-wide">
+                            <th className="text-left py-2 px-4 text-xs font-medium text-muted/70 uppercase tracking-wide">
                               Seguimiento
                             </th>
-                            <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted uppercase tracking-wide">
+                            <th className="text-left py-2 px-4 text-xs font-medium text-muted/70 uppercase tracking-wide">
                               Etapa
                             </th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-border">
+                        <tbody className="divide-y divide-border/30">
                           {stageLeads.map((lead, index) => {
                             const isHighlighted = highlightLeadId === lead.id
                             const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
@@ -630,27 +630,27 @@ export function PipelinePage() {
                                   }
                                 }}
                                 onClick={() => navigate(`/leads/${lead.id}`)}
-                                className={`cursor-pointer hover:bg-muted/50 transition-colors ${
+                                className={`cursor-pointer hover:bg-muted/30 transition-colors ${
                                   isHighlighted ? 'bg-primary/5 ring-2 ring-primary' : ''
                                 } ${
-                                  isFirstUrgent ? 'border-l-4 border-l-red-500 bg-red-50/30' : ''
+                                  isFirstUrgent ? 'border-l-4 border-l-red-500 bg-red-50/20' : ''
                                 }`}
                               >
-                                <td className="py-3 px-4">
-                                  <div className="font-semibold text-sm">{lead.full_name}</div>
+                                <td className="py-2 px-4">
+                                  <div className="font-medium text-sm leading-tight">{lead.full_name}</div>
                                 </td>
-                                <td className="py-3 px-4">
+                                <td className="py-2 px-4">
                                   {lead.source ? (
-                                    <span className="text-xs px-2 py-1 bg-black/5 rounded">
+                                    <span className="text-[10px] px-1.5 py-0.5 bg-black/5 rounded text-muted">
                                       {lead.source}
                                     </span>
                                   ) : (
                                     <span className="text-xs text-muted">—</span>
                                   )}
                                 </td>
-                                <td className="py-3 px-4">
-                                  <div className="space-y-1 text-xs">
-                                    <div className="text-muted">
+                                <td className="py-2 px-4">
+                                  <div className="space-y-0.5 text-xs">
+                                    <div className="text-muted/80">
                                       Creado: {formatHumanDateShort(lead.created_at)}
                                     </div>
                                     <div
