@@ -123,6 +123,7 @@ export function LeadDetailPage() {
   const [moving, setMoving] = useState(false)
   const [markingContact, setMarkingContact] = useState(false)
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+  const [followUpOffsetDays, setFollowUpOffsetDays] = useState(2)
 
   // Reduced motion
   const prefersReducedMotion = useReducedMotion()
@@ -251,7 +252,7 @@ export function LeadDetailPage() {
 
     try {
       const today = todayLocalYmd()
-      const nextFollowUp = addDaysYmd(today, 2) // +2 días por defecto
+      const nextFollowUp = addDaysYmd(today, followUpOffsetDays)
 
       await pipelineApi.updateLead(id, {
         last_contact_at: today,
@@ -400,7 +401,7 @@ export function LeadDetailPage() {
           {/* Línea compacta: phone+Copy, email, próximo seguimiento + acciones rápidas */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
             {lead.phone && (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1 flex-wrap">
                 <span>{lead.phone}</span>
                 <button
                   type="button"
@@ -414,11 +415,47 @@ export function LeadDetailPage() {
                 >
                   Copiar
                 </button>
+                {!waNumber && (
+                  <span className="text-muted text-xs">WhatsApp: número incompleto</span>
+                )}
               </span>
             )}
-            {lead.email && <span>{lead.email}</span>}
-            <span className="text-muted">
-              Próximo seguimiento: {humanizeNextFollowUp(nextYmd)}
+            {lead.email && (
+              <span className="flex items-center gap-1">
+                <span>{lead.email}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(lead.email || '')
+                    setToast({ kind: 'success', text: 'Email copiado' })
+                    setTimeout(() => setToast(null), 2000)
+                  }}
+                  className="btn btn-ghost px-1.5 py-1 text-xs"
+                  aria-label="Copiar email"
+                >
+                  Copiar
+                </button>
+              </span>
+            )}
+            <span className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-muted">
+                Próximo seguimiento: {humanizeNextFollowUp(nextYmd)}
+              </span>
+              {followUpStatus !== 'none' && (
+                <span
+                  className={
+                    followUpStatus === 'overdue'
+                      ? 'px-1.5 py-0 text-xs rounded bg-danger/15 text-danger'
+                      : followUpStatus === 'today'
+                        ? 'px-1.5 py-0 text-xs rounded bg-warning/15 text-warning'
+                        : 'px-1.5 py-0 text-xs rounded bg-black/5 text-muted'
+                  }
+                >
+                  {followUpStatus === 'overdue' && 'Vencido'}
+                  {followUpStatus === 'today' && 'Hoy'}
+                  {followUpStatus === 'upcoming' && 'Próximo'}
+                </span>
+              )}
             </span>
             {(waNumber || lead.email) && (
               <span className="flex items-center gap-1">
@@ -512,7 +549,7 @@ export function LeadDetailPage() {
               </span>
             )}
           </div>
-          <div className="flex flex-wrap gap-2 mb-3">
+          <div className="flex flex-wrap gap-2 mb-3 items-center">
             <button
               onClick={handleMarkContact}
               disabled={markingContact || saving}
@@ -521,6 +558,19 @@ export function LeadDetailPage() {
             >
               {markingContact ? 'Registrando...' : 'Marcar contacto hoy'}
             </button>
+            <span className="flex items-center gap-1">
+              {([1, 2, 3] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setFollowUpOffsetDays(d)}
+                  className={`btn btn-ghost px-1.5 py-0.5 text-xs ${followUpOffsetDays === d ? 'bg-black/10' : ''}`}
+                  aria-label={`Próximo seguimiento en +${d} días`}
+                >
+                  +{d}
+                </button>
+              ))}
+            </span>
             <button
               onClick={handleSave}
               disabled={!hasChanges() || saving || markingContact}
