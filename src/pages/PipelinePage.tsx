@@ -113,7 +113,6 @@ export function PipelinePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
-  const [selectedStageFilter, setSelectedStageFilter] = useState<string | null>(null)
   
   // Drag & drop state (desktop only)
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
@@ -133,6 +132,17 @@ export function PipelinePage() {
   // Mobile detection
   const [isMobile, setIsMobile] = useState(false)
 
+  // Web: Stage navigation state
+  const [currentStageIndex, setCurrentStageIndex] = useState(0)
+  const kanbanScrollRef = useRef<HTMLDivElement>(null)
+  const stageRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+
+  // Mobile: Swipe state
+  const [currentMobileStageIndex, setCurrentMobileStageIndex] = useState(0)
+  const mobileSwipeRef = useRef<HTMLDivElement>(null)
+  const touchStartX = useRef<number | null>(null)
+  const touchEndX = useRef<number | null>(null)
+
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
@@ -141,6 +151,114 @@ export function PipelinePage() {
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  // Web: Scroll to stage
+  const scrollToStage = (index: number) => {
+    if (index < 0 || index >= stages.length) return
+    setCurrentStageIndex(index)
+    const stage = stages[index]
+    const stageElement = stageRefs.current.get(stage.id)
+    if (stageElement && kanbanScrollRef.current) {
+      stageElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'center',
+      })
+    }
+  }
+
+  // Web: Handle arrow navigation
+  const handlePreviousStage = () => {
+    scrollToStage(currentStageIndex - 1)
+  }
+
+  const handleNextStage = () => {
+    scrollToStage(currentStageIndex + 1)
+  }
+
+  // Web: Track scroll position to update current stage
+  useEffect(() => {
+    if (isMobile || !kanbanScrollRef.current) return
+
+    const handleScroll = () => {
+      if (!kanbanScrollRef.current) return
+      const scrollLeft = kanbanScrollRef.current.scrollLeft
+      const containerWidth = kanbanScrollRef.current.clientWidth
+      const centerX = scrollLeft + containerWidth / 2
+
+      // Find which stage is closest to center
+      let closestIndex = 0
+      let closestDistance = Infinity
+
+      stages.forEach((stage, index) => {
+        const stageElement = stageRefs.current.get(stage.id)
+        if (stageElement) {
+          const stageLeft = stageElement.offsetLeft
+          const stageWidth = stageElement.offsetWidth
+          const stageCenter = stageLeft + stageWidth / 2
+          const distance = Math.abs(centerX - stageCenter)
+
+          if (distance < closestDistance) {
+            closestDistance = distance
+            closestIndex = index
+          }
+        }
+      })
+
+      setCurrentStageIndex(closestIndex)
+    }
+
+    kanbanScrollRef.current.addEventListener('scroll', handleScroll)
+    return () => {
+      kanbanScrollRef.current?.removeEventListener('scroll', handleScroll)
+    }
+  }, [isMobile, stages])
+
+  // Mobile: Handle swipe gestures
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    touchEndX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = () => {
+    if (touchStartX.current === null || touchEndX.current === null) return
+
+    const diff = touchStartX.current - touchEndX.current
+    const minSwipeDistance = 50
+
+    if (Math.abs(diff) > minSwipeDistance) {
+      if (diff > 0) {
+        // Swipe left - next stage
+        if (currentMobileStageIndex < stages.length - 1) {
+          setCurrentMobileStageIndex(currentMobileStageIndex + 1)
+        }
+      } else {
+        // Swipe right - previous stage
+        if (currentMobileStageIndex > 0) {
+          setCurrentMobileStageIndex(currentMobileStageIndex - 1)
+        }
+      }
+    }
+
+    touchStartX.current = null
+    touchEndX.current = null
+  }
+
+  // Mobile: Scroll to current stage on index change
+  useEffect(() => {
+    if (!isMobile || !mobileSwipeRef.current) return
+    const stageElement = mobileSwipeRef.current.children[currentMobileStageIndex] as HTMLElement
+    if (stageElement) {
+      stageElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'start',
+      })
+    }
+  }, [currentMobileStageIndex, isMobile])
 
   useEffect(() => {
     loadData()
@@ -317,14 +435,6 @@ export function PipelinePage() {
     return grouped
   }, [stages, leads])
 
-  // Filtered leads for mobile list view
-  const filteredLeads = useMemo(() => {
-    let filtered = leads
-    if (selectedStageFilter) {
-      filtered = filtered.filter((lead) => lead.stage_id === selectedStageFilter)
-    }
-    return sortLeadsByFollowUp(filtered)
-  }, [leads, selectedStageFilter])
 
   if (loading) {
     return (
@@ -420,83 +530,126 @@ export function PipelinePage() {
         </div>
       </div>
 
-      {/* Mobile: List view with stage filters */}
+      {/* Mobile: Swipe navigation between stages */}
       {isMobile ? (
         <div className="space-y-4">
-          {/* Stage filters */}
-          <div className="flex gap-2 overflow-x-auto pb-2">
-            <button
-              onClick={() => setSelectedStageFilter(null)}
-              className={`px-3 py-1.5 text-xs rounded whitespace-nowrap ${
-                selectedStageFilter === null
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-bg border border-border text-text'
-              }`}
-            >
-              Todos
-            </button>
-            {stages.map((stage) => (
-              <button
-                key={stage.id}
-                onClick={() => setSelectedStageFilter(stage.id)}
-                className={`px-3 py-1.5 text-xs rounded whitespace-nowrap ${
-                  selectedStageFilter === stage.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-bg border border-border text-text'
-                }`}
-              >
-                {stage.name}
-              </button>
-            ))}
-          </div>
+          {/* Stage indicator dots */}
+          {stages.length > 1 && (
+            <div className="flex justify-center gap-1.5">
+              {stages.map((stage, index) => (
+                <button
+                  key={stage.id}
+                  onClick={() => setCurrentMobileStageIndex(index)}
+                  className={`h-2 rounded-full transition-all ${
+                    index === currentMobileStageIndex
+                      ? 'w-6 bg-primary'
+                      : 'w-2 bg-border'
+                  }`}
+                  aria-label={`Ir a ${stage.name}`}
+                />
+              ))}
+            </div>
+          )}
 
-          {/* Leads list */}
-          <div className="space-y-2">
-            {filteredLeads.map((lead) => {
-              const isHighlighted = highlightLeadId === lead.id
-              const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
-              const stage = stages.find((s) => s.id === lead.stage_id)
+          {/* Swipeable stages container */}
+          <div
+            ref={mobileSwipeRef}
+            className="relative overflow-hidden"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+            style={{
+              scrollSnapType: 'x mandatory',
+              WebkitOverflowScrolling: 'touch',
+              display: 'flex',
+              overflowX: 'auto',
+              scrollBehavior: 'smooth',
+            }}
+          >
+            {stages.map((stage) => {
+              const stageLeads = leadsByStage.get(stage.id) || []
 
               return (
                 <div
-                  key={lead.id}
-                  ref={(el) => {
-                    if (el) {
-                      leadCardRefs.current.set(lead.id, el)
-                    } else {
-                      leadCardRefs.current.delete(lead.id)
-                    }
+                  key={stage.id}
+                  className="flex-shrink-0 w-full"
+                  style={{
+                    scrollSnapAlign: 'start',
+                    scrollSnapStop: 'always',
                   }}
-                  className={`card p-3 ${
-                    isHighlighted ? 'ring-2 ring-primary' : ''
-                  }`}
-                  onClick={() => navigate(`/leads/${lead.id}`)}
                 >
-                  <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-sm mb-1">{lead.full_name}</div>
-                      <div className="flex items-center gap-2 flex-wrap text-xs text-muted">
-                        {lead.source && (
-                          <span className="px-2 py-0.5 bg-black/5 rounded">{lead.source}</span>
-                        )}
-                        {stage && (
-                          <span className="px-2 py-0.5 bg-black/5 rounded">{stage.name}</span>
-                        )}
-                      </div>
-                    </div>
+                  {/* Stage header */}
+                  <div className="mb-3 px-1">
+                    <h2 className="text-lg font-semibold mb-1">{stage.name}</h2>
+                    <p className="text-xs text-muted">
+                      {stageLeads.length} {stageLeads.length === 1 ? 'lead' : 'leads'}
+                    </p>
                   </div>
-                  
-                  <div className="space-y-1 text-xs text-muted">
-                    {lead.last_contact_at && (
-                      <div>Último: {formatHumanDate(lead.last_contact_at)}</div>
-                    )}
-                    {lead.next_follow_up_at && (
-                      <div className={`px-2 py-1 rounded ${getFollowUpStatusClass(followUpStatus)}`}>
-                        Siguiente: {formatHumanDate(lead.next_follow_up_at)} · {getFollowUpStatusLabel(followUpStatus)}
+
+                  {/* Leads list - scrollable vertically */}
+                  <div
+                    className="space-y-2 px-1"
+                    style={{
+                      maxHeight: 'calc(100vh - 280px)',
+                      overflowY: 'auto',
+                      WebkitOverflowScrolling: 'touch',
+                    }}
+                  >
+                    {stageLeads.length === 0 ? (
+                      <div className="card p-6 text-center">
+                        <p className="text-sm text-muted">Sin leads en esta etapa</p>
                       </div>
-                    )}
-                    {!lead.next_follow_up_at && (
-                      <div className="text-muted">Sin fecha de seguimiento</div>
+                    ) : (
+                      stageLeads.map((lead) => {
+                        const isHighlighted = highlightLeadId === lead.id
+                        const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
+
+                        return (
+                          <div
+                            key={lead.id}
+                            ref={(el) => {
+                              if (el) {
+                                leadCardRefs.current.set(lead.id, el)
+                              } else {
+                                leadCardRefs.current.delete(lead.id)
+                              }
+                            }}
+                            className={`card p-3 ${
+                              isHighlighted ? 'ring-2 ring-primary' : ''
+                            } ${
+                              followUpStatus === 'overdue' ? 'border-l-4 border-l-red-500' :
+                              followUpStatus === 'today' ? 'border-l-4 border-l-amber-500' :
+                              ''
+                            }`}
+                            onClick={() => navigate(`/leads/${lead.id}`)}
+                          >
+                            <div className="flex items-start justify-between gap-2 mb-2">
+                              <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-sm mb-1">{lead.full_name}</div>
+                                <div className="flex items-center gap-2 flex-wrap text-xs text-muted">
+                                  {lead.source && (
+                                    <span className="px-2 py-0.5 bg-black/5 rounded">{lead.source}</span>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="space-y-1 text-xs">
+                              {lead.last_contact_at && (
+                                <div className="text-muted">Último: {formatHumanDate(lead.last_contact_at)}</div>
+                              )}
+                              {lead.next_follow_up_at && (
+                                <div className={`px-2 py-1 rounded ${getFollowUpStatusClass(followUpStatus)}`}>
+                                  Siguiente: {formatHumanDate(lead.next_follow_up_at)} · {getFollowUpStatusLabel(followUpStatus)}
+                                </div>
+                              )}
+                              {!lead.next_follow_up_at && (
+                                <div className="text-muted">Sin fecha de seguimiento</div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })
                     )}
                   </div>
                 </div>
@@ -505,22 +658,66 @@ export function PipelinePage() {
           </div>
         </div>
       ) : (
-        /* Desktop: Kanban Board */
-        <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-thin">
-          {stages.map((stage) => {
-            const stageLeads = leadsByStage.get(stage.id) || []
-            const isDragOver = draggedOverStageId === stage.id
+        /* Desktop: Kanban Board with navigation */
+        <div className="space-y-3">
+          {/* Stage indicator and navigation */}
+          {stages.length > 0 && (
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePreviousStage}
+                  disabled={currentStageIndex === 0}
+                  className="btn btn-ghost text-sm p-2 disabled:opacity-30"
+                  aria-label="Etapa anterior"
+                >
+                  ←
+                </button>
+                <span className="text-sm text-muted min-w-[120px] text-center">
+                  {stages[currentStageIndex]?.name || ''} · {currentStageIndex + 1} de {stages.length}
+                </span>
+                <button
+                  onClick={handleNextStage}
+                  disabled={currentStageIndex >= stages.length - 1}
+                  className="btn btn-ghost text-sm p-2 disabled:opacity-30"
+                  aria-label="Siguiente etapa"
+                >
+                  →
+                </button>
+              </div>
+            </div>
+          )}
 
-            return (
+          {/* Kanban board */}
+          <div
+            ref={kanbanScrollRef}
+            className="flex gap-3 overflow-x-auto pb-4 scrollbar-thin"
+            style={{
+              scrollBehavior: 'smooth',
+              scrollSnapType: 'x proximity',
+            }}
+          >
+            {stages.map((stage) => {
+              const stageLeads = leadsByStage.get(stage.id) || []
+              const isDragOver = draggedOverStageId === stage.id
+
+              return (
               <div
                 key={stage.id}
+                ref={(el) => {
+                  if (el) {
+                    stageRefs.current.set(stage.id, el)
+                  } else {
+                    stageRefs.current.delete(stage.id)
+                  }
+                }}
                 className="card flex-shrink-0 flex flex-col"
                 style={{
                   width: '260px',
-                  maxHeight: 'calc(100vh - 180px)',
+                  maxHeight: 'calc(100vh - 240px)',
                   border: isDragOver ? '2px solid var(--text)' : undefined,
                   transition: 'all 0.2s',
                   padding: '10px',
+                  scrollSnapAlign: 'start',
                 }}
                 onDragOver={(e) => handleDragOver(e, stage.id)}
                 onDragLeave={handleDragLeave}
@@ -665,8 +862,9 @@ export function PipelinePage() {
                   )}
                 </div>
               </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       )}
 
