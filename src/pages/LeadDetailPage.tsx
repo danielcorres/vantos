@@ -184,8 +184,9 @@ export function LeadDetailPage() {
     }),
     [fullName, phone, email, source, notes, lastContactAt, nextFollowUpAt]
   )
-  const rawDirty = useDirtyState(originalSnapshot, currentSnapshot)
-  const dirty = lead != null && rawDirty
+  // useDirtyState se ejecuta SIEMPRE (Rules of Hooks); la condición solo aplica al valor derivado
+  const isDirty = useDirtyState(originalSnapshot, currentSnapshot)
+  const dirty = lead != null && isDirty
 
   useEffect(() => {
     if (id) {
@@ -259,6 +260,22 @@ export function LeadDetailPage() {
     setLastContactAt(lead.last_contact_at ? lead.last_contact_at.split('T')[0] : '')
     setNextFollowUpAt(lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : '')
   }, [lead])
+
+  const handleDiscard = useCallback(() => {
+    discardChanges()
+    setIsEditingDatos(false)
+  }, [discardChanges])
+
+  useEffect(() => {
+    if (!isEditingDatos) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleDiscard()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isEditingDatos, handleDiscard])
 
   const handleSave = async () => {
     if (!id || !lead) return
@@ -428,23 +445,6 @@ export function LeadDetailPage() {
   const nextYmd = lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : null
   const followUpStatus = getNextFollowUpStatus(nextYmd)
   const waNumber = normalizeWhatsAppNumber(phoneDigits(lead.phone || ''))
-
-  const handleDiscard = () => {
-    discardChanges()
-    setIsEditingDatos(false)
-  }
-
-  useEffect(() => {
-    if (!isEditingDatos) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        discardChanges()
-        setIsEditingDatos(false)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [isEditingDatos, discardChanges])
 
   return (
     <div style={{ paddingBottom: dirty ? UNSAVED_BAR_HEIGHT : 0 }}>
