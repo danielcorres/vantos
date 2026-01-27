@@ -6,7 +6,7 @@ import { LeadCreateModal } from '../features/pipeline/components/LeadCreateModal
 import { Toast } from '../shared/components/Toast'
 import { todayLocalYmd, formatDateMX } from '../shared/utils/dates'
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
-import { getStageTagClasses, getStageAccentStyle } from '../shared/utils/stageStyles'
+import { getStageTagClasses, getStageAccentStyle, getStageHeaderStyle } from '../shared/utils/stageStyles'
 
 type Stage = {
   id: string
@@ -678,10 +678,11 @@ export function PipelinePage() {
 
           return (
             <div key={stage.id} className="card">
-              {/* Stage header (accordion) */}
+              {/* Stage header (accordion): barra izquierda pastel por etapa */}
               <button
                 onClick={() => toggleStage(stage.id)}
-                className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-black/5 transition-colors duration-150"
+                className="w-full flex items-center justify-between pr-4 py-2.5 text-left hover:bg-black/5 transition-colors duration-150"
+                style={getStageHeaderStyle(stage.name)}
               >
                 <div className="flex items-center gap-2">
                   <span className="text-base font-semibold">{stage.name}</span>

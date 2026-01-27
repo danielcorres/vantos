@@ -1,23 +1,33 @@
 /**
- * Estilos centralizados por etapa (enterprise, suaves).
- * Usar en: chips de etapa (Pipeline y Detalle), borde izquierdo en filas.
- *
- * Chips: pill rounded-full px-2 py-0.5 text-xs ring-1 + colores.
- * Borde: getStageAccentStyle(stageName) → { borderLeftColor } para border-left.
+ * Estilos centralizados por etapa (enterprise, pastel).
+ * Chips: pill rounded-full px-2 py-0.5 text-xs ring-1 + paleta pastel (bg-*-50, text-*-700, ring-*-200).
+ * Borde filas: getStageAccentStyle(name).
+ * Header de sección: getStageHeaderStyle(name) → barra izquierda + padding.
  *
  * Consistencia: "Propuesta" y "Propuesta presentada" comparten el mismo estilo (tag + accent).
- * "Cerrado ganado" y "Cerrado perdido" tienen estilos suaves y distintos (emerald / rose).
  */
 
 const STAGE_MAP: Record<string, string> = {
-  'Nuevo': 'bg-neutral-100 text-neutral-700 ring-neutral-200',
-  'Contactado': 'bg-sky-100 text-sky-800 ring-sky-200',
-  'Cita agendada': 'bg-blue-100 text-blue-800 ring-blue-200',
-  'Cita realizada': 'bg-green-100 text-green-800 ring-green-200',
-  'Propuesta': 'bg-amber-100 text-amber-800 ring-amber-200',
-  'Propuesta presentada': 'bg-amber-100 text-amber-800 ring-amber-200',
-  'Cerrado ganado': 'bg-emerald-100 text-emerald-800 ring-emerald-200',
-  'Cerrado perdido': 'bg-rose-100 text-rose-800 ring-rose-200',
+  'Nuevo': 'bg-slate-50 text-slate-700 ring-slate-200',
+  'Contactado': 'bg-sky-50 text-sky-700 ring-sky-200',
+  'Cita agendada': 'bg-indigo-50 text-indigo-700 ring-indigo-200',
+  'Cita realizada': 'bg-emerald-50 text-emerald-700 ring-emerald-200',
+  'Propuesta': 'bg-amber-50 text-amber-700 ring-amber-200',
+  'Propuesta presentada': 'bg-amber-50 text-amber-700 ring-amber-200',
+  'Cerrado ganado': 'bg-teal-50 text-teal-700 ring-teal-200',
+  'Cerrado perdido': 'bg-rose-50 text-rose-700 ring-rose-200',
+}
+
+/** Colores de acento (borde/barra) alineados con la paleta pastel — tonos 200 */
+const ACCENT_COLORS: Record<string, string> = {
+  'Nuevo': 'rgb(226 232 240)',       // slate-200
+  'Contactado': 'rgb(186 230 253)',  // sky-200
+  'Cita agendada': 'rgb(199 210 254)', // indigo-200
+  'Cita realizada': 'rgb(167 243 208)', // emerald-200
+  'Propuesta': 'rgb(253 230 138)',  // amber-200
+  'Propuesta presentada': 'rgb(253 230 138)',
+  'Cerrado ganado': 'rgb(153 246 228)',  // teal-200
+  'Cerrado perdido': 'rgb(254 205 211)', // rose-200
 }
 
 const CHIP_BASE = 'inline-block rounded-full px-2 py-0.5 text-xs ring-1'
@@ -37,27 +47,24 @@ function matchStageName(name: string): string | null {
   return null
 }
 
-/** Clases para chip de etapa: pill rounded-full px-2 py-0.5 text-xs ring-1 + colores suaves */
+/** Clases para chip de etapa: paleta pastel bg-*-50 text-*-700 ring-*-200 */
 export function getStageTagClasses(stageName: string | undefined): string {
   const key = matchStageName(stageName ?? '')
-  if (!key) return `${CHIP_BASE} bg-neutral-100 text-neutral-600 ring-neutral-200`
+  if (!key) return `${CHIP_BASE} bg-slate-50 text-slate-600 ring-slate-200`
   const classes = STAGE_MAP[key]
   return `${CHIP_BASE} ${classes}`
 }
 
-/** Estilo para borde izquierdo sutil en filas. Usar como style={getStageAccentStyle(name)} */
+/** Estilo para borde izquierdo sutil en filas. Mismo color family que chips. */
 export function getStageAccentStyle(stageName: string | undefined): { borderLeftWidth: number; borderLeftStyle: 'solid'; borderLeftColor: string } {
   const key = matchStageName(stageName ?? '')
-  const colors: Record<string, string> = {
-    'Nuevo': 'rgb(212 212 212)',
-    'Contactado': 'rgb(125 211 252)',
-    'Cita agendada': 'rgb(147 197 253)',
-    'Cita realizada': 'rgb(134 239 172)',
-    'Propuesta': 'rgb(253 230 138)',
-    'Propuesta presentada': 'rgb(253 230 138)',
-    'Cerrado ganado': 'rgb(167 243 208)',
-    'Cerrado perdido': 'rgb(254 205 211)',
-  }
-  const color = key ? colors[key] ?? 'rgb(212 212 212)' : 'rgb(212 212 212)'
+  const color = key ? ACCENT_COLORS[key] ?? ACCENT_COLORS['Nuevo'] : ACCENT_COLORS['Nuevo']
   return { borderLeftWidth: 3, borderLeftStyle: 'solid', borderLeftColor: color }
+}
+
+/** Estilo para header de sección (acordeón): barra izquierda 4px + padding. Enterprise, mismo color que filas. */
+export function getStageHeaderStyle(stageName: string | undefined): { borderLeftWidth: number; borderLeftStyle: 'solid'; borderLeftColor: string; paddingLeft: number } {
+  const key = matchStageName(stageName ?? '')
+  const color = key ? ACCENT_COLORS[key] ?? ACCENT_COLORS['Nuevo'] : ACCENT_COLORS['Nuevo']
+  return { borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: color, paddingLeft: 12 }
 }
