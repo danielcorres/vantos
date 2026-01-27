@@ -35,6 +35,9 @@ function formatHumanDate(dateString: string | null | undefined): string {
     const yesterday = addDaysYmd(today, -1)
     if (dateYmd === yesterday) return 'Ayer'
     
+    const tomorrow = addDaysYmd(today, 1)
+    if (dateYmd === tomorrow) return 'Mañana'
+    
     // Formato: "26 ene"
     const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
     const day = date.getDate()
@@ -59,15 +62,15 @@ function getFollowUpStatus(nextFollowUpAt: string | null | undefined): 'overdue'
 
 // Helper: Get follow-up status class
 function getFollowUpStatusClass(status: ReturnType<typeof getFollowUpStatus>): string {
-  if (status === 'overdue') return 'text-red-700 bg-red-50'
-  if (status === 'today') return 'text-amber-700 bg-amber-50'
+  if (status === 'overdue') return 'text-red-700 bg-red-50 border-red-200'
+  if (status === 'today') return 'text-amber-700 bg-amber-50 border-amber-200'
   return 'text-muted'
 }
 
 // Helper: Get follow-up status label
 function getFollowUpStatusLabel(status: ReturnType<typeof getFollowUpStatus>): string {
-  if (status === 'overdue') return 'Seguimiento vencido'
-  if (status === 'today') return 'Seguimiento hoy'
+  if (status === 'overdue') return 'Vencido'
+  if (status === 'today') return 'Hoy'
   if (status === 'future') return 'En tiempo'
   return 'Sin fecha'
 }
@@ -114,34 +117,25 @@ export function PipelinePage() {
   const [error, setError] = useState<string | null>(null)
   const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
   
-  // Drag & drop state (desktop only)
-  const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
-  const [draggedOverStageId, setDraggedOverStageId] = useState<string | null>(null)
-  const [movingLeadId, setMovingLeadId] = useState<string | null>(null)
-  const leadCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-
   // Toast state
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   // Move stage state
   const [selectedStageId, setSelectedStageId] = useState<Record<string, string>>({})
+  const [selectedNextFollowUp, setSelectedNextFollowUp] = useState<Record<string, string>>({})
+  const [movingLeadId, setMovingLeadId] = useState<string | null>(null)
+  const [updatingFollowUp, setUpdatingFollowUp] = useState<string | null>(null)
 
   // Create lead modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
+  // Collapsed stages state (accordion)
+  const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set())
+
   // Mobile detection
   const [isMobile, setIsMobile] = useState(false)
 
-  // Web: Stage navigation state
-  const [currentStageIndex, setCurrentStageIndex] = useState(0)
-  const kanbanScrollRef = useRef<HTMLDivElement>(null)
-  const stageRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-
-  // Mobile: Swipe state
-  const [currentMobileStageIndex, setCurrentMobileStageIndex] = useState(0)
-  const mobileSwipeRef = useRef<HTMLDivElement>(null)
-  const touchStartX = useRef<number | null>(null)
-  const touchEndX = useRef<number | null>(null)
+  const leadCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
   useEffect(() => {
     const checkMobile = () => {
@@ -152,114 +146,6 @@ export function PipelinePage() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // Web: Scroll to stage
-  const scrollToStage = (index: number) => {
-    if (index < 0 || index >= stages.length) return
-    setCurrentStageIndex(index)
-    const stage = stages[index]
-    const stageElement = stageRefs.current.get(stage.id)
-    if (stageElement && kanbanScrollRef.current) {
-      stageElement.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'center',
-      })
-    }
-  }
-
-  // Web: Handle arrow navigation
-  const handlePreviousStage = () => {
-    scrollToStage(currentStageIndex - 1)
-  }
-
-  const handleNextStage = () => {
-    scrollToStage(currentStageIndex + 1)
-  }
-
-  // Web: Track scroll position to update current stage
-  useEffect(() => {
-    if (isMobile || !kanbanScrollRef.current) return
-
-    const handleScroll = () => {
-      if (!kanbanScrollRef.current) return
-      const scrollLeft = kanbanScrollRef.current.scrollLeft
-      const containerWidth = kanbanScrollRef.current.clientWidth
-      const centerX = scrollLeft + containerWidth / 2
-
-      // Find which stage is closest to center
-      let closestIndex = 0
-      let closestDistance = Infinity
-
-      stages.forEach((stage, index) => {
-        const stageElement = stageRefs.current.get(stage.id)
-        if (stageElement) {
-          const stageLeft = stageElement.offsetLeft
-          const stageWidth = stageElement.offsetWidth
-          const stageCenter = stageLeft + stageWidth / 2
-          const distance = Math.abs(centerX - stageCenter)
-
-          if (distance < closestDistance) {
-            closestDistance = distance
-            closestIndex = index
-          }
-        }
-      })
-
-      setCurrentStageIndex(closestIndex)
-    }
-
-    kanbanScrollRef.current.addEventListener('scroll', handleScroll)
-    return () => {
-      kanbanScrollRef.current?.removeEventListener('scroll', handleScroll)
-    }
-  }, [isMobile, stages])
-
-  // Mobile: Handle swipe gestures
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
-  }
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    touchEndX.current = e.touches[0].clientX
-  }
-
-  const handleTouchEnd = () => {
-    if (touchStartX.current === null || touchEndX.current === null) return
-
-    const diff = touchStartX.current - touchEndX.current
-    const minSwipeDistance = 50
-
-    if (Math.abs(diff) > minSwipeDistance) {
-      if (diff > 0) {
-        // Swipe left - next stage
-        if (currentMobileStageIndex < stages.length - 1) {
-          setCurrentMobileStageIndex(currentMobileStageIndex + 1)
-        }
-      } else {
-        // Swipe right - previous stage
-        if (currentMobileStageIndex > 0) {
-          setCurrentMobileStageIndex(currentMobileStageIndex - 1)
-        }
-      }
-    }
-
-    touchStartX.current = null
-    touchEndX.current = null
-  }
-
-  // Mobile: Scroll to current stage on index change
-  useEffect(() => {
-    if (!isMobile || !mobileSwipeRef.current) return
-    const stageElement = mobileSwipeRef.current.children[currentMobileStageIndex] as HTMLElement
-    if (stageElement) {
-      stageElement.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'start',
-      })
-    }
-  }, [currentMobileStageIndex, isMobile])
-
   useEffect(() => {
     loadData()
   }, [])
@@ -269,6 +155,15 @@ export function PipelinePage() {
     const leadId = searchParams.get('lead')
     if (leadId) {
       setHighlightLeadId(leadId)
+      // Expand stage containing this lead
+      const lead = leads.find((l) => l.id === leadId)
+      if (lead) {
+        setCollapsedStages((prev) => {
+          const next = new Set(prev)
+          next.delete(lead.stage_id)
+          return next
+        })
+      }
       setTimeout(() => {
         const cardElement = leadCardRefs.current.get(leadId)
         if (cardElement) {
@@ -277,7 +172,7 @@ export function PipelinePage() {
       }, 100)
       setTimeout(() => setHighlightLeadId(null), 3000)
     }
-  }, [searchParams])
+  }, [searchParams, leads])
 
   const loadData = async () => {
     setLoading(true)
@@ -302,86 +197,7 @@ export function PipelinePage() {
     }
   }
 
-  // Drag & drop handlers (desktop only)
-  const handleDragStart = (e: React.DragEvent, lead: Lead) => {
-    if (isMobile || movingLeadId === lead.id) {
-      e.preventDefault()
-      return
-    }
-    setDraggedLead(lead)
-    e.dataTransfer.effectAllowed = 'move'
-    e.dataTransfer.setData('text/plain', lead.id)
-  }
-
-  const handleDragOver = (e: React.DragEvent, stageId: string) => {
-    if (isMobile) return
-    e.preventDefault()
-    e.stopPropagation()
-    if (draggedLead && draggedLead.stage_id !== stageId) {
-      setDraggedOverStageId(stageId)
-      e.dataTransfer.dropEffect = 'move'
-    }
-  }
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    if (isMobile) return
-    e.preventDefault()
-    e.stopPropagation()
-    setDraggedOverStageId(null)
-  }
-
-  const handleDrop = async (e: React.DragEvent, toStageId: string) => {
-    if (isMobile) return
-    e.preventDefault()
-    e.stopPropagation()
-    setDraggedOverStageId(null)
-
-    if (!draggedLead) return
-
-    const fromStageId = draggedLead.stage_id
-
-    if (fromStageId === toStageId) {
-      setDraggedLead(null)
-      return
-    }
-
-    if (movingLeadId === draggedLead.id) {
-      setDraggedLead(null)
-      return
-    }
-
-    // Optimistic update
-    const previousLeads = leads
-    setLeads((prev) =>
-      prev.map((lead) =>
-        lead.id === draggedLead.id
-          ? { ...lead, stage_id: toStageId }
-          : lead
-      )
-    )
-    setMovingLeadId(draggedLead.id)
-    setDraggedLead(null)
-
-    try {
-      const idempotencyKey = generateIdempotencyKey(
-        draggedLead.id,
-        fromStageId,
-        toStageId
-      )
-
-      await pipelineApi.moveLeadStage(draggedLead.id, toStageId, idempotencyKey)
-
-      await loadData()
-      setToast({ type: 'success', message: 'Etapa actualizada ✅' })
-    } catch (err) {
-      setLeads(previousLeads)
-      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al mover lead' })
-    } finally {
-      setMovingLeadId(null)
-    }
-  }
-
-  // Handle move stage via select
+  // Handle move stage
   const handleMoveStage = async (leadId: string, lead: Lead) => {
     if (!lead.stage_id) return
 
@@ -409,6 +225,24 @@ export function PipelinePage() {
     }
   }
 
+  // Handle update next follow up
+  const handleUpdateNextFollowUp = async (leadId: string, nextFollowUpAt: string | null) => {
+    setUpdatingFollowUp(leadId)
+
+    try {
+      await pipelineApi.updateLead(leadId, {
+        next_follow_up_at: nextFollowUpAt,
+      })
+
+      await loadData()
+      setToast({ type: 'success', message: 'Fecha actualizada ✅' })
+    } catch (err) {
+      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al actualizar fecha' })
+    } finally {
+      setUpdatingFollowUp(null)
+    }
+  }
+
   // Handle create lead
   const handleCreateLead = async (data: {
     full_name: string
@@ -424,6 +258,18 @@ export function PipelinePage() {
     navigate(`/leads/${newLead.id}`)
   }
 
+  // Toggle stage collapse
+  const toggleStage = (stageId: string) => {
+    setCollapsedStages((prev) => {
+      const next = new Set(prev)
+      if (next.has(stageId)) {
+        next.delete(stageId)
+      } else {
+        next.add(stageId)
+      }
+      return next
+    })
+  }
 
   // Group leads by stage and sort
   const leadsByStage = useMemo(() => {
@@ -434,7 +280,6 @@ export function PipelinePage() {
     })
     return grouped
   }, [stages, leads])
-
 
   if (loading) {
     return (
@@ -530,79 +375,46 @@ export function PipelinePage() {
         </div>
       </div>
 
-      {/* Mobile: Swipe navigation between stages */}
-      {isMobile ? (
-        <div className="space-y-4">
-          {/* Stage indicator dots */}
-          {stages.length > 1 && (
-            <div className="flex justify-center gap-1.5">
-              {stages.map((stage, index) => (
-                <button
-                  key={stage.id}
-                  onClick={() => setCurrentMobileStageIndex(index)}
-                  className={`h-2 rounded-full transition-all ${
-                    index === currentMobileStageIndex
-                      ? 'w-6 bg-primary'
-                      : 'w-2 bg-border'
-                  }`}
-                  aria-label={`Ir a ${stage.name}`}
-                />
-              ))}
-            </div>
-          )}
+      {/* Stages grouped view */}
+      <div className="space-y-3">
+        {stages.map((stage) => {
+          const stageLeads = leadsByStage.get(stage.id) || []
+          const isCollapsed = collapsedStages.has(stage.id)
+          const isMoving = movingLeadId !== null
 
-          {/* Swipeable stages container */}
-          <div
-            ref={mobileSwipeRef}
-            className="relative overflow-hidden"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            style={{
-              scrollSnapType: 'x mandatory',
-              WebkitOverflowScrolling: 'touch',
-              display: 'flex',
-              overflowX: 'auto',
-              scrollBehavior: 'smooth',
-            }}
-          >
-            {stages.map((stage) => {
-              const stageLeads = leadsByStage.get(stage.id) || []
+          return (
+            <div key={stage.id} className="card">
+              {/* Stage header (accordion) */}
+              <button
+                onClick={() => toggleStage(stage.id)}
+                className="w-full flex items-center justify-between p-4 text-left hover:bg-black/5 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-lg font-semibold">{stage.name}</span>
+                  <span className="text-sm text-muted">
+                    {stageLeads.length} {stageLeads.length === 1 ? 'lead' : 'leads'}
+                  </span>
+                </div>
+                <span className="text-muted text-xl">
+                  {isCollapsed ? '▼' : '▲'}
+                </span>
+              </button>
 
-              return (
-                <div
-                  key={stage.id}
-                  className="flex-shrink-0 w-full"
-                  style={{
-                    scrollSnapAlign: 'start',
-                    scrollSnapStop: 'always',
-                  }}
-                >
-                  {/* Stage header */}
-                  <div className="mb-3 px-1">
-                    <h2 className="text-lg font-semibold mb-1">{stage.name}</h2>
-                    <p className="text-xs text-muted">
-                      {stageLeads.length} {stageLeads.length === 1 ? 'lead' : 'leads'}
-                    </p>
-                  </div>
-
-                  {/* Leads list - scrollable vertically */}
-                  <div
-                    className="space-y-2 px-1"
-                    style={{
-                      maxHeight: 'calc(100vh - 280px)',
-                      overflowY: 'auto',
-                      WebkitOverflowScrolling: 'touch',
-                    }}
-                  >
-                    {stageLeads.length === 0 ? (
-                      <div className="card p-6 text-center">
-                        <p className="text-sm text-muted">Sin leads en esta etapa</p>
-                      </div>
-                    ) : (
-                      stageLeads.map((lead) => {
+              {/* Stage content */}
+              {!isCollapsed && (
+                <div className="border-t border-border">
+                  {stageLeads.length === 0 ? (
+                    <div className="p-6 text-center text-sm text-muted">
+                      Sin leads en esta etapa
+                    </div>
+                  ) : isMobile ? (
+                    /* Mobile: List view */
+                    <div className="divide-y divide-border">
+                      {stageLeads.map((lead) => {
                         const isHighlighted = highlightLeadId === lead.id
                         const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
+                        const currentSelectedStage = selectedStageId[lead.id] || lead.stage_id || ''
+                        const currentNextFollowUp = selectedNextFollowUp[lead.id] || lead.next_follow_up_at?.split('T')[0] || ''
 
                         return (
                           <div
@@ -614,259 +426,228 @@ export function PipelinePage() {
                                 leadCardRefs.current.delete(lead.id)
                               }
                             }}
-                            className={`card p-3 ${
-                              isHighlighted ? 'ring-2 ring-primary' : ''
+                            className={`p-3 ${
+                              isHighlighted ? 'bg-primary/5 ring-2 ring-primary' : ''
                             } ${
                               followUpStatus === 'overdue' ? 'border-l-4 border-l-red-500' :
                               followUpStatus === 'today' ? 'border-l-4 border-l-amber-500' :
                               ''
                             }`}
-                            onClick={() => navigate(`/leads/${lead.id}`)}
                           >
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <div className="flex-1 min-w-0">
+                            <div className="space-y-2">
+                              <div>
                                 <div className="font-semibold text-sm mb-1">{lead.full_name}</div>
-                                <div className="flex items-center gap-2 flex-wrap text-xs text-muted">
-                                  {lead.source && (
-                                    <span className="px-2 py-0.5 bg-black/5 rounded">{lead.source}</span>
-                                  )}
-                                </div>
+                                {lead.source && (
+                                  <span className="text-xs px-2 py-0.5 bg-black/5 rounded">
+                                    {lead.source}
+                                  </span>
+                                )}
                               </div>
-                            </div>
-                            
-                            <div className="space-y-1 text-xs">
-                              {lead.last_contact_at && (
-                                <div className="text-muted">Último: {formatHumanDate(lead.last_contact_at)}</div>
-                              )}
-                              {lead.next_follow_up_at && (
-                                <div className={`px-2 py-1 rounded ${getFollowUpStatusClass(followUpStatus)}`}>
-                                  Siguiente: {formatHumanDate(lead.next_follow_up_at)} · {getFollowUpStatusLabel(followUpStatus)}
+
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <div className="flex-1 min-w-[120px]">
+                                  <label className="text-xs text-muted block mb-1">Próximo seguimiento</label>
+                                  <input
+                                    type="date"
+                                    value={currentNextFollowUp}
+                                    onChange={(e) => setSelectedNextFollowUp((prev) => ({
+                                      ...prev,
+                                      [lead.id]: e.target.value,
+                                    }))}
+                                    onBlur={() => {
+                                      const newValue = selectedNextFollowUp[lead.id] || ''
+                                      if (newValue !== lead.next_follow_up_at?.split('T')[0]) {
+                                        handleUpdateNextFollowUp(lead.id, newValue || null)
+                                      }
+                                    }}
+                                    disabled={updatingFollowUp === lead.id}
+                                    className="w-full text-xs px-2 py-1 border border-border rounded bg-bg"
+                                  />
                                 </div>
-                              )}
-                              {!lead.next_follow_up_at && (
-                                <div className="text-muted">Sin fecha de seguimiento</div>
-                              )}
+                                {lead.next_follow_up_at && (
+                                  <div className={`px-2 py-1 rounded text-xs ${getFollowUpStatusClass(followUpStatus)}`}>
+                                    {getFollowUpStatusLabel(followUpStatus)}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <select
+                                  value={currentSelectedStage}
+                                  onChange={(e) =>
+                                    setSelectedStageId((prev) => ({
+                                      ...prev,
+                                      [lead.id]: e.target.value,
+                                    }))
+                                  }
+                                  disabled={isMoving || movingLeadId === lead.id}
+                                  className="flex-1 text-xs px-2 py-1 border border-border rounded bg-bg min-w-[120px]"
+                                >
+                                  {stages.map((s) => (
+                                    <option key={s.id} value={s.id}>
+                                      {s.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  onClick={() => handleMoveStage(lead.id, lead)}
+                                  disabled={
+                                    isMoving ||
+                                    movingLeadId === lead.id ||
+                                    !currentSelectedStage ||
+                                    currentSelectedStage === lead.stage_id
+                                  }
+                                  className="btn btn-primary text-xs px-3 py-1"
+                                >
+                                  {movingLeadId === lead.id ? '...' : 'Mover'}
+                                </button>
+                                <button
+                                  onClick={() => navigate(`/leads/${lead.id}`)}
+                                  className="btn btn-ghost text-xs px-3 py-1"
+                                >
+                                  Abrir
+                                </button>
+                              </div>
                             </div>
                           </div>
                         )
-                      })
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      ) : (
-        /* Desktop: Kanban Board with navigation */
-        <div className="space-y-3">
-          {/* Stage indicator and navigation */}
-          {stages.length > 0 && (
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handlePreviousStage}
-                  disabled={currentStageIndex === 0}
-                  className="btn btn-ghost text-sm p-2 disabled:opacity-30"
-                  aria-label="Etapa anterior"
-                >
-                  ←
-                </button>
-                <span className="text-sm text-muted min-w-[120px] text-center">
-                  {stages[currentStageIndex]?.name || ''} · {currentStageIndex + 1} de {stages.length}
-                </span>
-                <button
-                  onClick={handleNextStage}
-                  disabled={currentStageIndex >= stages.length - 1}
-                  className="btn btn-ghost text-sm p-2 disabled:opacity-30"
-                  aria-label="Siguiente etapa"
-                >
-                  →
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Kanban board */}
-          <div
-            ref={kanbanScrollRef}
-            className="flex gap-3 overflow-x-auto pb-4 scrollbar-thin"
-            style={{
-              scrollBehavior: 'smooth',
-              scrollSnapType: 'x proximity',
-            }}
-          >
-            {stages.map((stage) => {
-              const stageLeads = leadsByStage.get(stage.id) || []
-              const isDragOver = draggedOverStageId === stage.id
-
-              return (
-              <div
-                key={stage.id}
-                ref={(el) => {
-                  if (el) {
-                    stageRefs.current.set(stage.id, el)
-                  } else {
-                    stageRefs.current.delete(stage.id)
-                  }
-                }}
-                className="card flex-shrink-0 flex flex-col"
-                style={{
-                  width: '260px',
-                  maxHeight: 'calc(100vh - 240px)',
-                  border: isDragOver ? '2px solid var(--text)' : undefined,
-                  transition: 'all 0.2s',
-                  padding: '10px',
-                  scrollSnapAlign: 'start',
-                }}
-                onDragOver={(e) => handleDragOver(e, stage.id)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, stage.id)}
-              >
-                {/* Column Header */}
-                <div className="mb-2 pb-2 border-b-2 border-border">
-                  <div className="font-semibold text-sm mb-1.5">
-                    {stage.name}
-                  </div>
-                  <div className="text-xs text-muted">
-                    {stageLeads.length} {stageLeads.length === 1 ? 'lead' : 'leads'}
-                  </div>
-                </div>
-
-                {/* Leads List */}
-                <div className="flex-1 overflow-y-auto min-h-[150px]">
-                  {stageLeads.length === 0 ? (
-                    <div className="text-center p-4 text-xs text-muted">
-                      Sin leads
+                      })}
                     </div>
                   ) : (
-                    stageLeads.map((lead) => {
-                      const isHighlighted = highlightLeadId === lead.id
-                      const isMoving = movingLeadId === lead.id
-                      const isDragged = draggedLead?.id === lead.id
-                      const currentSelectedStage = selectedStageId[lead.id] || lead.stage_id || ''
-                      const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
+                    /* Desktop: Table view */
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-bg border-b-2 border-border">
+                          <tr>
+                            <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted uppercase tracking-wide">
+                              Nombre
+                            </th>
+                            <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted uppercase tracking-wide">
+                              Fuente
+                            </th>
+                            <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted uppercase tracking-wide">
+                              Próximo seguimiento
+                            </th>
+                            <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted uppercase tracking-wide">
+                              Acciones
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                          {stageLeads.map((lead) => {
+                            const isHighlighted = highlightLeadId === lead.id
+                            const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
+                            const currentSelectedStage = selectedStageId[lead.id] || lead.stage_id || ''
+                            const currentNextFollowUp = selectedNextFollowUp[lead.id] || lead.next_follow_up_at?.split('T')[0] || ''
 
-                      return (
-                        <div
-                          key={lead.id}
-                          ref={(el) => {
-                            if (el) {
-                              leadCardRefs.current.set(lead.id, el)
-                            } else {
-                              leadCardRefs.current.delete(lead.id)
-                            }
-                          }}
-                          draggable={!isMoving && !isMobile}
-                          onDragStart={(e) => handleDragStart(e, lead)}
-                          className={`card mb-2 ${
-                            followUpStatus === 'overdue' ? 'border-l-[3px] border-l-red-500' :
-                            followUpStatus === 'today' ? 'border-l-[3px] border-l-amber-500' :
-                            ''
-                          } ${
-                            isHighlighted ? 'ring-2 ring-primary' : ''
-                          }`}
-                          style={{
-                            padding: '8px',
-                            opacity: isMoving || isDragged ? 0.5 : 1,
-                            cursor: isMoving ? 'not-allowed' : isMobile ? 'pointer' : 'grab',
-                            transition: 'all 0.2s',
-                            background: isHighlighted ? 'rgba(0, 0, 0, 0.02)' : 'var(--card)',
-                          }}
-                          onClick={() => isMobile && navigate(`/leads/${lead.id}`)}
-                        >
-                          {/* Header */}
-                          <div className="flex items-start justify-between gap-1.5 mb-1.5">
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold text-sm leading-tight mb-0.5">
-                                {isMoving ? (
-                                  <span className="text-xs text-muted">Moviendo...</span>
-                                ) : (
-                                  lead.full_name
-                                )}
-                              </div>
-                              <div className="flex items-center gap-1.5 flex-wrap text-[10px] text-muted">
-                                {lead.source && (
-                                  <span>{lead.source}</span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Seguimiento info */}
-                          <div className="space-y-1 mb-2 text-xs">
-                            {lead.last_contact_at && (
-                              <div className="text-muted">Último: {formatHumanDate(lead.last_contact_at)}</div>
-                            )}
-                            {lead.next_follow_up_at && (
-                              <div className={`px-1.5 py-0.5 rounded text-[10px] ${getFollowUpStatusClass(followUpStatus)}`}>
-                                Siguiente: {formatHumanDate(lead.next_follow_up_at)}
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Acciones */}
-                          {!isMoving && (
-                            <div className="flex items-center gap-1 flex-wrap">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  navigate(`/leads/${lead.id}`)
+                            return (
+                              <tr
+                                key={lead.id}
+                                ref={(el) => {
+                                  if (el) {
+                                    leadCardRefs.current.set(lead.id, el)
+                                  } else {
+                                    leadCardRefs.current.delete(lead.id)
+                                  }
                                 }}
-                                className="btn btn-primary text-[10px] px-2 py-1 flex-1"
+                                className={`hover:bg-black/5 transition-colors ${
+                                  isHighlighted ? 'bg-primary/5 ring-2 ring-primary' : ''
+                                } ${
+                                  followUpStatus === 'overdue' ? 'border-l-4 border-l-red-500' :
+                                  followUpStatus === 'today' ? 'border-l-4 border-l-amber-500' :
+                                  ''
+                                }`}
                               >
-                                Abrir
-                              </button>
-                              {stages.length > 0 && (
-                                <>
-                                  <select
-                                    value={currentSelectedStage}
-                                    onChange={(e) =>
-                                      setSelectedStageId((prev) => ({
+                                <td className="py-3 px-4">
+                                  <div className="font-semibold text-sm">{lead.full_name}</div>
+                                </td>
+                                <td className="py-3 px-4">
+                                  {lead.source ? (
+                                    <span className="text-xs px-2 py-1 bg-black/5 rounded">
+                                      {lead.source}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-muted">—</span>
+                                  )}
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="date"
+                                      value={currentNextFollowUp}
+                                      onChange={(e) => setSelectedNextFollowUp((prev) => ({
                                         ...prev,
                                         [lead.id]: e.target.value,
-                                      }))
-                                    }
-                                    disabled={isMoving}
-                                    className="select text-[10px] min-w-[80px] flex-1"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {stages.map((s) => (
-                                      <option key={s.id} value={s.id}>
-                                        {s.name}
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      handleMoveStage(lead.id, lead)
-                                    }}
-                                    disabled={
-                                      isMoving ||
-                                      !currentSelectedStage ||
-                                      currentSelectedStage === lead.stage_id
-                                    }
-                                    className="btn btn-primary text-[10px] px-1.5 py-1"
-                                    title="Mover"
-                                  >
-                                    ✓
-                                  </button>
-                                </>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })
+                                      }))}
+                                      onBlur={() => {
+                                        const newValue = selectedNextFollowUp[lead.id] || ''
+                                        if (newValue !== lead.next_follow_up_at?.split('T')[0]) {
+                                          handleUpdateNextFollowUp(lead.id, newValue || null)
+                                        }
+                                      }}
+                                      disabled={updatingFollowUp === lead.id}
+                                      className="text-xs px-2 py-1 border border-border rounded bg-bg"
+                                    />
+                                    {lead.next_follow_up_at && (
+                                      <span className={`text-xs px-2 py-1 rounded border ${getFollowUpStatusClass(followUpStatus)}`}>
+                                        {formatHumanDate(lead.next_follow_up_at)} · {getFollowUpStatusLabel(followUpStatus)}
+                                      </span>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="py-3 px-4">
+                                  <div className="flex items-center gap-2">
+                                    <select
+                                      value={currentSelectedStage}
+                                      onChange={(e) =>
+                                        setSelectedStageId((prev) => ({
+                                          ...prev,
+                                          [lead.id]: e.target.value,
+                                        }))
+                                      }
+                                      disabled={isMoving || movingLeadId === lead.id}
+                                      className="text-xs px-2 py-1 border border-border rounded bg-bg"
+                                    >
+                                      {stages.map((s) => (
+                                        <option key={s.id} value={s.id}>
+                                          {s.name}
+                                        </option>
+                                      ))}
+                                    </select>
+                                    <button
+                                      onClick={() => handleMoveStage(lead.id, lead)}
+                                      disabled={
+                                        isMoving ||
+                                        movingLeadId === lead.id ||
+                                        !currentSelectedStage ||
+                                        currentSelectedStage === lead.stage_id
+                                      }
+                                      className="btn btn-primary text-xs px-2 py-1"
+                                      title="Mover etapa"
+                                    >
+                                      {movingLeadId === lead.id ? '...' : 'Mover'}
+                                    </button>
+                                    <button
+                                      onClick={() => navigate(`/leads/${lead.id}`)}
+                                      className="btn btn-ghost text-xs px-2 py-1"
+                                    >
+                                      Abrir
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
-              </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
+              )}
+            </div>
+          )
+        })}
+      </div>
 
       {/* Create Lead Modal */}
       <LeadCreateModal
