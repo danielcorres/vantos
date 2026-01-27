@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { pipelineApi } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
-import { todayLocalYmd, addDaysYmd } from '../shared/utils/dates'
+import { todayLocalYmd, addDaysYmd, daysBetweenYmd } from '../shared/utils/dates'
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 
 type LeadData = {
@@ -55,6 +55,36 @@ function formatDateTime(dateString: string | null | undefined): string {
 function isValidEmail(email: string): boolean {
   if (!email.trim()) return true // Empty is valid (optional field)
   return email.includes('@')
+}
+
+type NextFollowUpStatus = 'overdue' | 'today' | 'upcoming' | 'none'
+function getNextFollowUpStatus(nextYmd: string | null): NextFollowUpStatus {
+  if (!nextYmd || !nextYmd.trim()) return 'none'
+  const today = todayLocalYmd()
+  const d = daysBetweenYmd(today, nextYmd)
+  if (d < 0) return 'overdue'
+  if (d === 0) return 'today'
+  return 'upcoming'
+}
+
+function humanizeNextFollowUp(nextYmd: string | null): string {
+  if (!nextYmd || !nextYmd.trim()) return 'Sin fecha'
+  const today = todayLocalYmd()
+  const d = daysBetweenYmd(today, nextYmd)
+  if (d < 0) return `Venció hace ${-d} día${-d !== 1 ? 's' : ''}`
+  if (d === 0) return 'Hoy'
+  if (d === 1) return 'Mañana'
+  try {
+    const [y, m, day] = nextYmd.split('-').map(Number)
+    const date = new Date(y, m - 1, day)
+    return date.toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })
+  } catch {
+    return nextYmd
+  }
+}
+
+function phoneDigits(phone: string): string {
+  return (phone || '').replace(/\D/g, '')
 }
 
 export function LeadDetailPage() {
@@ -235,36 +265,23 @@ export function LeadDetailPage() {
     }
   }
 
-  const handleMoveStage = async () => {
-    if (!id || !lead || !selectedStageId) return
-
-    if (selectedStageId === lead.stage_id) {
-      setMoveMessage('El lead ya está en esta etapa')
-      setTimeout(() => setMoveMessage(null), 2000)
-      return
-    }
+  const handleMoveStage = async (targetStageId?: string) => {
+    const stageId = targetStageId ?? selectedStageId
+    if (!id || !lead || !stageId) return
+    if (stageId === lead.stage_id) return
 
     setMoving(true)
     setError(null)
     setMoveMessage(null)
 
     try {
-      // Generate idempotency key
-      const idempotencyKey = generateIdempotencyKey(
-        id,
-        lead.stage_id,
-        selectedStageId
-      )
-
-      // Use pipeline.api.ts wrapper
-      await pipelineApi.moveLeadStage(id, selectedStageId, idempotencyKey)
-
-      // Refetch lead
+      const idempotencyKey = generateIdempotencyKey(id, lead.stage_id, stageId)
+      await pipelineApi.moveLeadStage(id, stageId, idempotencyKey)
       await loadData()
-
       setMoveMessage('Etapa actualizada')
       setTimeout(() => setMoveMessage(null), 2000)
     } catch (err) {
+      setSelectedStageId(lead.stage_id)
       setError(err instanceof Error ? err.message : 'Error al mover etapa')
     } finally {
       setMoving(false)
@@ -347,6 +364,10 @@ export function LeadDetailPage() {
     return null
   }
 
+  const nextYmd = lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : null
+  const followUpStatus = getNextFollowUpStatus(nextYmd)
+  const digits = phoneDigits(lead.phone || '')
+
   return (
     <div>
       {/* Header */}
@@ -358,16 +379,64 @@ export function LeadDetailPage() {
           gap: '12px',
         }}
       >
-        <div>
-          <h1 className="text-2xl font-bold mb-2">
-            {lead.full_name || 'Lead sin nombre'}
-          </h1>
-          <div className="flex gap-2 flex-wrap">
-            {lead.source && (
-              <span className="px-2 py-0.5 text-xs bg-black/5 rounded text-muted">{lead.source}</span>
+        <div className="flex flex-col gap-2">
+          <div>
+            <h1 className="text-2xl font-bold mb-2">
+              {lead.full_name || 'Lead sin nombre'}
+            </h1>
+            <div className="flex gap-2 flex-wrap">
+              {lead.source && (
+                <span className="px-2 py-0.5 text-xs bg-black/5 rounded text-muted">{lead.source}</span>
+              )}
+              {currentStage && (
+                <span className="px-2 py-0.5 text-xs bg-black/5 rounded text-muted">{currentStage.name}</span>
+              )}
+            </div>
+          </div>
+          {/* Línea compacta: phone+Copy, email, próximo seguimiento + acciones rápidas */}
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+            {lead.phone && (
+              <span className="flex items-center gap-1">
+                <span>{lead.phone}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(lead.phone || '')
+                    setSaveMessage('Teléfono copiado')
+                    setTimeout(() => setSaveMessage(null), 2000)
+                  }}
+                  className="btn btn-ghost px-1.5 py-1 text-xs"
+                  aria-label="Copiar teléfono"
+                >
+                  Copiar
+                </button>
+              </span>
             )}
-            {currentStage && (
-              <span className="px-2 py-0.5 text-xs bg-black/5 rounded text-muted">{currentStage.name}</span>
+            {lead.email && <span>{lead.email}</span>}
+            <span className="text-muted">
+              Próximo seguimiento: {humanizeNextFollowUp(nextYmd)}
+            </span>
+            {(lead.phone || lead.email) && (
+              <span className="flex items-center gap-1">
+                {digits && (
+                  <a
+                    href={`https://wa.me/${digits}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-ghost px-2 py-1 text-xs"
+                  >
+                    WhatsApp
+                  </a>
+                )}
+                {lead.email && (
+                  <a
+                    href={`mailto:${lead.email}`}
+                    className="btn btn-ghost px-2 py-1 text-xs"
+                  >
+                    Email
+                  </a>
+                )}
+              </span>
             )}
           </div>
         </div>
@@ -431,224 +500,38 @@ export function LeadDetailPage() {
         </div>
       )}
 
-      {/* Datos Section */}
-      <div 
-        className="card" 
-        style={{ 
-          marginBottom: '16px', 
-          padding: '16px',
-          transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
-        }}
-      >
-        <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600', color: 'var(--muted)' }}>
-          Datos
-        </h3>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div>
-            <label
-              htmlFor="full_name"
-              style={{
-                display: 'block',
-                marginBottom: '4px',
-                fontSize: '14px',
-                fontWeight: '500',
-              }}
-            >
-              Nombre completo *
-            </label>
-            <input
-              id="full_name"
-              type="text"
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              disabled={saving}
-              style={{ width: '100%' }}
-              required
-            />
+      {/* Grid: mobile = 1 col (Seguimiento, Etapa, Datos, Información, Actividad); desktop = 2 cols */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        {/* 1. Seguimiento — primera card del main */}
+        <div
+          className="card lg:col-span-8"
+          style={{
+            padding: '16px',
+            borderLeft: '3px solid var(--primary)',
+            transition: prefersReducedMotion ? 'none' : 'all 200ms ease-out',
+          }}
+        >
+          <div className="flex flex-wrap items-center gap-2 justify-between mb-3">
+            <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600 }}>
+              Seguimiento
+            </h3>
+            {followUpStatus !== 'none' && (
+              <span
+                className={
+                  followUpStatus === 'overdue'
+                    ? 'px-2 py-0.5 text-xs rounded bg-danger/15 text-danger'
+                    : followUpStatus === 'today'
+                      ? 'px-2 py-0.5 text-xs rounded bg-warning/15 text-warning'
+                      : 'px-2 py-0.5 text-xs rounded bg-black/5 text-muted'
+                }
+              >
+                {followUpStatus === 'overdue' && 'Vencido'}
+                {followUpStatus === 'today' && 'Hoy'}
+                {followUpStatus === 'upcoming' && 'Próximo'}
+              </span>
+            )}
           </div>
-
-          <div>
-            <label
-              htmlFor="phone"
-              style={{
-                display: 'block',
-                marginBottom: '4px',
-                fontSize: '14px',
-                fontWeight: '500',
-              }}
-            >
-              Teléfono
-            </label>
-            <input
-              id="phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              disabled={saving}
-              style={{ width: '100%' }}
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="email"
-              style={{
-                display: 'block',
-                marginBottom: '4px',
-                fontSize: '14px',
-                fontWeight: '500',
-              }}
-            >
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={saving}
-              style={{ width: '100%' }}
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="source"
-              style={{
-                display: 'block',
-                marginBottom: '4px',
-                fontSize: '14px',
-                fontWeight: '500',
-              }}
-            >
-              Fuente
-            </label>
-            <select
-              id="source"
-              value={source}
-              onChange={(e) => setSource(e.target.value)}
-              disabled={saving}
-              style={{
-                width: '100%',
-                fontFamily: 'inherit',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '8px 12px',
-              }}
-            >
-              <option value="">Seleccionar fuente</option>
-              {SOURCE_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label
-              htmlFor="notes"
-              style={{
-                display: 'block',
-                marginBottom: '4px',
-                fontSize: '14px',
-                fontWeight: '500',
-              }}
-            >
-              Notas
-            </label>
-            <textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              disabled={saving}
-              rows={4}
-              style={{
-                width: '100%',
-                fontFamily: 'inherit',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '8px 12px',
-              }}
-            />
-          </div>
-
-        </div>
-      </div>
-
-      {/* Seguimiento Section - Moved up for prominence */}
-      <div 
-        className="card" 
-        style={{ 
-          marginBottom: '16px', 
-          padding: '16px', 
-          borderLeft: '3px solid var(--primary)',
-          transition: prefersReducedMotion ? 'none' : 'all 200ms ease-out',
-        }}
-      >
-        <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: '600' }}>
-          Seguimiento
-        </h3>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div>
-            <label
-              htmlFor="next_follow_up_at"
-              style={{
-                display: 'block',
-                marginBottom: '4px',
-                fontSize: '13px',
-                fontWeight: '500',
-              }}
-            >
-              Próximo seguimiento
-            </label>
-            <input
-              id="next_follow_up_at"
-              type="date"
-              value={nextFollowUpAt}
-              onChange={(e) => setNextFollowUpAt(e.target.value)}
-              disabled={saving}
-              style={{
-                width: '100%',
-                fontFamily: 'inherit',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '8px 12px',
-              }}
-            />
-          </div>
-
-          <div>
-            <label
-              htmlFor="last_contact_at"
-              style={{
-                display: 'block',
-                marginBottom: '4px',
-                fontSize: '13px',
-                fontWeight: '500',
-              }}
-            >
-              Último contacto
-            </label>
-            <input
-              id="last_contact_at"
-              type="date"
-              value={lastContactAt}
-              onChange={(e) => setLastContactAt(e.target.value)}
-              disabled={saving}
-              style={{
-                width: '100%',
-                fontFamily: 'inherit',
-                border: '1px solid var(--border)',
-                borderRadius: '8px',
-                padding: '8px 12px',
-              }}
-            />
-          </div>
-
-          <div className="row" style={{ gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="flex flex-wrap gap-2 mb-3">
             <button
               onClick={handleMarkContact}
               disabled={markingContact || saving}
@@ -666,46 +549,78 @@ export function LeadDetailPage() {
               {saving ? 'Guardando...' : 'Guardar cambios'}
             </button>
           </div>
-        </div>
-      </div>
-
-      {/* Etapa Section */}
-      <div 
-        className="card" 
-        style={{ 
-          marginBottom: '16px', 
-          padding: '16px',
-          transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
-        }}
-      >
-        <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600', color: 'var(--muted)' }}>
-          Etapa
-        </h3>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          <div>
-            <label
-              style={{
-                display: 'block',
-                marginBottom: '4px',
-                fontSize: '14px',
-                fontWeight: '500',
-              }}
-            >
-              Etapa actual
-            </label>
-            <div
-              style={{
-                padding: '8px 12px',
-                background: 'var(--bg)',
-                borderRadius: '8px',
-                fontSize: '14px',
-              }}
-            >
-              {currentStage?.name || 'Sin etapa asignada'}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div>
+              <label
+                htmlFor="next_follow_up_at"
+                style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                }}
+              >
+                Próximo seguimiento
+              </label>
+              <input
+                id="next_follow_up_at"
+                type="date"
+                value={nextFollowUpAt}
+                onChange={(e) => setNextFollowUpAt(e.target.value)}
+                disabled={saving}
+                style={{
+                  width: '100%',
+                  fontFamily: 'inherit',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                }}
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="last_contact_at"
+                style={{
+                  display: 'block',
+                  marginBottom: '4px',
+                  fontSize: '13px',
+                  fontWeight: '500',
+                }}
+              >
+                Último contacto
+              </label>
+              <input
+                id="last_contact_at"
+                type="date"
+                value={lastContactAt}
+                onChange={(e) => setLastContactAt(e.target.value)}
+                disabled={saving}
+                style={{
+                  width: '100%',
+                  fontFamily: 'inherit',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                }}
+              />
             </div>
           </div>
+        </div>
 
+        {/* 2. Etapa — sidebar */}
+        <div
+          className="card lg:col-span-4 lg:sticky lg:top-4 self-start"
+          style={{
+            padding: '16px',
+            transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
+          }}
+        >
+          <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600, color: 'var(--muted)' }}>
+            Etapa
+          </h3>
+          {moving && (
+            <p className="text-xs text-muted mb-2">Guardando…</p>
+          )}
           <div>
             <label
               htmlFor="stage_select"
@@ -716,12 +631,16 @@ export function LeadDetailPage() {
                 fontWeight: '500',
               }}
             >
-              Cambiar a etapa
+              Etapa
             </label>
             <select
               id="stage_select"
               value={selectedStageId}
-              onChange={(e) => setSelectedStageId(e.target.value)}
+              onChange={(e) => {
+                const v = e.target.value
+                setSelectedStageId(v)
+                if (v && v !== lead.stage_id) handleMoveStage(v)
+              }}
               disabled={moving || stages.length === 0}
               style={{
                 width: '100%',
@@ -738,57 +657,130 @@ export function LeadDetailPage() {
               ))}
             </select>
           </div>
-
-          <div className="row" style={{ gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-            <button
-              onClick={handleMoveStage}
-              disabled={
-                !selectedStageId ||
-                selectedStageId === lead.stage_id ||
-                moving
-              }
-              className="btn btn-primary"
-              style={{ fontSize: '13px' }}
-            >
-              {moving ? 'Moviendo...' : 'Mover etapa'}
-            </button>
-          </div>
         </div>
-      </div>
 
-
-      {/* Timestamps Section */}
-      <div className="card" style={{ marginBottom: '16px', padding: '16px' }}>
-        <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: '600', color: 'var(--muted)' }}>
-          Información
-        </h3>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '12px' }}>
-          <div>
-            <span className="muted">Creado: </span>
-            <span>{formatDateTime(lead.created_at)}</span>
-          </div>
-          <div>
-            <span className="muted">Actualizado: </span>
-            <span>{formatDateTime(lead.updated_at)}</span>
-          </div>
-          {lead.stage_changed_at && (
+        {/* 3. Datos / Notas */}
+        <div
+          className="card lg:col-span-8"
+          style={{
+            padding: '16px',
+            transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
+          }}
+        >
+          <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600, color: 'var(--muted)' }}>
+            Datos
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div>
-              <span className="muted">Cambio de etapa: </span>
-              <span>{formatDateTime(lead.stage_changed_at)}</span>
+              <label htmlFor="full_name" style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
+                Nombre completo *
+              </label>
+              <input
+                id="full_name"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                disabled={saving}
+                style={{ width: '100%' }}
+                required
+              />
             </div>
-          )}
+            <div>
+              <label htmlFor="phone" style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
+                Teléfono
+              </label>
+              <input
+                id="phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={saving}
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div>
+              <label htmlFor="email" style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={saving}
+                style={{ width: '100%' }}
+              />
+            </div>
+            <div>
+              <label htmlFor="source" style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
+                Fuente
+              </label>
+              <select
+                id="source"
+                value={source}
+                onChange={(e) => setSource(e.target.value)}
+                disabled={saving}
+                style={{
+                  width: '100%',
+                  fontFamily: 'inherit',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                }}
+              >
+                <option value="">Seleccionar fuente</option>
+                {SOURCE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="notes" style={{ display: 'block', marginBottom: '4px', fontSize: '14px', fontWeight: 500 }}>
+                Notas
+              </label>
+              <textarea
+                id="notes"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                disabled={saving}
+                rows={4}
+                style={{
+                  width: '100%',
+                  fontFamily: 'inherit',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                }}
+              />
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Actividad Section (Placeholder) */}
-      <div className="card" style={{ padding: '16px' }}>
-        <h3 style={{ margin: '0 0 14px 0', fontSize: '16px', fontWeight: '600' }}>
-          Actividad
-        </h3>
-        <p className="muted" style={{ fontSize: '13px' }}>
-          TODO: Conectar a activity_events filtrando por lead_id
-        </p>
+        {/* 4. Información compacta — sidebar */}
+        <div
+          className="lg:col-span-4 space-y-1 lg:sticky lg:top-4 self-start"
+          style={{ padding: '0' }}
+        >
+          <div className="text-xs text-muted flex flex-col gap-1">
+            <div>Creado: {formatDateTime(lead.created_at)}</div>
+            <div>Actualizado: {formatDateTime(lead.updated_at)}</div>
+            {lead.stage_changed_at && (
+              <div>Cambio de etapa: {formatDateTime(lead.stage_changed_at)}</div>
+            )}
+          </div>
+        </div>
+
+        {/* 5. Actividad */}
+        <div className="card lg:col-span-8" style={{ padding: '16px' }}>
+          <h3 style={{ margin: '0 0 14px 0', fontSize: '16px', fontWeight: 600 }}>
+            Actividad
+          </h3>
+          <p className="muted" style={{ fontSize: '13px' }}>
+            TODO: Conectar a activity_events filtrando por lead_id
+          </p>
+        </div>
       </div>
     </div>
   )
