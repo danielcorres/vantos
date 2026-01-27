@@ -31,6 +31,8 @@ type LeadData = {
   referral_name: string | null
 }
 
+const TOAST_CLEAR_MS = 2800
+
 const SOURCE_OPTIONS = [
   { value: 'Referido', label: 'Referido' },
   { value: 'Mercado natural', label: 'Mercado natural' },
@@ -356,10 +358,13 @@ export function LeadDetailPage() {
 
       await loadData()
       setToast({ kind: 'success', text: 'Guardado' })
-      setTimeout(() => setToast(null), 2000)
+      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
       setIsEditingDatos(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar')
+      const msg = err instanceof Error ? err.message : 'Error al guardar'
+      setError(msg)
+      setToast({ kind: 'error', text: msg })
+      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
     } finally {
       setSaving(false)
     }
@@ -379,13 +384,14 @@ export function LeadDetailPage() {
       const idempotencyKey = generateIdempotencyKey(id, lead.stage_id, stageId)
       await pipelineApi.moveLeadStage(id, stageId, idempotencyKey, occurredAt ?? undefined)
       await loadData()
-      setToast({ kind: 'success', text: 'Etapa actualizada' })
-      setTimeout(() => setToast(null), 2000)
+      setToast({ kind: 'success', text: 'Guardado' })
+      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al mover etapa'
       setSelectedStageId(lead.stage_id)
-      setError(err instanceof Error ? err.message : 'Error al mover etapa')
-      setToast({ kind: 'error', text: err instanceof Error ? err.message : 'Error al mover etapa' })
-      setTimeout(() => setToast(null), 3000)
+      setError(msg)
+      setToast({ kind: 'error', text: msg })
+      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
     } finally {
       setMoving(false)
     }
@@ -535,7 +541,13 @@ export function LeadDetailPage() {
 
   const waNumber = normalizeWhatsAppNumber(phoneDigits(lead.phone || ''))
   const isStageClosed = currentStage?.name && /cerrado\s+(ganado|perdido)/i.test(currentStage.name)
+  const stageNameNorm = currentStage?.name?.trim().toLowerCase() ?? ''
+  const isEarlyStage = /nuevo|contactado/.test(stageNameNorm)
+  const highlightCitaRealizada = /cita\s+realizada/.test(stageNameNorm)
+  const highlightPropuesta = /propuesta/.test(stageNameNorm)
   const cerradoAccentStyle = isStageClosed && currentStage ? getStageAccentStyle(currentStage.name) : undefined
+  const citaRealizadaAccentStyle = highlightCitaRealizada && currentStage ? getStageAccentStyle(currentStage.name) : undefined
+  const propuestaAccentStyle = highlightPropuesta && currentStage ? getStageAccentStyle(currentStage.name) : undefined
 
   return (
     <div style={{ paddingBottom: dirty ? UNSAVED_BAR_HEIGHT : 0 }}>
@@ -566,17 +578,17 @@ export function LeadDetailPage() {
               </span>
             )}
           </div>
-          {/* Fila 2: teléfono/email (navegación primaria = Volver, sin duplicar link Pipeline) */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted">
+          {/* Fila 2: teléfono / email + acciones de contacto (WhatsApp, Llamar, Email) como chips */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
             {lead.phone && (
-              <span className="flex items-center gap-0.5">
+              <span className="flex items-center gap-1">
                 <span>{lead.phone}</span>
                 <button
                   type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(lead.phone || '')
                     setToast({ kind: 'success', text: 'Teléfono copiado' })
-                    setTimeout(() => setToast(null), 2000)
+                    setTimeout(() => setToast(null), TOAST_CLEAR_MS)
                   }}
                   className="btn btn-ghost p-0.5 min-w-0 h-auto text-xs opacity-70 hover:opacity-100"
                   aria-label="Copiar teléfono"
@@ -584,20 +596,17 @@ export function LeadDetailPage() {
                 >
                   ⎘
                 </button>
-                {!waNumber && (
-                  <span className="text-xs opacity-80">· WhatsApp: número incompleto</span>
-                )}
               </span>
             )}
             {lead.email && (
-              <span className="flex items-center gap-0.5">
+              <span className="flex items-center gap-1">
                 <span>{lead.email}</span>
                 <button
                   type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(lead.email || '')
                     setToast({ kind: 'success', text: 'Email copiado' })
-                    setTimeout(() => setToast(null), 2000)
+                    setTimeout(() => setToast(null), TOAST_CLEAR_MS)
                   }}
                   className="btn btn-ghost p-0.5 min-w-0 h-auto text-xs opacity-70 hover:opacity-100"
                   aria-label="Copiar email"
@@ -607,9 +616,39 @@ export function LeadDetailPage() {
                 </button>
               </span>
             )}
+            {(waNumber || lead.phone || lead.email) && (
+              <span className="inline-flex items-center gap-1 flex-wrap">
+                {waNumber ? (
+                  <a
+                    href={`https://wa.me/${waNumber}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-ghost px-2 py-0.5 text-xs rounded-md border border-border/60 hover:bg-black/5"
+                  >
+                    WhatsApp
+                  </a>
+                ) : null}
+                {lead.phone ? (
+                  <a
+                    href={`tel:${(lead.phone || '').replace(/\s/g, '')}`}
+                    className="btn btn-ghost px-2 py-0.5 text-xs rounded-md border border-border/60 hover:bg-black/5"
+                  >
+                    Llamar
+                  </a>
+                ) : null}
+                {lead.email ? (
+                  <a
+                    href={`mailto:${lead.email}`}
+                    className="btn btn-ghost px-2 py-0.5 text-xs rounded-md border border-border/60 hover:bg-black/5"
+                  >
+                    Email
+                  </a>
+                ) : null}
+              </span>
+            )}
           </div>
         </div>
-        {/* Derecha: navegación (Volver) + Acciones ▾ + acciones rápidas contacto */}
+        {/* Derecha: solo Volver + Acciones */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             type="button"
@@ -666,33 +705,6 @@ export function LeadDetailPage() {
               </div>
             )}
           </div>
-          {(waNumber || lead.phone || lead.email) && (
-            <div className="flex border border-border rounded-md overflow-hidden [&>a]:rounded-none [&>a]:border-r [&>a]:border-border [&>a:last-child]:border-r-0">
-              {waNumber ? (
-                <a
-                  href={`https://wa.me/${waNumber}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-ghost px-2 py-1 text-xs"
-                >
-                  WhatsApp
-                </a>
-              ) : null}
-              {lead.phone ? (
-                <a
-                  href={`tel:${(lead.phone || '').replace(/\s/g, '')}`}
-                  className="btn btn-ghost px-2 py-1 text-xs"
-                >
-                  Llamar
-                </a>
-              ) : null}
-              {lead.email ? (
-                <a href={`mailto:${lead.email}`} className="btn btn-ghost px-2 py-1 text-xs">
-                  Email
-                </a>
-              ) : null}
-            </div>
-          )}
         </div>
       </div>
 
@@ -703,9 +715,14 @@ export function LeadDetailPage() {
         </div>
       )}
 
-      {/* Toast */}
+      {/* Toast — success: neutro; error: borde/ fondo rojo suave */}
       {toast && (
-        <div className="py-2 px-3 text-sm text-muted border border-border rounded-lg bg-bg mb-4" role="status">
+        <div
+          className={`py-2 px-3 text-sm rounded-lg mb-4 ${
+            toast.kind === 'error' ? 'border border-red-200 bg-red-50/50 text-red-800' : 'border border-border bg-bg text-muted'
+          }`}
+          role="status"
+        >
           {toast.text}
         </div>
       )}
@@ -802,171 +819,11 @@ export function LeadDetailPage() {
         </div>
       )}
 
-      {/* Grid: Fechas clave, Pipeline, Datos, Actividad; desktop = 2 cols */}
+      {/* Grid: col izquierda Datos + Actividad (8); col derecha Fechas clave + Pipeline (4) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* 1. Fechas clave — editable, arriba de Datos */}
+        {/* Columna izquierda: Datos */}
         <div
-          className="card lg:col-span-8"
-          style={{
-            padding: '16px',
-            borderLeft: '3px solid var(--primary)',
-            transition: prefersReducedMotion ? 'none' : 'all 200ms ease-out',
-          }}
-        >
-          <h3 style={{ margin: '0 0 4px 0', fontSize: '16px', fontWeight: 600 }}>
-            Fechas clave
-          </h3>
-          <p className="text-xs text-muted mb-3">
-            Fechas reales del proceso. Se usan para métricas y tiempos.
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label htmlFor="cita_realizada_at" className="block text-xs font-medium text-muted mb-1">
-                Cita realizada
-              </label>
-              <input
-                id="cita_realizada_at"
-                type="date"
-                value={citaRealizadaAtYmd}
-                onChange={(e) => setCitaRealizadaAtYmd(e.target.value)}
-                disabled={saving || !!lead.archived_at}
-                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
-              />
-            </div>
-            <div>
-              <label htmlFor="propuesta_presentada_at" className="block text-xs font-medium text-muted mb-1">
-                Propuesta presentada
-              </label>
-              <input
-                id="propuesta_presentada_at"
-                type="date"
-                value={propuestaPresentadaAtYmd}
-                onChange={(e) => setPropuestaPresentadaAtYmd(e.target.value)}
-                disabled={saving || !!lead.archived_at}
-                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
-              />
-            </div>
-            <div style={cerradoAccentStyle ? { borderLeftWidth: 3, borderLeftStyle: 'solid', borderLeftColor: cerradoAccentStyle.borderLeftColor, paddingLeft: 8 } : undefined}>
-              <label htmlFor="cerrado_at" className="block text-xs font-medium text-muted mb-1">
-                Cierre
-              </label>
-              <input
-                id="cerrado_at"
-                type="date"
-                value={cerradoAtYmd}
-                onChange={(e) => setCerradoAtYmd(e.target.value)}
-                disabled={saving || !!lead.archived_at}
-                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
-              />
-              {!isStageClosed && (
-                <p className="text-xs text-muted mt-1">Se usa cuando el lead está cerrado.</p>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* 2. Pipeline — sidebar: etapa actual + tiempos + fechas */}
-        <div
-          className="card lg:col-span-4 lg:sticky lg:top-4 self-start"
-          style={{
-            padding: '16px',
-            transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
-          }}
-        >
-          <h3 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 600, color: 'var(--muted)' }}>
-            Pipeline
-          </h3>
-          {moving && (
-            <p className="text-xs text-muted mb-2">Guardando…</p>
-          )}
-          <div>
-            <label
-              htmlFor="stage_select"
-              style={{
-                display: 'block',
-                marginBottom: '4px',
-                fontSize: '12px',
-                fontWeight: '500',
-                color: 'var(--muted)',
-              }}
-            >
-              Etapa actual
-            </label>
-            {lead.archived_at ? (
-              <p className="text-sm text-muted py-2">Restaura para editar</p>
-            ) : (
-              <select
-                id="stage_select"
-                value={selectedStageId}
-                onChange={(e) => {
-                  const v = e.target.value
-                  if (v && v !== lead.stage_id) handleStageSelectChange(v)
-                  else setSelectedStageId(v)
-                }}
-                disabled={moving || stages.length === 0}
-                style={{
-                  width: '100%',
-                  fontFamily: 'inherit',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                }}
-              >
-                {stages.map((stage) => (
-                  <option key={stage.id} value={stage.id}>
-                    {displayStageName(stage.name)}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-          {/* Tiempos */}
-          <div className="mt-3 pt-3 border-t border-black/10">
-            <p className="text-xs font-medium text-muted mb-2">Tiempos</p>
-            <div className="text-xs text-muted space-y-1">
-              <div className="flex justify-between gap-2">
-                <span>Días desde Cita realizada</span>
-                <span className="text-text tabular-nums">
-                  {citaRealizadaAt ? Math.floor(diffDaysFloor(citaRealizadaAt, new Date())) : '—'}
-                </span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span>Días desde Propuesta presentada</span>
-                <span className="text-text tabular-nums">
-                  {propuestaAt ? Math.floor(diffDaysFloor(propuestaAt, new Date())) : '—'}
-                </span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span>Días en etapa actual</span>
-                <span className="text-text tabular-nums">
-                  {enteredCurrentStageAt ? Math.floor(diffDaysFloor(enteredCurrentStageAt, new Date())) : '—'}
-                </span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span>Tiempo total del lead</span>
-                <span className="text-text tabular-nums">
-                  {cierreAt
-                    ? Math.floor(diffDaysFloor(lead.created_at, cierreAt))
-                    : lead.created_at
-                      ? Math.floor(diffDaysFloor(lead.created_at, new Date()))
-                      : '—'}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="my-3 h-px bg-black/5" />
-          <div className="text-xs text-muted flex flex-col gap-1">
-            <div>Creado: {formatDateTime(lead.created_at)}</div>
-            <div>Actualizado: {formatDateTime(lead.updated_at)}</div>
-            {lead.stage_changed_at && (
-              <div>Cambio de etapa: {formatDateTime(lead.stage_changed_at)}</div>
-            )}
-          </div>
-        </div>
-
-        {/* 2. Datos / Notas — por defecto modo lectura, "Editar datos" para editar */}
-        <div
-          className="lg:col-span-8 rounded-lg border border-border bg-bg/30 p-4"
+          className="lg:col-span-8 rounded-lg border border-border bg-bg/30 p-4 order-1"
           style={{
             transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
           }}
@@ -1109,24 +966,195 @@ export function LeadDetailPage() {
           )}
         </div>
 
-        {/* 3. Actividad — historial de etapas + placeholder; colapsada por defecto */}
-        <div className="lg:col-span-8 rounded-lg border border-border bg-bg/20 p-4">
+        {/* Columna derecha: Fechas clave (arriba) + Pipeline (abajo) */}
+        <div className="lg:col-span-4 flex flex-col gap-4 lg:sticky lg:top-4 self-start order-2">
+          {/* Fechas clave — compacta, inputs en columna */}
+          <div
+            className="rounded-lg border border-border bg-bg/30 p-4"
+            style={{
+              borderLeftWidth: 3,
+              borderLeftStyle: 'solid',
+              borderLeftColor: 'var(--primary)',
+              transition: prefersReducedMotion ? 'none' : 'all 200ms ease-out',
+            }}
+          >
+            <h3 className="text-sm font-medium text-muted mb-0.5">Fechas clave</h3>
+            <p className="text-xs text-muted mb-3">Fechas reales del proceso. Se usan para métricas y tiempos.</p>
+            <div className="space-y-3">
+              <div
+                className="rounded pl-2 -ml-2"
+                style={citaRealizadaAccentStyle ? { borderLeft: `2px solid ${citaRealizadaAccentStyle.borderLeftColor}` } : undefined}
+              >
+                <label htmlFor="cita_realizada_at" className="block text-xs font-medium text-muted mb-0.5">
+                  Cita realizada
+                </label>
+                <input
+                  id="cita_realizada_at"
+                  type="date"
+                  value={citaRealizadaAtYmd}
+                  onChange={(e) => setCitaRealizadaAtYmd(e.target.value)}
+                  disabled={saving || !!lead.archived_at}
+                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                />
+                {isEarlyStage && <p className="text-[11px] text-muted mt-0.5">Opcional (se usa para métricas)</p>}
+              </div>
+              <div
+                className="rounded pl-2 -ml-2"
+                style={propuestaAccentStyle ? { borderLeft: `2px solid ${propuestaAccentStyle.borderLeftColor}` } : undefined}
+              >
+                <label htmlFor="propuesta_presentada_at" className="block text-xs font-medium text-muted mb-0.5">
+                  Propuesta presentada
+                </label>
+                <input
+                  id="propuesta_presentada_at"
+                  type="date"
+                  value={propuestaPresentadaAtYmd}
+                  onChange={(e) => setPropuestaPresentadaAtYmd(e.target.value)}
+                  disabled={saving || !!lead.archived_at}
+                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                />
+                {isEarlyStage && <p className="text-[11px] text-muted mt-0.5">Opcional (se usa para métricas)</p>}
+              </div>
+              <div
+                className="rounded pl-2 -ml-2"
+                style={cerradoAccentStyle ? { borderLeft: `2px solid ${cerradoAccentStyle.borderLeftColor}` } : undefined}
+              >
+                <label htmlFor="cerrado_at" className="block text-xs font-medium text-muted mb-0.5">
+                  Cierre
+                </label>
+                <input
+                  id="cerrado_at"
+                  type="date"
+                  value={cerradoAtYmd}
+                  onChange={(e) => setCerradoAtYmd(e.target.value)}
+                  disabled={saving || !!lead.archived_at}
+                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                />
+                {!isStageClosed && <p className="text-[11px] text-muted mt-0.5">Se usa cuando el lead está cerrado.</p>}
+              </div>
+            </div>
+          </div>
+
+          {/* Pipeline — etapa + tiempos */}
+          <div
+            className="rounded-lg border border-border bg-bg/30 p-4"
+            style={{
+              transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
+            }}
+          >
+            <h3 className="text-sm font-medium text-muted mb-2">
+              Pipeline
+            </h3>
+          {moving && (
+            <p className="text-xs text-muted mb-2">Guardando…</p>
+          )}
+          <div>
+            <label
+              htmlFor="stage_select"
+              style={{
+                display: 'block',
+                marginBottom: '4px',
+                fontSize: '12px',
+                fontWeight: '500',
+                color: 'var(--muted)',
+              }}
+            >
+              Etapa actual
+            </label>
+            {lead.archived_at ? (
+              <p className="text-sm text-muted py-2">Restaura para editar</p>
+            ) : (
+              <select
+                id="stage_select"
+                value={selectedStageId}
+                onChange={(e) => {
+                  const v = e.target.value
+                  if (v && v !== lead.stage_id) handleStageSelectChange(v)
+                  else setSelectedStageId(v)
+                }}
+                disabled={moving || stages.length === 0}
+                style={{
+                  width: '100%',
+                  fontFamily: 'inherit',
+                  border: '1px solid var(--border)',
+                  borderRadius: '8px',
+                  padding: '8px 12px',
+                }}
+              >
+                {stages.map((stage) => (
+                  <option key={stage.id} value={stage.id}>
+                    {displayStageName(stage.name)}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          {/* Tiempos */}
+          <div className="mt-3 pt-3 border-t border-black/10">
+            <p className="text-xs font-medium text-muted mb-2">Tiempos</p>
+            <div className="text-xs text-muted space-y-1">
+              <div className="flex justify-between gap-2">
+                <span>Días desde Cita realizada</span>
+                <span className="text-text tabular-nums">
+                  {citaRealizadaAt ? Math.floor(diffDaysFloor(citaRealizadaAt, new Date())) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Días desde Propuesta presentada</span>
+                <span className="text-text tabular-nums">
+                  {propuestaAt ? Math.floor(diffDaysFloor(propuestaAt, new Date())) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Días en etapa actual</span>
+                <span className="text-text tabular-nums">
+                  {enteredCurrentStageAt ? Math.floor(diffDaysFloor(enteredCurrentStageAt, new Date())) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Tiempo total del lead</span>
+                <span className="text-text tabular-nums">
+                  {cierreAt
+                    ? Math.floor(diffDaysFloor(lead.created_at, cierreAt))
+                    : lead.created_at
+                      ? Math.floor(diffDaysFloor(lead.created_at, new Date()))
+                      : '—'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <div className="my-3 h-px bg-black/5" />
+          <div className="text-xs text-muted flex flex-col gap-1">
+            <div>Creado: {formatDateTime(lead.created_at)}</div>
+            <div>Actualizado: {formatDateTime(lead.updated_at)}</div>
+            {lead.stage_changed_at && (
+              <div>Cambio de etapa: {formatDateTime(lead.stage_changed_at)}</div>
+            )}
+          </div>
+          </div>
+        </div>
+
+        {/* Actividad — historial de etapas; colapsada por defecto; header clicable con chevron, sin look input */}
+        <div className="lg:col-span-8 rounded-lg border border-border bg-bg/20 p-4 order-3">
           <button
             type="button"
             onClick={() => setActividadExpanded((e) => !e)}
-            className="flex w-full items-center justify-between gap-2 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary rounded"
+            className="flex w-full items-center justify-between gap-2 py-2 text-left rounded border-0 bg-transparent hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer"
             aria-expanded={actividadExpanded}
             aria-controls="actividad-content"
           >
             <h3 className="text-sm font-medium text-muted">
               Actividad
             </h3>
-            <span className="text-muted text-xs" aria-hidden>
+            <span className="text-muted text-xs flex items-center gap-1.5" aria-hidden>
+              {!actividadExpanded && stageHistory.length > 0 && (
+                <span>{stageHistory.length} movimiento(s) de etapa</span>
+              )}
               {actividadExpanded ? '▼' : '▶'}
             </span>
           </button>
           {actividadExpanded && (
-            <div id="actividad-content" className="mt-3 pt-3 border-t border-border">
+            <div id="actividad-content" className="mt-1 pt-3 border-t border-border">
               {stageHistory.length > 0 ? (
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-muted mb-2">Historial de etapas</p>
@@ -1148,11 +1176,6 @@ export function LeadDetailPage() {
                 </p>
               )}
             </div>
-          )}
-          {!actividadExpanded && (
-            <p className="text-xs text-muted mt-1">
-              {stageHistory.length > 0 ? `${stageHistory.length} movimiento(s) de etapa` : 'Sin eventos recientes'}
-            </p>
           )}
         </div>
       </div>
