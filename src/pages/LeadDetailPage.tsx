@@ -87,6 +87,14 @@ function phoneDigits(phone: string): string {
   return (phone || '').replace(/\D/g, '')
 }
 
+/** Número para wa.me en MX: 10 dígitos -> "52"+digits; ya con 52 y 12–13 dígitos -> as-is; <10 -> "" */
+function normalizeWhatsAppNumber(digits: string): string {
+  if (digits.length < 10) return ''
+  if (digits.length === 10) return '52' + digits
+  if (digits.startsWith('52') && digits.length >= 12 && digits.length <= 13) return digits
+  return ''
+}
+
 export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -114,9 +122,8 @@ export function LeadDetailPage() {
   const [saving, setSaving] = useState(false)
   const [moving, setMoving] = useState(false)
   const [markingContact, setMarkingContact] = useState(false)
-  const [saveMessage, setSaveMessage] = useState<string | null>(null)
-  const [moveMessage, setMoveMessage] = useState<string | null>(null)
-  
+  const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
+
   // Reduced motion
   const prefersReducedMotion = useReducedMotion()
 
@@ -126,7 +133,7 @@ export function LeadDetailPage() {
     }
   }, [id])
 
-  // Initialize form when lead loads
+  // Initialize form when lead loads; do not overwrite selectedStageId while moving
   useEffect(() => {
     if (lead) {
       setFullName(lead.full_name || '')
@@ -134,11 +141,11 @@ export function LeadDetailPage() {
       setEmail(lead.email || '')
       setSource(lead.source || '')
       setNotes(lead.notes || '')
-      setSelectedStageId(lead.stage_id)
       setLastContactAt(lead.last_contact_at ? lead.last_contact_at.split('T')[0] : '')
       setNextFollowUpAt(lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : '')
+      if (!moving) setSelectedStageId(lead.stage_id)
     }
-  }, [lead])
+  }, [lead, moving])
 
   const loadData = async () => {
     if (!id) return
@@ -213,7 +220,7 @@ export function LeadDetailPage() {
 
     setSaving(true)
     setError(null)
-    setSaveMessage(null)
+    setToast(null)
 
     try {
       await pipelineApi.updateLead(id, {
@@ -226,11 +233,9 @@ export function LeadDetailPage() {
         next_follow_up_at: nextFollowUpAt || null,
       })
 
-      // Refetch lead
       await loadData()
-
-      setSaveMessage('Guardado')
-      setTimeout(() => setSaveMessage(null), 2000)
+      setToast({ kind: 'success', text: 'Guardado' })
+      setTimeout(() => setToast(null), 2000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
@@ -255,9 +260,8 @@ export function LeadDetailPage() {
 
       // Refetch lead
       await loadData()
-
-      setSaveMessage('Contacto registrado ✅')
-      setTimeout(() => setSaveMessage(null), 2000)
+      setToast({ kind: 'success', text: 'Contacto registrado ✅' })
+      setTimeout(() => setToast(null), 2000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al registrar contacto')
     } finally {
@@ -272,14 +276,14 @@ export function LeadDetailPage() {
 
     setMoving(true)
     setError(null)
-    setMoveMessage(null)
+    setToast(null)
 
     try {
       const idempotencyKey = generateIdempotencyKey(id, lead.stage_id, stageId)
       await pipelineApi.moveLeadStage(id, stageId, idempotencyKey)
       await loadData()
-      setMoveMessage('Etapa actualizada')
-      setTimeout(() => setMoveMessage(null), 2000)
+      setToast({ kind: 'success', text: 'Etapa actualizada' })
+      setTimeout(() => setToast(null), 2000)
     } catch (err) {
       setSelectedStageId(lead.stage_id)
       setError(err instanceof Error ? err.message : 'Error al mover etapa')
@@ -366,7 +370,7 @@ export function LeadDetailPage() {
 
   const nextYmd = lead.next_follow_up_at ? lead.next_follow_up_at.split('T')[0] : null
   const followUpStatus = getNextFollowUpStatus(nextYmd)
-  const digits = phoneDigits(lead.phone || '')
+  const waNumber = normalizeWhatsAppNumber(phoneDigits(lead.phone || ''))
 
   return (
     <div>
@@ -402,8 +406,8 @@ export function LeadDetailPage() {
                   type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(lead.phone || '')
-                    setSaveMessage('Teléfono copiado')
-                    setTimeout(() => setSaveMessage(null), 2000)
+                    setToast({ kind: 'success', text: 'Teléfono copiado' })
+                    setTimeout(() => setToast(null), 2000)
                   }}
                   className="btn btn-ghost px-1.5 py-1 text-xs"
                   aria-label="Copiar teléfono"
@@ -416,18 +420,18 @@ export function LeadDetailPage() {
             <span className="text-muted">
               Próximo seguimiento: {humanizeNextFollowUp(nextYmd)}
             </span>
-            {(lead.phone || lead.email) && (
+            {(waNumber || lead.email) && (
               <span className="flex items-center gap-1">
-                {digits && (
+                {waNumber ? (
                   <a
-                    href={`https://wa.me/${digits}`}
+                    href={`https://wa.me/${waNumber}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="btn btn-ghost px-2 py-1 text-xs"
                   >
                     WhatsApp
                   </a>
-                )}
+                ) : null}
                 {lead.email && (
                   <a
                     href={`mailto:${lead.email}`}
@@ -470,33 +474,10 @@ export function LeadDetailPage() {
         </div>
       )}
 
-      {/* Success Messages */}
-      {saveMessage && (
-        <div
-          style={{
-            background: '#efe',
-            color: '#3c3',
-            border: '1px solid #3c3',
-            padding: '12px',
-            borderRadius: '8px',
-            marginBottom: '16px',
-          }}
-        >
-          {saveMessage}
-        </div>
-      )}
-      {moveMessage && (
-        <div
-          style={{
-            background: '#efe',
-            color: '#3c3',
-            border: '1px solid #3c3',
-            padding: '12px',
-            borderRadius: '8px',
-            marginBottom: '16px',
-          }}
-        >
-          {moveMessage}
+      {/* Toast */}
+      {toast && (
+        <div className="py-2 px-3 text-sm text-muted border border-border rounded-lg bg-bg mb-4" role="status">
+          {toast.text}
         </div>
       )}
 
@@ -657,6 +638,14 @@ export function LeadDetailPage() {
               ))}
             </select>
           </div>
+          <div className="my-3 h-px bg-black/5" />
+          <div className="text-xs text-muted flex flex-col gap-1">
+            <div>Creado: {formatDateTime(lead.created_at)}</div>
+            <div>Actualizado: {formatDateTime(lead.updated_at)}</div>
+            {lead.stage_changed_at && (
+              <div>Cambio de etapa: {formatDateTime(lead.stage_changed_at)}</div>
+            )}
+          </div>
         </div>
 
         {/* 3. Datos / Notas */}
@@ -758,21 +747,7 @@ export function LeadDetailPage() {
           </div>
         </div>
 
-        {/* 4. Información compacta — sidebar */}
-        <div
-          className="lg:col-span-4 space-y-1 lg:sticky lg:top-4 self-start"
-          style={{ padding: '0' }}
-        >
-          <div className="text-xs text-muted flex flex-col gap-1">
-            <div>Creado: {formatDateTime(lead.created_at)}</div>
-            <div>Actualizado: {formatDateTime(lead.updated_at)}</div>
-            {lead.stage_changed_at && (
-              <div>Cambio de etapa: {formatDateTime(lead.stage_changed_at)}</div>
-            )}
-          </div>
-        </div>
-
-        {/* 5. Actividad */}
+        {/* 4. Actividad — main */}
         <div className="card lg:col-span-8" style={{ padding: '16px' }}>
           <h3 style={{ margin: '0 0 14px 0', fontSize: '16px', fontWeight: 600 }}>
             Actividad
