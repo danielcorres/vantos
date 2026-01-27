@@ -95,30 +95,33 @@ function normalizeWhatsAppNumber(digits: string): string {
   return ''
 }
 
+const CHIP_BASE = 'inline-block px-2 py-0.5 text-xs rounded-md border border-black/5'
+
 function getSourceTagClasses(source: string | null): string {
-  if (!source) return 'bg-black/5 text-muted'
+  if (!source) return `${CHIP_BASE} bg-black/5 text-muted`
   switch (source) {
     case 'Referido':
-      return 'bg-emerald-100 text-emerald-800'
+      return `${CHIP_BASE} bg-emerald-100 text-emerald-800`
     case 'Mercado natural':
-      return 'bg-sky-100 text-sky-800'
+      return `${CHIP_BASE} bg-sky-100 text-sky-800`
     case 'Frío':
-      return 'bg-rose-100 text-rose-800'
+      return `${CHIP_BASE} bg-rose-100 text-rose-800`
     case 'Social media':
-      return 'bg-violet-100 text-violet-800'
+      return `${CHIP_BASE} bg-violet-100 text-violet-800`
     default:
-      return 'bg-black/5 text-muted'
+      return `${CHIP_BASE} bg-black/5 text-muted`
   }
 }
 
 function getStageTagClasses(stageName: string | undefined): string {
-  if (!stageName) return 'bg-black/5 text-muted'
+  if (!stageName) return `${CHIP_BASE} bg-black/5 text-muted`
   const s = stageName.toLowerCase()
-  if (s.includes('nuevo')) return 'bg-slate-100 text-slate-700'
-  if (s.includes('cita') && s.includes('agendada')) return 'bg-amber-100 text-amber-800'
-  if (s.includes('cerrado') && s.includes('ganado')) return 'bg-emerald-100 text-emerald-800'
-  if (s.includes('cerrado') && s.includes('perdido')) return 'bg-rose-100 text-rose-700'
-  return 'bg-black/5 text-muted'
+  if (s.includes('nuevo')) return `${CHIP_BASE} bg-slate-100 text-slate-700`
+  if (s.includes('cita') && s.includes('agendada')) return `${CHIP_BASE} bg-amber-100 text-amber-800`
+  if (s.includes('cita') && s.includes('realizada')) return `${CHIP_BASE} bg-indigo-100 text-indigo-800`
+  if (s.includes('cerrado') && s.includes('ganado')) return `${CHIP_BASE} bg-emerald-100 text-emerald-800`
+  if (s.includes('cerrado') && s.includes('perdido')) return `${CHIP_BASE} bg-rose-100 text-rose-700`
+  return `${CHIP_BASE} bg-black/5 text-muted`
 }
 
 export function LeadDetailPage() {
@@ -149,7 +152,6 @@ export function LeadDetailPage() {
   const [moving, setMoving] = useState(false)
   const [markingContact, setMarkingContact] = useState(false)
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
-  const [saveButtonFeedback, setSaveButtonFeedback] = useState(false)
 
   // Reduced motion
   const prefersReducedMotion = useReducedMotion()
@@ -274,8 +276,6 @@ export function LeadDetailPage() {
       await loadData()
       setToast({ kind: 'success', text: 'Guardado' })
       setTimeout(() => setToast(null), 2000)
-      setSaveButtonFeedback(true)
-      setTimeout(() => setSaveButtonFeedback(false), 1000)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al guardar')
     } finally {
@@ -426,17 +426,17 @@ export function LeadDetailPage() {
               {lead.full_name || 'Lead sin nombre'}
             </h1>
             {lead.source && (
-              <span className={`px-2 py-0.5 text-xs rounded ${getSourceTagClasses(lead.source)}`}>
+              <span className={getSourceTagClasses(lead.source)}>
                 {lead.source}
               </span>
             )}
             {currentStage && (
-              <span className={`px-2 py-0.5 text-xs rounded ${getStageTagClasses(currentStage.name)}`}>
+              <span className={getStageTagClasses(currentStage.name)}>
                 {currentStage.name}
               </span>
             )}
           </div>
-          {/* Fila 2 (muted): teléfono + copy, email + copy, próximo seguimiento + badge */}
+          {/* Fila 2 (muted): teléfono + copy, email + copy */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-sm text-muted">
             {lead.phone && (
               <span className="flex items-center gap-0.5">
@@ -477,45 +477,41 @@ export function LeadDetailPage() {
                 </button>
               </span>
             )}
-            <span className="flex items-center gap-1.5 flex-wrap">
-              <span>Próximo seguimiento: {humanizeNextFollowUp(nextYmd)}</span>
-              {followUpStatus !== 'none' && (
-                <span
-                  className={
-                    followUpStatus === 'overdue'
-                      ? 'px-1.5 py-0 text-xs rounded bg-danger/15 text-danger'
-                      : followUpStatus === 'today'
-                        ? 'px-1.5 py-0 text-xs rounded bg-warning/15 text-warning'
-                        : 'px-1.5 py-0 text-xs rounded bg-black/5'
-                  }
-                >
-                  {followUpStatus === 'overdue' && 'Vencido'}
-                  {followUpStatus === 'today' && 'Hoy'}
-                  {followUpStatus === 'upcoming' && 'Próximo'}
-                </span>
-              )}
-            </span>
           </div>
         </div>
-        {/* Derecha: navegación destacada primero; luego acciones rápidas */}
-        <div className="flex flex-wrap items-center gap-2 shrink-0">
-          <button
-            onClick={() => {
-              const pipelineUrl = searchParams.get('weekStart')
-                ? `/pipeline?lead=${lead.id}&weekStart=${searchParams.get('weekStart')}`
-                : `/pipeline?lead=${lead.id}`
-              navigate(pipelineUrl)
-            }}
-            className="btn btn-primary text-xs"
-          >
-            Ver en pipeline
-          </button>
-          <button onClick={() => navigate(-1)} className="btn btn-ghost border border-border text-xs">
-            Volver
-          </button>
-          {(waNumber || lead.phone || lead.email) && (
-            <div className="flex border border-border rounded-md overflow-hidden [&>a]:rounded-none [&>a]:border-r [&>a]:border-border [&>a:last-child]:border-r-0">
-              {waNumber ? (
+        {/* Derecha: navegación según origen; luego acciones rápidas */}
+        {(() => {
+          const cameFromPipeline = Boolean(
+            searchParams.get('weekStart') || searchParams.get('lead') || searchParams.get('from') === 'pipeline'
+          )
+          const pipelineUrl = searchParams.get('weekStart')
+            ? `/pipeline?lead=${lead.id}&weekStart=${searchParams.get('weekStart')}`
+            : `/pipeline?lead=${lead.id}`
+          return (
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              {cameFromPipeline ? (
+                <button
+                  onClick={() => navigate(pipelineUrl)}
+                  className="btn btn-primary text-xs"
+                >
+                  Volver a pipeline
+                </button>
+              ) : (
+                <>
+                  <button onClick={() => navigate(-1)} className="btn btn-primary text-xs">
+                    Volver
+                  </button>
+                  <button
+                    onClick={() => navigate(pipelineUrl)}
+                    className="btn btn-ghost border border-border text-xs"
+                  >
+                    Ir al pipeline
+                  </button>
+                </>
+              )}
+              {(waNumber || lead.phone || lead.email) && (
+                <div className="flex border border-border rounded-md overflow-hidden [&>a]:rounded-none [&>a]:border-r [&>a]:border-border [&>a:last-child]:border-r-0">
+                  {waNumber ? (
                 <a
                   href={`https://wa.me/${waNumber}`}
                   target="_blank"
@@ -538,9 +534,11 @@ export function LeadDetailPage() {
                   Email
                 </a>
               ) : null}
+                </div>
+              )}
             </div>
-          )}
-        </div>
+          )
+        })()}
       </div>
 
       {/* Error Message */}
@@ -574,7 +572,7 @@ export function LeadDetailPage() {
               {saving ? 'Guardando…' : 'Guardar cambios'}
             </button>
             <button
-              onClick={discardChanges}
+              onClick={() => window.confirm('¿Descartar cambios?') && discardChanges()}
               disabled={saving}
               className="btn btn-ghost border border-border text-xs"
             >
@@ -619,27 +617,18 @@ export function LeadDetailPage() {
               <span className="text-xs">Próximo: {humanizeNextFollowUp(nextYmd)}</span>
             </span>
           </div>
-          {/* Acciones: "Registrar contacto de hoy" (primaria) + micro-desc; "Guardar cambios" (secundaria) */}
-          <div className="flex flex-wrap gap-3 mb-3 items-start">
-            <div>
-              <button
-                onClick={handleMarkContact}
-                disabled={markingContact || saving}
-                className="btn btn-primary text-xs"
-              >
-                {markingContact ? 'Registrando…' : 'Registrar contacto de hoy'}
-              </button>
-              <p className="text-xs text-muted mt-1 max-w-[240px]">
-                Actualiza &quot;Último contacto&quot; a hoy y agenda el próximo seguimiento.
-              </p>
-            </div>
+          {/* Acciones: solo "Registrar contacto de hoy" + descripción; guardado principal en sticky bar */}
+          <div className="mb-3">
             <button
-              onClick={handleSave}
-              disabled={!hasChanges() || saving || markingContact}
-              className="btn btn-ghost border border-border text-xs self-center"
+              onClick={handleMarkContact}
+              disabled={markingContact || saving}
+              className="btn btn-primary text-xs"
             >
-              {saveButtonFeedback ? 'Guardado' : saving ? 'Guardando…' : 'Guardar cambios'}
+              {markingContact ? 'Registrando…' : 'Registrar contacto de hoy'}
             </button>
+            <p className="text-xs text-muted mt-1 max-w-[240px]">
+              Actualiza &quot;Último contacto&quot; a hoy y agenda el próximo seguimiento.
+            </p>
           </div>
           {/* Inputs: desktop 2 columnas */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -821,12 +810,17 @@ export function LeadDetailPage() {
 
         {/* 4. Actividad — main */}
         <div className="card lg:col-span-8" style={{ padding: '16px' }}>
-          <h3 style={{ margin: '0 0 14px 0', fontSize: '16px', fontWeight: 600 }}>
+          <h3 className="text-base font-semibold mb-3">
             Actividad
           </h3>
-          <p className="muted" style={{ fontSize: '13px' }}>
-            TODO: Conectar a activity_events filtrando por lead_id
+          <p className="text-sm text-muted mb-4">
+            El historial de interacciones y movimientos de este lead aparecerá aquí.
           </p>
+          <div className="space-y-2" aria-hidden>
+            <div className="h-3 rounded bg-black/5 w-full max-w-[80%]" />
+            <div className="h-3 rounded bg-black/5 w-full max-w-[60%]" />
+            <div className="h-3 rounded bg-black/5 w-full max-w-[90%]" />
+          </div>
         </div>
       </div>
     </div>
