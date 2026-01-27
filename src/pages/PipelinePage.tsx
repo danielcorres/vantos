@@ -4,7 +4,7 @@ import { pipelineApi, type Lead } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
 import { LeadCreateModal } from '../features/pipeline/components/LeadCreateModal'
 import { Toast } from '../shared/components/Toast'
-import { todayLocalYmd, addDaysYmd } from '../shared/utils/dates'
+import { todayLocalYmd } from '../shared/utils/dates'
 
 type Stage = {
   id: string
@@ -22,9 +22,23 @@ function stageToPipelineStage(stage: Stage): { id: string; name: string; positio
   }
 }
 
-// Helper: Format date to human readable (ej: "Hoy", "Ayer", "26 ene")
-function formatHumanDate(dateString: string | null | undefined): string {
+// Helper: Format date to human readable (ej: "24 ene")
+function formatHumanDateShort(dateString: string | null | undefined): string {
   if (!dateString) return ''
+  try {
+    const date = new Date(dateString)
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+    const day = date.getDate()
+    const month = months[date.getMonth()]
+    return `${day} ${month}`
+  } catch {
+    return ''
+  }
+}
+
+// Helper: Format next follow up date (ej: "Hoy", "30 ene")
+function formatNextFollowUp(dateString: string | null | undefined): string {
+  if (!dateString) return '—'
   try {
     const date = new Date(dateString)
     const today = todayLocalYmd()
@@ -32,19 +46,13 @@ function formatHumanDate(dateString: string | null | undefined): string {
     
     if (dateYmd === today) return 'Hoy'
     
-    const yesterday = addDaysYmd(today, -1)
-    if (dateYmd === yesterday) return 'Ayer'
-    
-    const tomorrow = addDaysYmd(today, 1)
-    if (dateYmd === tomorrow) return 'Mañana'
-    
-    // Formato: "26 ene"
+    // Formato: "30 ene"
     const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
     const day = date.getDate()
     const month = months[date.getMonth()]
     return `${day} ${month}`
   } catch {
-    return ''
+    return '—'
   }
 }
 
@@ -60,28 +68,27 @@ function getFollowUpStatus(nextFollowUpAt: string | null | undefined): 'overdue'
   return 'future'
 }
 
-// Helper: Get follow-up status class
-function getFollowUpStatusClass(status: ReturnType<typeof getFollowUpStatus>): string {
-  if (status === 'overdue') return 'text-red-700 bg-red-50 border-red-200'
-  if (status === 'today') return 'text-amber-700 bg-amber-50 border-amber-200'
+// Helper: Get follow-up status color class (solo para el texto "Próx")
+function getFollowUpStatusColor(status: ReturnType<typeof getFollowUpStatus>): string {
+  if (status === 'overdue' || status === 'today') return 'text-red-700 font-medium'
+  if (status === 'future') return 'text-amber-700 font-medium'
   return 'text-muted'
 }
 
-// Helper: Get follow-up status label
-function getFollowUpStatusLabel(status: ReturnType<typeof getFollowUpStatus>): string {
-  if (status === 'overdue') return 'Vencido'
-  if (status === 'today') return 'Hoy'
-  if (status === 'future') return 'En tiempo'
-  return 'Sin fecha'
+// Helper: Get follow-up emoji
+function getFollowUpEmoji(status: ReturnType<typeof getFollowUpStatus>): string {
+  if (status === 'overdue' || status === 'today') return '🔴'
+  if (status === 'future') return '🟡'
+  return '⚪'
 }
 
-// Helper: Sort leads by follow-up priority
-function sortLeadsByFollowUp(leads: Lead[]): Lead[] {
+// Helper: Sort leads by intelligent priority
+function sortLeadsByPriority(leads: Lead[]): Lead[] {
   return [...leads].sort((a, b) => {
     const aStatus = getFollowUpStatus(a.next_follow_up_at)
     const bStatus = getFollowUpStatus(b.next_follow_up_at)
     
-    // Priority: overdue > today > future > none
+    // Priority order: overdue > today > future (closer first) > none > oldest created
     const statusOrder: Record<string, number> = {
       overdue: 0,
       today: 1,
@@ -96,15 +103,24 @@ function sortLeadsByFollowUp(leads: Lead[]): Lead[] {
       return aOrder - bOrder
     }
     
-    // Same status: sort by next_follow_up_at (earlier first)
-    if (a.next_follow_up_at && b.next_follow_up_at) {
-      return new Date(a.next_follow_up_at).getTime() - new Date(b.next_follow_up_at).getTime()
+    // Same status: sort by next_follow_up_at (earlier first for future)
+    if (aStatus === 'future' && bStatus === 'future') {
+      if (a.next_follow_up_at && b.next_follow_up_at) {
+        return new Date(a.next_follow_up_at).getTime() - new Date(b.next_follow_up_at).getTime()
+      }
     }
-    if (a.next_follow_up_at) return -1
-    if (b.next_follow_up_at) return 1
     
-    // Fallback: by name
-    return (a.full_name || '').localeCompare(b.full_name || '')
+    // For overdue/today: sort by next_follow_up_at (more overdue first)
+    if ((aStatus === 'overdue' || aStatus === 'today') && (bStatus === 'overdue' || bStatus === 'today')) {
+      if (a.next_follow_up_at && b.next_follow_up_at) {
+        return new Date(a.next_follow_up_at).getTime() - new Date(b.next_follow_up_at).getTime()
+      }
+    }
+    
+    // None or same priority: sort by created_at (oldest first)
+    const aCreated = new Date(a.created_at).getTime()
+    const bCreated = new Date(b.created_at).getTime()
+    return aCreated - bCreated
   })
 }
 
@@ -122,20 +138,24 @@ export function PipelinePage() {
 
   // Move stage state
   const [selectedStageId, setSelectedStageId] = useState<Record<string, string>>({})
-  const [selectedNextFollowUp, setSelectedNextFollowUp] = useState<Record<string, string>>({})
   const [movingLeadId, setMovingLeadId] = useState<string | null>(null)
+
+  // Date editing state
+  const [editingDateLeadId, setEditingDateLeadId] = useState<string | null>(null)
+  const [editingDateValue, setEditingDateValue] = useState<string>('')
   const [updatingFollowUp, setUpdatingFollowUp] = useState<string | null>(null)
 
   // Create lead modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
 
-  // Collapsed stages state (accordion)
+  // Collapsed stages state (accordion) - default: open if has leads
   const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set())
 
   // Mobile detection
   const [isMobile, setIsMobile] = useState(false)
 
   const leadCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
+  const dateInputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
 
   useEffect(() => {
     const checkMobile = () => {
@@ -149,6 +169,24 @@ export function PipelinePage() {
   useEffect(() => {
     loadData()
   }, [])
+
+  // Initialize collapsed stages: open if has leads
+  useEffect(() => {
+    if (stages.length > 0 && leads.length > 0) {
+      setCollapsedStages((prev) => {
+        const next = new Set(prev)
+        stages.forEach((stage) => {
+          const stageLeads = leads.filter((l) => l.stage_id === stage.id)
+          if (stageLeads.length === 0) {
+            next.add(stage.id)
+          } else {
+            next.delete(stage.id)
+          }
+        })
+        return next
+      })
+    }
+  }, [stages, leads])
 
   useEffect(() => {
     // Handle lead query param - highlight and scroll
@@ -197,13 +235,9 @@ export function PipelinePage() {
     }
   }
 
-  // Handle move stage
-  const handleMoveStage = async (leadId: string, lead: Lead) => {
-    if (!lead.stage_id) return
-
-    const toStageId = selectedStageId[leadId] || lead.stage_id
-
-    if (toStageId === lead.stage_id) return
+  // Handle move stage (immediate change)
+  const handleMoveStage = async (leadId: string, lead: Lead, toStageId: string) => {
+    if (!lead.stage_id || toStageId === lead.stage_id) return
 
     setMovingLeadId(leadId)
 
@@ -236,6 +270,7 @@ export function PipelinePage() {
 
       await loadData()
       setToast({ type: 'success', message: 'Fecha actualizada ✅' })
+      setEditingDateLeadId(null)
     } catch (err) {
       setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al actualizar fecha' })
     } finally {
@@ -271,15 +306,52 @@ export function PipelinePage() {
     })
   }
 
+  // Start editing date
+  const startEditingDate = (lead: Lead, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingDateLeadId(lead.id)
+    setEditingDateValue(lead.next_follow_up_at?.split('T')[0] || '')
+    setTimeout(() => {
+      const input = dateInputRefs.current.get(lead.id)
+      input?.focus()
+    }, 0)
+  }
+
+  // Save date edit
+  const saveDateEdit = (leadId: string) => {
+    const newValue = editingDateValue || null
+    const currentValue = leads.find((l) => l.id === leadId)?.next_follow_up_at?.split('T')[0] || null
+    
+    if (newValue !== currentValue) {
+      handleUpdateNextFollowUp(leadId, newValue)
+    } else {
+      setEditingDateLeadId(null)
+    }
+  }
+
   // Group leads by stage and sort
   const leadsByStage = useMemo(() => {
     const grouped = new Map<string, Lead[]>()
     stages.forEach((stage) => {
       const stageLeads = leads.filter((lead) => lead.stage_id === stage.id)
-      grouped.set(stage.id, sortLeadsByFollowUp(stageLeads))
+      grouped.set(stage.id, sortLeadsByPriority(stageLeads))
     })
     return grouped
   }, [stages, leads])
+
+  // Count urgent leads per stage
+  const urgentCountsByStage = useMemo(() => {
+    const counts = new Map<string, number>()
+    stages.forEach((stage) => {
+      const stageLeads = leadsByStage.get(stage.id) || []
+      const urgent = stageLeads.filter((lead) => {
+        const status = getFollowUpStatus(lead.next_follow_up_at)
+        return status === 'overdue' || status === 'today'
+      }).length
+      counts.set(stage.id, urgent)
+    })
+    return counts
+  }, [stages, leadsByStage])
 
   if (loading) {
     return (
@@ -380,7 +452,7 @@ export function PipelinePage() {
         {stages.map((stage) => {
           const stageLeads = leadsByStage.get(stage.id) || []
           const isCollapsed = collapsedStages.has(stage.id)
-          const isMoving = movingLeadId !== null
+          const urgentCount = urgentCountsByStage.get(stage.id) || 0
 
           return (
             <div key={stage.id} className="card">
@@ -392,7 +464,8 @@ export function PipelinePage() {
                 <div className="flex items-center gap-3">
                   <span className="text-lg font-semibold">{stage.name}</span>
                   <span className="text-sm text-muted">
-                    {stageLeads.length} {stageLeads.length === 1 ? 'lead' : 'leads'}
+                    {stageLeads.length}
+                    {urgentCount > 0 && ` · ${urgentCount} hoy`}
                   </span>
                 </div>
                 <span className="text-muted text-xl">
@@ -408,13 +481,15 @@ export function PipelinePage() {
                       Sin leads en esta etapa
                     </div>
                   ) : isMobile ? (
-                    /* Mobile: List view */
+                    /* Mobile: Card view */
                     <div className="divide-y divide-border">
-                      {stageLeads.map((lead) => {
+                      {stageLeads.map((lead, index) => {
                         const isHighlighted = highlightLeadId === lead.id
                         const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
+                        const isUrgent = followUpStatus === 'overdue' || followUpStatus === 'today'
+                        const isFirstUrgent = index === 0 && isUrgent
+                        const isEditingDate = editingDateLeadId === lead.id
                         const currentSelectedStage = selectedStageId[lead.id] || lead.stage_id || ''
-                        const currentNextFollowUp = selectedNextFollowUp[lead.id] || lead.next_follow_up_at?.split('T')[0] || ''
 
                         return (
                           <div
@@ -426,12 +501,11 @@ export function PipelinePage() {
                                 leadCardRefs.current.delete(lead.id)
                               }
                             }}
-                            className={`p-3 ${
+                            onClick={() => navigate(`/leads/${lead.id}`)}
+                            className={`p-3 cursor-pointer hover:bg-muted/50 transition-colors ${
                               isHighlighted ? 'bg-primary/5 ring-2 ring-primary' : ''
                             } ${
-                              followUpStatus === 'overdue' ? 'border-l-4 border-l-red-500' :
-                              followUpStatus === 'today' ? 'border-l-4 border-l-amber-500' :
-                              ''
+                              isFirstUrgent ? 'border-l-4 border-l-red-500 bg-red-50/30' : ''
                             }`}
                           >
                             <div className="space-y-2">
@@ -444,44 +518,65 @@ export function PipelinePage() {
                                 )}
                               </div>
 
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <div className="flex-1 min-w-[120px]">
-                                  <label className="text-xs text-muted block mb-1">Próximo seguimiento</label>
-                                  <input
-                                    type="date"
-                                    value={currentNextFollowUp}
-                                    onChange={(e) => setSelectedNextFollowUp((prev) => ({
-                                      ...prev,
-                                      [lead.id]: e.target.value,
-                                    }))}
-                                    onBlur={() => {
-                                      const newValue = selectedNextFollowUp[lead.id] || ''
-                                      if (newValue !== lead.next_follow_up_at?.split('T')[0]) {
-                                        handleUpdateNextFollowUp(lead.id, newValue || null)
-                                      }
-                                    }}
-                                    disabled={updatingFollowUp === lead.id}
-                                    className="w-full text-xs px-2 py-1 border border-border rounded bg-bg"
-                                  />
+                              <div className="text-xs space-y-1">
+                                <div className="text-muted">
+                                  Creado: {formatHumanDateShort(lead.created_at)}
                                 </div>
-                                {lead.next_follow_up_at && (
-                                  <div className={`px-2 py-1 rounded text-xs ${getFollowUpStatusClass(followUpStatus)}`}>
-                                    {getFollowUpStatusLabel(followUpStatus)}
-                                  </div>
-                                )}
+                                <div
+                                  onClick={(e) => startEditingDate(lead, e)}
+                                  className="flex items-center gap-1"
+                                >
+                                  {isEditingDate ? (
+                                    <input
+                                      ref={(el) => {
+                                        if (el) {
+                                          dateInputRefs.current.set(lead.id, el)
+                                        } else {
+                                          dateInputRefs.current.delete(lead.id)
+                                        }
+                                      }}
+                                      type="date"
+                                      value={editingDateValue}
+                                      onChange={(e) => setEditingDateValue(e.target.value)}
+                                      onBlur={() => saveDateEdit(lead.id)}
+                                      onKeyDown={(e) => {
+                                        if (e.key === 'Enter') {
+                                          saveDateEdit(lead.id)
+                                        } else if (e.key === 'Escape') {
+                                          setEditingDateLeadId(null)
+                                        }
+                                      }}
+                                      disabled={updatingFollowUp === lead.id}
+                                      className="text-xs px-2 py-1 border border-border rounded bg-bg"
+                                      onClick={(e) => e.stopPropagation()}
+                                    />
+                                  ) : (
+                                    <>
+                                      <span className={getFollowUpStatusColor(followUpStatus)}>
+                                        Próx: {formatNextFollowUp(lead.next_follow_up_at)}
+                                      </span>
+                                      <span>{getFollowUpEmoji(followUpStatus)}</span>
+                                    </>
+                                  )}
+                                </div>
                               </div>
 
-                              <div className="flex items-center gap-2 flex-wrap">
+                              <div
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex items-center gap-2"
+                              >
                                 <select
                                   value={currentSelectedStage}
-                                  onChange={(e) =>
+                                  onChange={(e) => {
+                                    const newStageId = e.target.value
                                     setSelectedStageId((prev) => ({
                                       ...prev,
-                                      [lead.id]: e.target.value,
+                                      [lead.id]: newStageId,
                                     }))
-                                  }
-                                  disabled={isMoving || movingLeadId === lead.id}
-                                  className="flex-1 text-xs px-2 py-1 border border-border rounded bg-bg min-w-[120px]"
+                                    handleMoveStage(lead.id, lead, newStageId)
+                                  }}
+                                  disabled={movingLeadId === lead.id}
+                                  className="flex-1 text-xs px-2 py-1 border border-border rounded bg-bg"
                                 >
                                   {stages.map((s) => (
                                     <option key={s.id} value={s.id}>
@@ -489,24 +584,6 @@ export function PipelinePage() {
                                     </option>
                                   ))}
                                 </select>
-                                <button
-                                  onClick={() => handleMoveStage(lead.id, lead)}
-                                  disabled={
-                                    isMoving ||
-                                    movingLeadId === lead.id ||
-                                    !currentSelectedStage ||
-                                    currentSelectedStage === lead.stage_id
-                                  }
-                                  className="btn btn-primary text-xs px-3 py-1"
-                                >
-                                  {movingLeadId === lead.id ? '...' : 'Mover'}
-                                </button>
-                                <button
-                                  onClick={() => navigate(`/leads/${lead.id}`)}
-                                  className="btn btn-ghost text-xs px-3 py-1"
-                                >
-                                  Abrir
-                                </button>
                               </div>
                             </div>
                           </div>
@@ -520,25 +597,27 @@ export function PipelinePage() {
                         <thead className="bg-bg border-b-2 border-border">
                           <tr>
                             <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted uppercase tracking-wide">
-                              Nombre
+                              Lead
                             </th>
                             <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted uppercase tracking-wide">
                               Fuente
                             </th>
                             <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted uppercase tracking-wide">
-                              Próximo seguimiento
+                              Seguimiento
                             </th>
                             <th className="text-left py-2.5 px-4 text-xs font-semibold text-muted uppercase tracking-wide">
-                              Acciones
+                              Etapa
                             </th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-border">
-                          {stageLeads.map((lead) => {
+                          {stageLeads.map((lead, index) => {
                             const isHighlighted = highlightLeadId === lead.id
                             const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
+                            const isUrgent = followUpStatus === 'overdue' || followUpStatus === 'today'
+                            const isFirstUrgent = index === 0 && isUrgent
+                            const isEditingDate = editingDateLeadId === lead.id
                             const currentSelectedStage = selectedStageId[lead.id] || lead.stage_id || ''
-                            const currentNextFollowUp = selectedNextFollowUp[lead.id] || lead.next_follow_up_at?.split('T')[0] || ''
 
                             return (
                               <tr
@@ -550,12 +629,11 @@ export function PipelinePage() {
                                     leadCardRefs.current.delete(lead.id)
                                   }
                                 }}
-                                className={`hover:bg-black/5 transition-colors ${
+                                onClick={() => navigate(`/leads/${lead.id}`)}
+                                className={`cursor-pointer hover:bg-muted/50 transition-colors ${
                                   isHighlighted ? 'bg-primary/5 ring-2 ring-primary' : ''
                                 } ${
-                                  followUpStatus === 'overdue' ? 'border-l-4 border-l-red-500' :
-                                  followUpStatus === 'today' ? 'border-l-4 border-l-amber-500' :
-                                  ''
+                                  isFirstUrgent ? 'border-l-4 border-l-red-500 bg-red-50/30' : ''
                                 }`}
                               >
                                 <td className="py-3 px-4">
@@ -571,69 +649,74 @@ export function PipelinePage() {
                                   )}
                                 </td>
                                 <td className="py-3 px-4">
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="date"
-                                      value={currentNextFollowUp}
-                                      onChange={(e) => setSelectedNextFollowUp((prev) => ({
-                                        ...prev,
-                                        [lead.id]: e.target.value,
-                                      }))}
-                                      onBlur={() => {
-                                        const newValue = selectedNextFollowUp[lead.id] || ''
-                                        if (newValue !== lead.next_follow_up_at?.split('T')[0]) {
-                                          handleUpdateNextFollowUp(lead.id, newValue || null)
-                                        }
+                                  <div className="space-y-1 text-xs">
+                                    <div className="text-muted">
+                                      Creado: {formatHumanDateShort(lead.created_at)}
+                                    </div>
+                                    <div
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        startEditingDate(lead, e)
                                       }}
-                                      disabled={updatingFollowUp === lead.id}
-                                      className="text-xs px-2 py-1 border border-border rounded bg-bg"
-                                    />
-                                    {lead.next_follow_up_at && (
-                                      <span className={`text-xs px-2 py-1 rounded border ${getFollowUpStatusClass(followUpStatus)}`}>
-                                        {formatHumanDate(lead.next_follow_up_at)} · {getFollowUpStatusLabel(followUpStatus)}
-                                      </span>
-                                    )}
+                                      className="flex items-center gap-1"
+                                    >
+                                      {isEditingDate ? (
+                                        <input
+                                          ref={(el) => {
+                                            if (el) {
+                                              dateInputRefs.current.set(lead.id, el)
+                                            } else {
+                                              dateInputRefs.current.delete(lead.id)
+                                            }
+                                          }}
+                                          type="date"
+                                          value={editingDateValue}
+                                          onChange={(e) => setEditingDateValue(e.target.value)}
+                                          onBlur={() => saveDateEdit(lead.id)}
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                              saveDateEdit(lead.id)
+                                            } else if (e.key === 'Escape') {
+                                              setEditingDateLeadId(null)
+                                            }
+                                          }}
+                                          disabled={updatingFollowUp === lead.id}
+                                          className="text-xs px-2 py-1 border border-border rounded bg-bg"
+                                          onClick={(e) => e.stopPropagation()}
+                                        />
+                                      ) : (
+                                        <>
+                                          <span className={getFollowUpStatusColor(followUpStatus)}>
+                                            Próx: {formatNextFollowUp(lead.next_follow_up_at)}
+                                          </span>
+                                          <span>{getFollowUpEmoji(followUpStatus)}</span>
+                                        </>
+                                      )}
+                                    </div>
                                   </div>
                                 </td>
                                 <td className="py-3 px-4">
-                                  <div className="flex items-center gap-2">
-                                    <select
-                                      value={currentSelectedStage}
-                                      onChange={(e) =>
-                                        setSelectedStageId((prev) => ({
-                                          ...prev,
-                                          [lead.id]: e.target.value,
-                                        }))
-                                      }
-                                      disabled={isMoving || movingLeadId === lead.id}
-                                      className="text-xs px-2 py-1 border border-border rounded bg-bg"
-                                    >
-                                      {stages.map((s) => (
-                                        <option key={s.id} value={s.id}>
-                                          {s.name}
-                                        </option>
-                                      ))}
-                                    </select>
-                                    <button
-                                      onClick={() => handleMoveStage(lead.id, lead)}
-                                      disabled={
-                                        isMoving ||
-                                        movingLeadId === lead.id ||
-                                        !currentSelectedStage ||
-                                        currentSelectedStage === lead.stage_id
-                                      }
-                                      className="btn btn-primary text-xs px-2 py-1"
-                                      title="Mover etapa"
-                                    >
-                                      {movingLeadId === lead.id ? '...' : 'Mover'}
-                                    </button>
-                                    <button
-                                      onClick={() => navigate(`/leads/${lead.id}`)}
-                                      className="btn btn-ghost text-xs px-2 py-1"
-                                    >
-                                      Abrir
-                                    </button>
-                                  </div>
+                                  <select
+                                    value={currentSelectedStage}
+                                    onChange={(e) => {
+                                      e.stopPropagation()
+                                      const newStageId = e.target.value
+                                      setSelectedStageId((prev) => ({
+                                        ...prev,
+                                        [lead.id]: newStageId,
+                                      }))
+                                      handleMoveStage(lead.id, lead, newStageId)
+                                    }}
+                                    disabled={movingLeadId === lead.id}
+                                    className="text-xs px-2 py-1 border border-border rounded bg-bg"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    {stages.map((s) => (
+                                      <option key={s.id} value={s.id}>
+                                        {s.name}
+                                      </option>
+                                    ))}
+                                  </select>
                                 </td>
                               </tr>
                             )
