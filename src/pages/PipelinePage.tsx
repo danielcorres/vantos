@@ -70,8 +70,14 @@ function getStageActionCopy(stageName: string, lead: Lead): StageActionCopy {
       const fecha = lead.next_follow_up_at ? fmt(lead.next_follow_up_at) : '—'
       return { title: 'Cita programada', text: fecha, subtext: 'Preparar reunión / confirmar asistencia', colorClass: 'text-neutral-700' }
     }
-    case 'Cita realizada':
-      return { title: 'Siguiente acción', text: 'Preparar y presentar propuesta', subtext: `Cita realizada el ${fmt(lead.stage_changed_at)}`, colorClass: 'text-sky-600' }
+    case 'Cita realizada': {
+      const citaRealizada = lead.stage_changed_at ? fmt(lead.stage_changed_at) : null
+      const fechaAcordada = lead.next_follow_up_at ? fmt(lead.next_follow_up_at) : 'Pendiente'
+      const subtext = [citaRealizada ? `Cita realizada: ${citaRealizada}` : null, `Fecha acordada: ${fechaAcordada}`]
+        .filter(Boolean)
+        .join('\n')
+      return { title: 'Siguiente acción', text: 'Presentar propuesta', subtext, colorClass: 'text-sky-600' }
+    }
     case 'Propuesta':
       return { title: 'Siguiente acción', text: 'Dar seguimiento a la propuesta', subtext: `Propuesta presentada el ${fmt(lead.stage_changed_at)}`, colorClass: 'text-sky-600' }
     case 'Cerrado ganado':
@@ -808,7 +814,7 @@ export function PipelinePage() {
                                     <div className="flex flex-col gap-0.5">
                                       <span className="text-[10px] uppercase tracking-wide text-muted">{actionCopy.title}</span>
                                       <span className={`text-sm font-medium ${actionCopy.colorClass}`}>{actionCopy.text}</span>
-                                      <span className="text-xs text-muted">{actionCopy.subtext}</span>
+                                      <span className="text-xs text-muted whitespace-pre-line">{actionCopy.subtext}</span>
                                     </div>
                                   )}
                                 </div>
@@ -956,7 +962,7 @@ export function PipelinePage() {
                                         <div className="flex flex-col gap-0.5">
                                           <span className="text-[10px] uppercase tracking-wide text-muted">{actionCopy.title}</span>
                                           <span className={`text-sm font-medium ${actionCopy.colorClass}`}>{actionCopy.text}</span>
-                                          <span className="text-xs text-muted">{actionCopy.subtext}</span>
+                                          <span className="text-xs text-muted whitespace-pre-line">{actionCopy.subtext}</span>
                                         </div>
                                       )}
                                     </div>
