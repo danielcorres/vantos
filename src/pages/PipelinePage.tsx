@@ -6,7 +6,7 @@ import { Toast } from '../shared/components/Toast'
 import { formatDateMX } from '../shared/utils/dates'
 import { getStageTagClasses, getStageAccentStyle } from '../shared/utils/stageStyles'
 import { StageTabs } from '../features/pipeline/components/StageTabs'
-import { LeadsTable } from '../features/pipeline/components/LeadsTable'
+import { PipelineTable } from '../features/pipeline/components/PipelineTable'
 import { getProximaLabel } from '../features/pipeline/utils/proximaLabel'
 
 type Stage = {
@@ -311,7 +311,7 @@ export function PipelinePage() {
               selectedStageTab={selectedStageTab}
               onSelect={setSelectedStageTab}
             />
-            <LeadsTable
+            <PipelineTable
               leads={sortedLeads}
               stages={stages}
               getProximaLabel={getProximaLabel}
