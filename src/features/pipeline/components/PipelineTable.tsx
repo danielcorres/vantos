@@ -1,7 +1,6 @@
 import type { Lead } from '../pipeline.api'
 import type { ProximaLabel } from '../utils/proximaLabel'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
-import { todayLocalYmd } from '../../../shared/utils/dates'
 
 type Stage = { id: string; name: string; position: number }
 
@@ -32,6 +31,11 @@ const IconEmail = () => (
     <polyline points="22,6 12,13 2,6" />
   </svg>
 )
+const IconChevronRight = () => (
+  <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <path d="M9 18l6-6-6-6" />
+  </svg>
+)
 
 type PipelineTableProps = {
   leads: Lead[]
@@ -51,8 +55,6 @@ function getTableStagePillClasses(stageName: string | undefined): string {
  * iconos de acción visibles solo al hover de fila (opacity-0 → group-hover:opacity-100).
  */
 export function PipelineTable({ leads, stages, getProximaLabel, onRowClick }: PipelineTableProps) {
-  const today = todayLocalYmd()
-
   return (
     <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
@@ -74,7 +76,7 @@ export function PipelineTable({ leads, stages, getProximaLabel, onRowClick }: Pi
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
                 Etapa
               </th>
-              <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-neutral-500">
+              <th className="w-28 min-w-28 px-4 py-3 text-right text-xs text-neutral-400">
                 Acciones
               </th>
             </tr>
@@ -94,8 +96,6 @@ export function PipelineTable({ leads, stages, getProximaLabel, onRowClick }: Pi
                 const waNumber = normalizeWhatsAppNumber(digits)
                 const hasPhone = !!(lead.phone?.trim())
                 const hasEmail = !!(lead.email?.trim())
-                const ymd = lead.next_follow_up_at?.split('T')[0]
-                const dateStatus = ymd ? (ymd < today ? 'overdue' : ymd === today ? 'today' : 'normal') : null
                 const [actionPart, datePart] = proxima.line.includes(' · ')
                   ? proxima.line.split(' · ')
                   : [proxima.line, '']
@@ -104,11 +104,16 @@ export function PipelineTable({ leads, stages, getProximaLabel, onRowClick }: Pi
                   <tr
                     key={lead.id}
                     onClick={() => onRowClick(lead)}
-                    className="group cursor-pointer bg-white transition-colors hover:bg-neutral-50"
+                    className="group cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset"
                     style={getStageAccentStyle(stageName)}
                   >
                     <td className="px-4 py-3">
-                      <div className="font-semibold text-neutral-900 text-sm">{lead.full_name}</div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-neutral-900 text-sm">{lead.full_name}</span>
+                        <span className="opacity-0 text-neutral-300 transition-opacity duration-200 group-hover:opacity-100" aria-hidden>
+                          <IconChevronRight />
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm">
@@ -132,19 +137,11 @@ export function PipelineTable({ leads, stages, getProximaLabel, onRowClick }: Pi
                     </td>
                     <td className="px-4 py-3">
                       <div className="text-sm">
-                        <div className="font-medium text-neutral-900">{actionPart}</div>
+                        <div className={actionPart === 'Cerrado' ? 'font-medium text-neutral-700' : 'font-medium text-neutral-900'}>
+                          {actionPart}
+                        </div>
                         {datePart ? (
-                          <div
-                            className={
-                              datePart === 'sin fecha'
-                                ? 'text-xs text-neutral-400'
-                                : dateStatus === 'overdue'
-                                  ? 'text-xs text-red-600'
-                                  : dateStatus === 'today'
-                                    ? 'text-xs text-neutral-700'
-                                    : 'text-xs text-neutral-500'
-                            }
-                          >
+                          <div className="text-xs text-neutral-500">
                             {datePart}
                           </div>
                         ) : null}
@@ -156,10 +153,10 @@ export function PipelineTable({ leads, stages, getProximaLabel, onRowClick }: Pi
                       </span>
                     </td>
                     <td
-                      className="px-4 py-3"
+                      className="w-28 min-w-28 px-4 py-3 align-middle"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="flex items-center justify-center gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+                      <div className="flex min-h-[2rem] items-center justify-end gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                         {waNumber ? (
                           <a
                             href={`https://wa.me/${waNumber}`}
