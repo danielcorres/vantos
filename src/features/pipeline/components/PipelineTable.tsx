@@ -1,10 +1,40 @@
 import { useState, useEffect, useRef, Fragment, forwardRef } from 'react'
 import type { Lead } from '../pipeline.api'
 import type { ProximaLabel } from '../utils/proximaLabel'
-import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
+import { getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 
 type Stage = { id: string; name: string; position: number }
+
+/** Estado de próxima acción para el dot: overdue | today | soon | ok | none */
+export function getNextStatus(next_follow_up_at: string | null | undefined): 'overdue' | 'today' | 'soon' | 'ok' | 'none' {
+  if (!next_follow_up_at) return 'none'
+  try {
+    const d = new Date(next_follow_up_at)
+    const y = d.getFullYear()
+    const m = d.getMonth()
+    const day = d.getDate()
+    const followUpDate = new Date(y, m, day).getTime()
+    const now = new Date()
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+    const oneDay = 24 * 60 * 60 * 1000
+    if (followUpDate < todayStart) return 'overdue'
+    if (followUpDate === todayStart) return 'today'
+    const daysDiff = Math.round((followUpDate - todayStart) / oneDay)
+    if (daysDiff >= 1 && daysDiff <= 2) return 'soon'
+    return 'ok'
+  } catch {
+    return 'none'
+  }
+}
+
+const NEXT_STATUS_DOT_CLASS: Record<ReturnType<typeof getNextStatus>, string> = {
+  overdue: 'bg-red-500',
+  today: 'bg-amber-500',
+  soon: 'bg-amber-500',
+  ok: 'bg-emerald-500',
+  none: 'bg-neutral-300',
+}
 
 function phoneDigits(phone: string): string {
   return (phone || '').replace(/\D/g, '')
@@ -15,6 +45,11 @@ function normalizeWhatsAppNumber(digits: string): string {
   if (digits.length === 10) return '52' + digits
   if (digits.startsWith('52') && digits.length >= 12 && digits.length <= 13) return digits
   return ''
+}
+
+function isClosedStage(stageName: string | undefined): boolean {
+  if (!stageName) return false
+  return stageName.toLowerCase().includes('cerrado')
 }
 
 const IconWhatsApp = () => (
@@ -53,118 +88,85 @@ type PipelineTableProps = {
   onRowClick: (lead: Lead) => void
 }
 
-function getTableStagePillClasses(stageName: string | undefined): string {
-  const base = getStageTagClasses(stageName)
-  return `${base} opacity-90`
-}
+const NUM_COLS = 2
 
-const NUM_COLS_GROUPED = 5
-const NUM_COLS_FLAT = 6
-
-// Column width classes (consistent in grouped and flat)
-const COL_LEAD = 'min-w-[140px] w-[22%]'
-const COL_CONTACTO = 'min-w-[160px] w-[24%]'
-const COL_FUENTE = 'min-w-[90px] w-[14%]'
-const COL_PRÓXIMA = 'min-w-[120px] w-[18%]'
-const COL_ETAPA = 'min-w-[100px] w-[14%]'
-const COL_ACCIONES = 'w-28 min-w-28'
-
-const TH_BASE = 'px-4 py-3 text-[11px] font-medium uppercase tracking-wide text-muted'
-const TD_BASE = 'px-4 py-3'
-
-const HEADER_ROW_GROUPED = (
+const TH_BASE = 'px-4 py-3 text-[11px] uppercase tracking-wide text-neutral-400'
+const HEADER_ROW = (
   <tr>
-    <th className={`${TH_BASE} text-left ${COL_LEAD}`}>LEAD</th>
-    <th className={`${TH_BASE} text-left ${COL_CONTACTO}`}>CONTACTO</th>
-    <th className={`${TH_BASE} text-left ${COL_FUENTE}`}>FUENTE</th>
-    <th className={`${TH_BASE} text-left ${COL_PRÓXIMA}`}>PRÓXIMA</th>
-    <th className={`${TH_BASE} text-right ${COL_ACCIONES}`}>ACCIONES</th>
-  </tr>
-)
-const HEADER_ROW_FLAT = (
-  <tr>
-    <th className={`${TH_BASE} text-left ${COL_LEAD}`}>LEAD</th>
-    <th className={`${TH_BASE} text-left ${COL_CONTACTO}`}>CONTACTO</th>
-    <th className={`${TH_BASE} text-left ${COL_FUENTE}`}>FUENTE</th>
-    <th className={`${TH_BASE} text-left ${COL_PRÓXIMA}`}>PRÓXIMA</th>
-    <th className={`${TH_BASE} text-left ${COL_ETAPA}`}>ETAPA</th>
-    <th className={`${TH_BASE} text-right ${COL_ACCIONES}`}>ACCIONES</th>
+    <th className={`${TH_BASE} text-left`}>LEAD</th>
+    <th className={`${TH_BASE} text-right w-28 min-w-28`}>ACCIONES</th>
   </tr>
 )
 
 type RowRenderProps = {
   lead: Lead
   stageName: string | undefined
-  showEtapaColumn: boolean
   isHighlight?: boolean
   getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
   onRowClick: (lead: Lead) => void
 }
 
 const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(function PipelineTableRow(
-  { lead, stageName, showEtapaColumn, isHighlight, getProximaLabel, onRowClick },
+  { lead, stageName, isHighlight, getProximaLabel, onRowClick },
   ref
 ) {
   const proxima = getProximaLabel(stageName ?? '', lead.next_follow_up_at)
+  const [actionPart, datePart] = proxima.line.includes(' · ')
+    ? proxima.line.split(' · ')
+    : [proxima.line, '']
+  const nextStatus = getNextStatus(lead.next_follow_up_at)
+  const dotClass = NEXT_STATUS_DOT_CLASS[nextStatus]
+  const closed = isClosedStage(stageName)
   const digits = phoneDigits(lead.phone ?? '')
   const waNumber = normalizeWhatsAppNumber(digits)
   const hasPhone = !!(lead.phone?.trim())
   const hasEmail = !!(lead.email?.trim())
-  const [actionPart, datePart] = proxima.line.includes(' · ')
-    ? proxima.line.split(' · ')
-    : [proxima.line, '']
 
   return (
     <tr
       ref={ref}
       onClick={() => onRowClick(lead)}
-      className={`group cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset ${isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''}`}
+      className={`group cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset ${closed ? 'opacity-70' : ''} ${isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''}`}
       style={getStageAccentStyle(stageName)}
     >
-      <td className={`${TD_BASE} ${COL_LEAD}`}>
-        <div className="flex items-center gap-2">
-          <span className="font-semibold text-neutral-900 text-sm">{lead.full_name}</span>
-          <span className="opacity-0 text-neutral-300 transition-opacity duration-200 group-hover:opacity-100" aria-hidden>
-            <IconChevronRight />
-          </span>
-        </div>
-      </td>
-      <td className={`${TD_BASE} ${COL_CONTACTO}`}>
-        <div className="text-sm">
-          {lead.phone ? (
-            <div className="font-mono text-neutral-700 mb-0.5">{lead.phone}</div>
-          ) : null}
-          {lead.email ? (
-            <div className="truncate text-xs text-neutral-500 max-w-[180px]">{lead.email}</div>
-          ) : null}
-          {!lead.phone && !lead.email ? '—' : null}
-        </div>
-      </td>
-      <td className={`${TD_BASE} ${COL_FUENTE}`}>
-        {lead.source ? (
-          <span className="text-xs text-neutral-500">{lead.source}</span>
-        ) : (
-          <span className="text-xs text-neutral-400">—</span>
-        )}
-      </td>
-      <td className={`${TD_BASE} ${COL_PRÓXIMA}`}>
-        <div className="text-sm">
-          <div className={actionPart === 'Cerrado' ? 'font-medium text-neutral-700' : 'font-medium text-neutral-900'}>
-            {actionPart}
+      <td className="py-4 px-4 align-top">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="font-medium text-neutral-900 leading-5">
+              {closed ? (
+                <span className="text-neutral-700">{lead.full_name}</span>
+              ) : (
+                <>
+                  <span>{lead.full_name}</span>
+                  <span className="ml-1 opacity-0 text-neutral-300 transition-opacity duration-200 group-hover:opacity-100" aria-hidden>
+                    <IconChevronRight />
+                  </span>
+                </>
+              )}
+            </div>
+            {closed ? (
+              <div className="mt-2 text-xs text-neutral-500">Cerrado</div>
+            ) : (
+              <div className="mt-2 flex items-baseline gap-2">
+                <span className={`w-2 h-2 shrink-0 rounded-full ${dotClass}`} aria-hidden />
+                <span className="font-semibold text-neutral-900">{actionPart}</span>
+                {datePart ? <span className="text-xs text-neutral-500">{datePart}</span> : null}
+              </div>
+            )}
+            {(lead.phone || lead.source) && (
+              <div className="mt-1 flex gap-3 flex-wrap text-xs text-neutral-500 hidden sm:flex">
+                {lead.phone && <span>📞 {lead.phone}</span>}
+                {lead.source && <span>{lead.phone ? '• ' : ''}{lead.source}</span>}
+              </div>
+            )}
           </div>
-          {datePart ? <div className="text-xs text-neutral-500">{datePart}</div> : null}
         </div>
       </td>
-      {showEtapaColumn && (
-        <td className={`${TD_BASE} ${COL_ETAPA}`}>
-          <span className={getTableStagePillClasses(stageName)}>{displayStageName(stageName)}</span>
-        </td>
-      )}
       <td
-        className={`${COL_ACCIONES} ${TD_BASE} align-middle`}
+        className="py-4 px-4 align-top w-28 min-w-28 text-right"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex min-h-[2rem] items-center justify-end gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+        <div className="flex min-h-[2rem] items-center justify-end gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
           {waNumber ? (
             <a
               href={`https://wa.me/${waNumber}`}
@@ -266,18 +268,29 @@ export function PipelineTable({
   }, [highlightLeadId, prefersReducedMotion])
 
   if (showGrouped) {
+    let resultsSeparatorInserted = false
     return (
       <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full">
+          <table className="table-fixed w-full text-sm border-separate border-spacing-0">
             <thead className="border-b border-neutral-200 bg-neutral-50">
-              {HEADER_ROW_GROUPED}
+              {HEADER_ROW}
             </thead>
             <tbody className="divide-y divide-neutral-100">
               {groupedSections.map(({ stage, leads: sectionLeads }) => {
                 const isCollapsed = collapsedStages[stage.id] ?? sectionLeads.length === 0
+                const insertResultsSeparator = isClosedStage(stage.name) && !resultsSeparatorInserted
+                if (insertResultsSeparator) resultsSeparatorInserted = true
+
                 return (
                   <Fragment key={stage.id}>
+                    {insertResultsSeparator && (
+                      <tr>
+                        <td colSpan={NUM_COLS} className="py-2 border-t border-neutral-200 text-center text-[11px] uppercase tracking-wide text-neutral-400">
+                          Resultados
+                        </td>
+                      </tr>
+                    )}
                     <tr
                       role="button"
                       tabIndex={0}
@@ -294,8 +307,8 @@ export function PipelineTable({
                     >
                       <th
                         scope="row"
-                        colSpan={NUM_COLS_GROUPED}
-                        className="sticky top-0 z-10 flex w-full items-center justify-between gap-2 border-b border-neutral-200 bg-black/[0.02] px-4 py-3 text-left font-medium text-sm text-neutral-800 backdrop-blur-[2px]"
+                        colSpan={NUM_COLS}
+                        className="sticky top-0 z-10 flex w-full items-center gap-2 border-b border-neutral-200 bg-black/[0.02] px-4 py-3 text-left text-sm font-semibold text-neutral-800 backdrop-blur-[2px]"
                       >
                         <span className="flex items-center gap-2">
                           <span
@@ -309,8 +322,10 @@ export function PipelineTable({
                             ▶
                           </span>
                           <span>{displayStageName(stage.name)}</span>
+                          <span className="ml-2 inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 tabular-nums">
+                            {sectionLeads.length}
+                          </span>
                         </span>
-                        <span className="tabular-nums text-xs text-muted text-right">{sectionLeads.length}</span>
                       </th>
                     </tr>
                     {!isCollapsed &&
@@ -321,7 +336,6 @@ export function PipelineTable({
                           ref={lead.id === highlightLeadId ? highlightRowRef : undefined}
                           lead={lead}
                           stageName={stage.name}
-                          showEtapaColumn={false}
                           isHighlight={lead.id === highlightLeadId}
                           getProximaLabel={getProximaLabel}
                           onRowClick={onRowClick}
@@ -340,14 +354,14 @@ export function PipelineTable({
   return (
     <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <table className="w-full">
+        <table className="table-fixed w-full text-sm border-separate border-spacing-0">
           <thead className="border-b border-neutral-200 bg-neutral-50">
-            {HEADER_ROW_FLAT}
+            {HEADER_ROW}
           </thead>
           <tbody className="divide-y divide-neutral-100">
             {leads.length === 0 ? (
               <tr>
-                <td colSpan={NUM_COLS_FLAT} className="px-4 py-12 text-center text-sm text-muted">
+                <td colSpan={NUM_COLS} className="px-4 py-12 text-center text-sm text-muted">
                   No se encontraron leads con los filtros aplicados
                 </td>
               </tr>
@@ -360,7 +374,6 @@ export function PipelineTable({
                     ref={lead.id === highlightLeadId ? highlightRowRef : undefined}
                     lead={lead}
                     stageName={stageName}
-                    showEtapaColumn={true}
                     isHighlight={lead.id === highlightLeadId}
                     getProximaLabel={getProximaLabel}
                     onRowClick={onRowClick}
