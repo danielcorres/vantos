@@ -1,12 +1,13 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { pipelineApi, type Lead } from '../features/pipeline/pipeline.api'
-import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
 import { LeadCreateModal } from '../features/pipeline/components/LeadCreateModal'
 import { Toast } from '../shared/components/Toast'
-import { todayLocalYmd, formatDateMX } from '../shared/utils/dates'
-import { useReducedMotion } from '../shared/hooks/useReducedMotion'
-import { getStageTagClasses, getStageAccentStyle, getStageHeaderStyle, displayStageName } from '../shared/utils/stageStyles'
+import { formatDateMX } from '../shared/utils/dates'
+import { getStageTagClasses, getStageAccentStyle } from '../shared/utils/stageStyles'
+import { StageTabs } from '../features/pipeline/components/StageTabs'
+import { LeadsTable } from '../features/pipeline/components/LeadsTable'
+import { getProximaLabel } from '../features/pipeline/utils/proximaLabel'
 
 type Stage = {
   id: string
@@ -24,77 +25,6 @@ function stageToPipelineStage(stage: Stage): { id: string; name: string; positio
   }
 }
 
-// Helper: Format date to human readable (ej: "24 ene")
-function formatHumanDateShort(dateString: string | null | undefined): string {
-  if (!dateString) return ''
-  try {
-    const date = new Date(dateString)
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-    const day = date.getDate()
-    const month = months[date.getMonth()]
-    return `${day} ${month}`
-  } catch {
-    return ''
-  }
-}
-
-function normalizeStageKey(name: string): string | null {
-  if (!name || typeof name !== 'string') return null
-  const lower = name.trim().toLowerCase()
-  if (lower.includes('nuevo')) return 'Nuevo'
-  if (lower.includes('contactado')) return 'Contactado'
-  if (lower.includes('cita') && lower.includes('agendada')) return 'Cita agendada'
-  if (lower.includes('cita') && lower.includes('realizada')) return 'Cita realizada'
-  if (lower === 'propuesta' || lower.includes('propuesta presentada')) return 'Propuesta'
-  if (lower.includes('cerrado') && lower.includes('ganado')) return 'Cerrado ganado'
-  if (lower.includes('cerrado') && lower.includes('perdido')) return 'Cerrado perdido'
-  return null
-}
-
-type StageActionCopy = { line: string; colorClass: string; isMuted?: boolean }
-
-/**
- * Pipeline muestra SOLO next_follow_up_at como fecha operativa.
- * Regla: una sola línea "Acción · fecha" o "Acción · sin fecha" o "Cerrado".
- * No usar created_at, stage_changed_at, cerrado_at, "Creado:", "Cierre:", etc.
- */
-function getStageActionCopy(stageName: string, lead: Lead): StageActionCopy {
-  const key = normalizeStageKey(stageName)
-  const fmt = formatHumanDateShort
-  const fechaCorta = lead.next_follow_up_at ? fmt(lead.next_follow_up_at) : null
-  const isCerrada = key === 'Cerrado ganado' || key === 'Cerrado perdido'
-
-  if (isCerrada) {
-    return { line: 'Cerrado', colorClass: key === 'Cerrado ganado' ? 'text-emerald-600' : 'text-rose-600' }
-  }
-
-  const acciones: Record<string, string> = {
-    'Nuevo': 'Contactar',
-    'Contactado': 'Agendar cita',
-    'Cita agendada': 'Confirmar cita',
-    'Cita realizada': 'Presentar propuesta',
-    'Propuesta': 'Dar seguimiento',
-  }
-  const accion = acciones[key ?? ''] ?? 'Dar seguimiento'
-
-  if (fechaCorta) {
-    return { line: `${accion} · ${fechaCorta}`, colorClass: 'text-sky-600' }
-  }
-  return { line: `${accion} · sin fecha`, colorClass: 'text-neutral-600', isMuted: true }
-}
-
-// Helper: Get follow-up status from next_follow_up_at
-function getFollowUpStatus(nextFollowUpAt: string | null | undefined): 'overdue' | 'today' | 'future' | 'none' {
-  if (!nextFollowUpAt) return 'none'
-  
-  const today = todayLocalYmd()
-  const followUpYmd = nextFollowUpAt.split('T')[0]
-  
-  if (followUpYmd < today) return 'overdue'
-  if (followUpYmd === today) return 'today'
-  return 'future'
-}
-
 // Orden dentro de cada etapa: next_follow_up_at asc (más próximo arriba), nulls last.
 // Pipeline muestra solo next_follow_up_at; no usar otras fechas para ordenar aquí.
 function sortLeadsByPriority(leads: Lead[]): Lead[] {
@@ -110,114 +40,20 @@ function sortLeadsByPriority(leads: Lead[]): Lead[] {
 
 export function PipelinePage() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
   const [stages, setStages] = useState<Stage[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
-  const [highlightScope, setHighlightScope] = useState<'created' | 'moved' | 'followup' | null>(null)
-  const [highlightedFollowUpCell, setHighlightedFollowUpCell] = useState<string | null>(null)
-  const [expandedStageIds, setExpandedStageIds] = useState<Set<string>>(new Set())
-  
-  // Toast state
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
-  
-  // Reduced motion
-  const prefersReducedMotion = useReducedMotion()
-
-  // Move stage state
-  const [selectedStageId, setSelectedStageId] = useState<Record<string, string>>({})
-  const [movingLeadId, setMovingLeadId] = useState<string | null>(null)
-
-  // Date editing state
-  const [editingDateLeadId, setEditingDateLeadId] = useState<string | null>(null)
-  const [editingDateValue, setEditingDateValue] = useState<string>('')
-  const [updatingFollowUp, setUpdatingFollowUp] = useState<string | null>(null)
-
-  // Create lead modal state
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  // Pipeline mode: Activos (default) vs Archivados (regla A)
   const [pipelineMode, setPipelineMode] = useState<'activos' | 'archivados'>('activos')
-  // Contadores para tabs (se refrescan al cargar y al archivar/restaurar)
   const [activosCount, setActivosCount] = useState(0)
   const [archivadosCount, setArchivadosCount] = useState(0)
-
-  // Collapsed stages state (accordion) - default: open if has leads
-  const [collapsedStages, setCollapsedStages] = useState<Set<string>>(new Set())
-
-  // Mobile detection
-  const [isMobile, setIsMobile] = useState(false)
-
-  const leadCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  const dateInputRefs = useRef<Map<string, HTMLInputElement>>(new Map())
-  const stageContentRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+  const [selectedStageTab, setSelectedStageTab] = useState<'all' | string>('all')
 
   useEffect(() => {
     loadData()
   }, [pipelineMode])
-
-  // Initialize collapsed stages: open if has leads
-  useEffect(() => {
-    if (stages.length > 0 && leads.length > 0) {
-      setCollapsedStages((prev) => {
-        const next = new Set(prev)
-        const newExpanded = new Set<string>()
-        stages.forEach((stage) => {
-          const stageLeads = leads.filter((l) => l.stage_id === stage.id)
-          if (stageLeads.length === 0) {
-            next.add(stage.id)
-          } else {
-            next.delete(stage.id)
-            newExpanded.add(stage.id)
-          }
-        })
-        // Track expanded stages for urgent glow
-        setExpandedStageIds(newExpanded)
-        // Remove glow after initial animation
-        setTimeout(() => {
-          setExpandedStageIds(new Set())
-        }, 800)
-        return next
-      })
-    }
-  }, [stages, leads])
-
-  useEffect(() => {
-    // Handle lead query param - highlight and scroll
-    const leadId = searchParams.get('lead')
-    if (leadId) {
-      setHighlightLeadId(leadId)
-      // Expand stage containing this lead
-      const lead = leads.find((l) => l.id === leadId)
-      if (lead) {
-        setCollapsedStages((prev) => {
-          const next = new Set(prev)
-          next.delete(lead.stage_id)
-          return next
-        })
-      }
-      setTimeout(() => {
-        const cardElement = leadCardRefs.current.get(leadId)
-        if (cardElement) {
-          cardElement.scrollIntoView({ 
-            behavior: prefersReducedMotion ? 'auto' : 'smooth', 
-            block: 'center' 
-          })
-        }
-      }, 100)
-      setTimeout(() => setHighlightLeadId(null), 3000)
-    }
-  }, [searchParams, leads])
 
   const loadData = async () => {
     setLoading(true)
@@ -244,82 +80,6 @@ export function PipelinePage() {
     }
   }
 
-  // Handle move stage (immediate change)
-  const handleMoveStage = async (leadId: string, lead: Lead, toStageId: string) => {
-    if (!lead.stage_id || toStageId === lead.stage_id) return
-
-    setMovingLeadId(leadId)
-
-    try {
-      const idempotencyKey = generateIdempotencyKey(
-        leadId,
-        lead.stage_id,
-        toStageId
-      )
-
-      await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
-
-      await loadData()
-      
-      // Highlight and expand destination stage
-      setHighlightLeadId(leadId)
-      setHighlightScope('moved')
-      setCollapsedStages((prev) => {
-        const next = new Set(prev)
-        next.delete(toStageId)
-        return next
-      })
-      
-      // Scroll to lead in new stage
-      setTimeout(() => {
-        const cardElement = leadCardRefs.current.get(leadId)
-        if (cardElement) {
-          cardElement.scrollIntoView({ 
-            behavior: prefersReducedMotion ? 'auto' : 'smooth', 
-            block: 'center' 
-          })
-        }
-      }, 150)
-      
-      setTimeout(() => {
-        setHighlightLeadId(null)
-        setHighlightScope(null)
-      }, 1000)
-      
-      setToast({ type: 'success', message: 'Actualizado' })
-    } catch (err) {
-      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al mover lead' })
-    } finally {
-      setMovingLeadId(null)
-    }
-  }
-
-  // Handle update next follow up
-  const handleUpdateNextFollowUp = async (leadId: string, nextFollowUpAt: string | null) => {
-    setUpdatingFollowUp(leadId)
-
-    try {
-      await pipelineApi.updateLead(leadId, {
-        next_follow_up_at: nextFollowUpAt,
-      })
-
-      await loadData()
-      
-      // Highlight only the follow-up cell
-      setHighlightedFollowUpCell(leadId)
-      setTimeout(() => {
-        setHighlightedFollowUpCell(null)
-      }, 800)
-      
-      setToast({ type: 'success', message: 'Actualizado' })
-      setEditingDateLeadId(null)
-    } catch (err) {
-      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al actualizar fecha' })
-    } finally {
-      setUpdatingFollowUp(null)
-    }
-  }
-
   // Handle create lead
   const handleCreateLead = async (data: {
     full_name: string
@@ -330,114 +90,24 @@ export function PipelinePage() {
     stage_id: string
     next_follow_up_at?: string
   }) => {
-    const newLead = await pipelineApi.createLead(data)
+    await pipelineApi.createLead(data)
     setIsCreateModalOpen(false)
-    
-    // Reload data to get the new lead
     await loadData()
-    
-    // Highlight and expand stage
-    setHighlightLeadId(newLead.id)
-    setHighlightScope('created')
-    setCollapsedStages((prev) => {
-      const next = new Set(prev)
-      next.delete(data.stage_id)
-      return next
-    })
-    
-    // Scroll to new lead
-    setTimeout(() => {
-      const cardElement = leadCardRefs.current.get(newLead.id)
-      if (cardElement) {
-        cardElement.scrollIntoView({ 
-          behavior: prefersReducedMotion ? 'auto' : 'smooth', 
-          block: 'center' 
-        })
-      }
-    }, 200)
-    
-    // Remove highlight after animation
-    setTimeout(() => {
-      setHighlightLeadId(null)
-      setHighlightScope(null)
-    }, 1200)
-    
     setToast({ type: 'success', message: 'Lead creado' })
   }
 
-  // Toggle stage collapse
-  const toggleStage = (stageId: string) => {
-    setCollapsedStages((prev) => {
-      const next = new Set(prev)
-      if (next.has(stageId)) {
-        next.delete(stageId)
-        // Track expanded for urgent glow
-        setExpandedStageIds((expanded) => {
-          const newExpanded = new Set(expanded)
-          newExpanded.add(stageId)
-          return newExpanded
-        })
-        // Remove glow after animation
-        setTimeout(() => {
-          setExpandedStageIds((expanded) => {
-            const newExpanded = new Set(expanded)
-            newExpanded.delete(stageId)
-            return newExpanded
-          })
-        }, 800)
-      } else {
-        next.add(stageId)
-      }
-      return next
-    })
-  }
+  // Activos: filtrado por etapa y orden por next_follow_up_at asc, nulls last
+  const filteredLeads = useMemo(() => {
+    if (pipelineMode !== 'activos') return []
+    return selectedStageTab === 'all'
+      ? leads
+      : leads.filter((l) => l.stage_id === selectedStageTab)
+  }, [pipelineMode, leads, selectedStageTab])
 
-  // Start editing date
-  const startEditingDate = (lead: Lead, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setEditingDateLeadId(lead.id)
-    setEditingDateValue(lead.next_follow_up_at?.split('T')[0] || '')
-    setTimeout(() => {
-      const input = dateInputRefs.current.get(lead.id)
-      input?.focus()
-    }, 0)
-  }
-
-  // Save date edit
-  const saveDateEdit = (leadId: string) => {
-    const newValue = editingDateValue || null
-    const currentValue = leads.find((l) => l.id === leadId)?.next_follow_up_at?.split('T')[0] || null
-    
-    if (newValue !== currentValue) {
-      handleUpdateNextFollowUp(leadId, newValue)
-    } else {
-      setEditingDateLeadId(null)
-    }
-  }
-
-  // Group leads by stage and sort
-  const leadsByStage = useMemo(() => {
-    const grouped = new Map<string, Lead[]>()
-    stages.forEach((stage) => {
-      const stageLeads = leads.filter((lead) => lead.stage_id === stage.id)
-      grouped.set(stage.id, sortLeadsByPriority(stageLeads))
-    })
-    return grouped
-  }, [stages, leads])
-
-  // Count urgent leads per stage
-  const urgentCountsByStage = useMemo(() => {
-    const counts = new Map<string, number>()
-    stages.forEach((stage) => {
-      const stageLeads = leadsByStage.get(stage.id) || []
-      const urgent = stageLeads.filter((lead) => {
-        const status = getFollowUpStatus(lead.next_follow_up_at)
-        return status === 'overdue' || status === 'today'
-      }).length
-      counts.set(stage.id, urgent)
-    })
-    return counts
-  }, [stages, leadsByStage])
+  const sortedLeads = useMemo(
+    () => sortLeadsByPriority(filteredLeads),
+    [filteredLeads]
+  )
 
   if (loading) {
     return (
@@ -634,327 +304,20 @@ export function PipelinePage() {
         </div>
       ) : (
         <>
-      {/* Stages grouped view (Activos) */}
-      <div className="space-y-2">
-        {stages.map((stage) => {
-          const stageLeads = leadsByStage.get(stage.id) || []
-          const isCollapsed = collapsedStages.has(stage.id)
-          const urgentCount = urgentCountsByStage.get(stage.id) || 0
-
-          return (
-            <div key={stage.id} className="card">
-              {/* Stage header (accordion): barra izquierda pastel por etapa */}
-              <button
-                onClick={() => toggleStage(stage.id)}
-                className="w-full flex items-center justify-between pr-4 py-2.5 text-left hover:bg-black/5 transition-colors duration-150"
-                style={getStageHeaderStyle(stage.name)}
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-base font-semibold">{displayStageName(stage.name)}</span>
-                  <span className="text-xs text-muted">
-                    {stageLeads.length}
-                    {urgentCount > 0 && ` · ${urgentCount} hoy`}
-                  </span>
-                </div>
-                <span 
-                  className="text-muted text-sm" 
-                  style={{
-                    transition: prefersReducedMotion ? 'none' : 'transform 200ms ease-out',
-                    transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)'
-                  }}
-                >
-                  ▼
-                </span>
-              </button>
-
-              {/* Stage content with animation */}
-              <div
-                ref={(el) => {
-                  if (el) {
-                    stageContentRefs.current.set(stage.id, el)
-                  } else {
-                    stageContentRefs.current.delete(stage.id)
-                  }
-                }}
-                className="overflow-hidden"
-                style={{
-                  transition: prefersReducedMotion 
-                    ? 'none' 
-                    : 'max-height 200ms ease-out, opacity 200ms ease-out',
-                  maxHeight: isCollapsed ? '0' : '5000px',
-                  opacity: isCollapsed ? 0 : 1,
-                }}
-              >
-                <div className="border-t border-border">
-                  {stageLeads.length === 0 ? (
-                    <div className="p-4 text-center text-xs text-muted">
-                      Sin leads en esta etapa
-                    </div>
-                  ) : isMobile ? (
-                    /* Mobile: Card view */
-                    <div className="divide-y divide-border">
-                      {stageLeads.map((lead, index) => {
-                        const isHighlighted = highlightLeadId === lead.id
-                        const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
-                        const actionCopy = getStageActionCopy(stage.name, lead)
-                        const isUrgent = followUpStatus === 'overdue' || followUpStatus === 'today'
-                        const isFirstUrgent = index === 0 && isUrgent
-                        const isEditingDate = editingDateLeadId === lead.id
-                        const currentSelectedStage = selectedStageId[lead.id] || lead.stage_id || ''
-                        const showUrgentGlow = isFirstUrgent && expandedStageIds.has(stage.id)
-
-                        return (
-                          <div
-                            key={lead.id}
-                            ref={(el) => {
-                              if (el) {
-                                leadCardRefs.current.set(lead.id, el)
-                              } else {
-                                leadCardRefs.current.delete(lead.id)
-                              }
-                            }}
-                            onClick={() => navigate(`/leads/${lead.id}`)}
-                            className={`px-3 py-2 cursor-pointer ${
-                              prefersReducedMotion ? '' : 'transition-all duration-150 hover:bg-muted/40 hover:ring-1 hover:ring-border/40 active:scale-[0.998]'
-                            } ${
-                              isHighlighted && highlightScope === 'created' 
-                                ? 'bg-primary/5 ring-1 ring-primary/20' 
-                                : isHighlighted 
-                                  ? 'bg-primary/5 ring-2 ring-primary' 
-                                  : ''
-                            } ${
-                              isFirstUrgent ? 'border-l-4 border-l-red-500 bg-red-50/20' : ''
-                            } ${
-                              showUrgentGlow && !prefersReducedMotion ? 'ring-1 ring-primary/25' : ''
-                            }`}
-                            style={!isFirstUrgent ? getStageAccentStyle(stage.name) : undefined}
-                          >
-                            <div className="space-y-1.5">
-                              <div className="flex items-start justify-between gap-2">
-                                <div className="font-medium text-sm leading-tight">{lead.full_name}</div>
-                                {lead.source && (
-                                  <span className="text-[10px] px-1.5 py-0.5 bg-black/5 rounded text-muted whitespace-nowrap">
-                                    {lead.source}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div
-                                onClick={(e) => startEditingDate(lead, e)}
-                                className={`text-xs transition-all duration-200 ${
-                                  highlightedFollowUpCell === lead.id 
-                                    ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 py-0.5' 
-                                    : ''
-                                }`}
-                              >
-                                {isEditingDate ? (
-                                  <input
-                                    ref={(el) => {
-                                      if (el) {
-                                        dateInputRefs.current.set(lead.id, el)
-                                      } else {
-                                        dateInputRefs.current.delete(lead.id)
-                                      }
-                                    }}
-                                    type="date"
-                                    value={editingDateValue}
-                                    onChange={(e) => setEditingDateValue(e.target.value)}
-                                    onBlur={() => saveDateEdit(lead.id)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        saveDateEdit(lead.id)
-                                      } else if (e.key === 'Escape') {
-                                        setEditingDateLeadId(null)
-                                      }
-                                    }}
-                                    disabled={updatingFollowUp === lead.id}
-                                    className="text-xs px-2 py-1 border border-border rounded bg-bg"
-                                    onClick={(e) => e.stopPropagation()}
-                                  />
-                                ) : (
-                                  <span className={`text-sm ${actionCopy.isMuted ? 'text-muted' : actionCopy.colorClass}`}>
-                                    {actionCopy.line}
-                                  </span>
-                                )}
-                              </div>
-
-                              <div
-                                onClick={(e) => e.stopPropagation()}
-                                className="flex items-center gap-2 mt-1"
-                              >
-                                <select
-                                  value={currentSelectedStage}
-                                  onChange={(e) => {
-                                    const newStageId = e.target.value
-                                    setSelectedStageId((prev) => ({
-                                      ...prev,
-                                      [lead.id]: newStageId,
-                                    }))
-                                    handleMoveStage(lead.id, lead, newStageId)
-                                  }}
-                                  disabled={movingLeadId === lead.id}
-                                  className="flex-1 text-xs px-2 py-1 border border-border rounded bg-bg"
-                                >
-                                  {stages.map((s) => (
-                                    <option key={s.id} value={s.id}>
-                                      {displayStageName(s.name)}
-                                    </option>
-                                  ))}
-                                </select>
-                              </div>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  ) : (
-                    /* Desktop: Table view */
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-bg border-b border-border/50">
-                          <tr>
-                            <th className="text-left py-2 px-4 text-xs font-medium text-muted/70 uppercase tracking-wide">
-                              Lead
-                            </th>
-                            <th className="text-left py-2 px-4 text-xs font-medium text-muted/70 uppercase tracking-wide">
-                              Fuente
-                            </th>
-                            <th className="text-left py-2 px-4 text-xs font-medium text-muted/70 uppercase tracking-wide">
-                              Siguiente acción
-                            </th>
-                            <th className="text-left py-2 px-4 text-xs font-medium text-muted/70 uppercase tracking-wide">
-                              Etapa
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/30">
-                          {stageLeads.map((lead, index) => {
-                            const isHighlighted = highlightLeadId === lead.id
-                            const followUpStatus = getFollowUpStatus(lead.next_follow_up_at)
-                            const actionCopy = getStageActionCopy(stage.name, lead)
-                            const isUrgent = followUpStatus === 'overdue' || followUpStatus === 'today'
-                            const isFirstUrgent = index === 0 && isUrgent
-                            const isEditingDate = editingDateLeadId === lead.id
-                            const currentSelectedStage = selectedStageId[lead.id] || lead.stage_id || ''
-                            const showUrgentGlow = isFirstUrgent && expandedStageIds.has(stage.id)
-
-                            return (
-                              <tr
-                                key={lead.id}
-                                ref={(el) => {
-                                  if (el) {
-                                    leadCardRefs.current.set(lead.id, el)
-                                  } else {
-                                    leadCardRefs.current.delete(lead.id)
-                                  }
-                                }}
-                                onClick={() => navigate(`/leads/${lead.id}`)}
-                                className={`cursor-pointer ${
-                                  prefersReducedMotion ? '' : 'transition-all duration-150 hover:bg-muted/40 hover:ring-1 hover:ring-border/40 active:scale-[0.998]'
-                                } ${
-                                  isHighlighted && highlightScope === 'created' 
-                                    ? 'bg-primary/5 ring-1 ring-primary/20' 
-                                    : isHighlighted 
-                                      ? 'bg-primary/5 ring-2 ring-primary' 
-                                      : ''
-                                } ${
-                                  isFirstUrgent ? 'border-l-4 border-l-red-500 bg-red-50/20' : ''
-                                } ${
-                                  showUrgentGlow && !prefersReducedMotion ? 'ring-1 ring-primary/25' : ''
-                                }`}
-                                style={!isFirstUrgent ? getStageAccentStyle(stage.name) : undefined}
-                              >
-                                <td className="py-2 px-4">
-                                  <div className="font-medium text-sm leading-tight">{lead.full_name}</div>
-                                </td>
-                                <td className="py-2 px-4">
-                                  {lead.source ? (
-                                    <span className="text-[10px] px-1.5 py-0.5 bg-black/5 rounded text-muted">
-                                      {lead.source}
-                                    </span>
-                                  ) : (
-                                    <span className="text-xs text-muted">—</span>
-                                  )}
-                                </td>
-                                <td className="py-2 px-4">
-                                  <div
-                                    onClick={(e) => {
-                                      e.stopPropagation()
-                                      startEditingDate(lead, e)
-                                    }}
-                                    className={`text-xs transition-all duration-200 ${
-                                      highlightedFollowUpCell === lead.id 
-                                        ? 'bg-primary/10 ring-1 ring-primary/30 rounded px-1 py-0.5' 
-                                        : ''
-                                    }`}
-                                  >
-                                    {isEditingDate ? (
-                                      <input
-                                        ref={(el) => {
-                                          if (el) {
-                                            dateInputRefs.current.set(lead.id, el)
-                                          } else {
-                                            dateInputRefs.current.delete(lead.id)
-                                          }
-                                        }}
-                                        type="date"
-                                        value={editingDateValue}
-                                        onChange={(e) => setEditingDateValue(e.target.value)}
-                                        onBlur={() => saveDateEdit(lead.id)}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            saveDateEdit(lead.id)
-                                          } else if (e.key === 'Escape') {
-                                            setEditingDateLeadId(null)
-                                          }
-                                        }}
-                                        disabled={updatingFollowUp === lead.id}
-                                        className="text-xs px-2 py-1 border border-border rounded bg-bg"
-                                        onClick={(e) => e.stopPropagation()}
-                                      />
-                                    ) : (
-                                      <span className={`text-sm ${actionCopy.isMuted ? 'text-muted' : actionCopy.colorClass}`}>
-                                        {actionCopy.line}
-                                      </span>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="py-3 px-4">
-                                  <select
-                                    value={currentSelectedStage}
-                                    onChange={(e) => {
-                                      e.stopPropagation()
-                                      const newStageId = e.target.value
-                                      setSelectedStageId((prev) => ({
-                                        ...prev,
-                                        [lead.id]: newStageId,
-                                      }))
-                                      handleMoveStage(lead.id, lead, newStageId)
-                                    }}
-                                    disabled={movingLeadId === lead.id}
-                                    className="text-xs px-2 py-1 border border-border rounded bg-bg"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    {stages.map((s) => (
-                                      <option key={s.id} value={s.id}>
-                                        {displayStageName(s.name)}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )
-        })}
-      </div>
+          <div className="space-y-3">
+            <StageTabs
+              stages={stages}
+              leads={leads}
+              selectedStageTab={selectedStageTab}
+              onSelect={setSelectedStageTab}
+            />
+            <LeadsTable
+              leads={sortedLeads}
+              stages={stages}
+              getProximaLabel={getProximaLabel}
+              onRowClick={(l) => navigate(`/leads/${l.id}`)}
+            />
+          </div>
         </>
       )}
 
