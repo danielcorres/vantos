@@ -90,11 +90,11 @@ type PipelineTableProps = {
 
 const NUM_COLS = 2
 
-const TH_BASE = 'px-4 py-3 text-[11px] uppercase tracking-wide text-neutral-400'
+const TH_BASE = 'px-4 py-2.5 text-[11px] uppercase tracking-wide text-neutral-400'
 const HEADER_ROW = (
   <tr>
     <th className={`${TH_BASE} text-left`}>LEAD</th>
-    <th className={`${TH_BASE} text-right w-28 min-w-28`}>ACCIONES</th>
+    <th className={`${TH_BASE} text-right w-[120px] min-w-[120px]`}>ACCIONES</th>
   </tr>
 )
 
@@ -126,47 +126,46 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
     <tr
       ref={ref}
       onClick={() => onRowClick(lead)}
-      className={`group cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset ${closed ? 'opacity-70' : ''} ${isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''}`}
+      className={`group cursor-pointer bg-white transition-colors border-b border-neutral-100 hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset ${closed ? 'opacity-70' : ''} ${isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''}`}
       style={getStageAccentStyle(stageName)}
     >
-      <td className="py-4 px-4 align-top">
+      <td className="py-2.5 px-4 align-top">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <div className="font-medium text-neutral-900 leading-5">
+            <div className="text-sm font-medium text-neutral-900 leading-tight">
               {closed ? (
                 <span className="text-neutral-700">{lead.full_name}</span>
               ) : (
-                <>
-                  <span>{lead.full_name}</span>
-                  <span className="ml-1 opacity-0 text-neutral-300 transition-opacity duration-200 group-hover:opacity-100" aria-hidden>
-                    <IconChevronRight />
-                  </span>
-                </>
+                <span>{lead.full_name}</span>
               )}
             </div>
             {closed ? (
-              <div className="mt-2 text-xs text-neutral-500">Cerrado</div>
+              <div className="mt-1 text-xs text-neutral-500">Cerrado</div>
             ) : (
-              <div className="mt-2 flex items-baseline gap-2">
-                <span className={`w-2 h-2 shrink-0 rounded-full ${dotClass}`} aria-hidden />
-                <span className="font-semibold text-neutral-900">{actionPart}</span>
-                {datePart ? <span className="text-xs text-neutral-500">{datePart}</span> : null}
+              <div className="mt-1 flex items-baseline gap-2 text-sm">
+                <span className={`w-1.5 h-1.5 shrink-0 rounded-full ${dotClass}`} aria-hidden />
+                <span className="font-medium text-neutral-900">{actionPart}</span>
+                {datePart ? <span className="text-neutral-500">{datePart}</span> : null}
               </div>
             )}
             {(lead.phone || lead.source) && (
-              <div className="mt-1 flex gap-3 flex-wrap text-xs text-neutral-500 hidden sm:flex">
+              <div className="mt-0.5 flex items-center gap-2 text-xs text-neutral-500 truncate">
                 {lead.phone && <span>📞 {lead.phone}</span>}
-                {lead.source && <span>{lead.phone ? '• ' : ''}{lead.source}</span>}
+                {lead.source && <span>{lead.phone ? '·' : ''} {lead.source}</span>}
               </div>
             )}
           </div>
         </div>
       </td>
       <td
-        className="py-4 px-4 align-top w-28 min-w-28 text-right"
+        className="py-2.5 px-4 align-middle w-[120px] min-w-[120px] text-right"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex min-h-[2rem] items-center justify-end gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
+        <div className="flex min-h-[1.5rem] items-center justify-end gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100 group-focus-within:opacity-100">
+          <span className="flex shrink-0 items-center gap-1 text-xs text-neutral-400" aria-hidden>
+            Ver detalle
+            <IconChevronRight />
+          </span>
           {waNumber ? (
             <a
               href={`https://wa.me/${waNumber}`}
@@ -301,30 +300,28 @@ export function PipelineTable({
                           toggleStage(stage.id)
                         }
                       }}
-                      className="cursor-pointer border-b border-neutral-100 transition-colors hover:bg-black/[0.04] focus:bg-black/[0.04] focus:outline-none focus:ring-2 focus:ring-neutral-200 focus:ring-inset"
+                      className="cursor-pointer border-y border-neutral-200 bg-neutral-50 transition-colors hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-200 focus:ring-inset"
                       style={getStageAccentStyle(stage.name)}
                       aria-expanded={!isCollapsed}
                     >
                       <th
                         scope="row"
                         colSpan={NUM_COLS}
-                        className="sticky top-0 z-10 flex w-full items-center gap-2 border-b border-neutral-200 bg-black/[0.02] px-4 py-3 text-left text-sm font-semibold text-neutral-800 backdrop-blur-[2px]"
+                        className="sticky top-0 z-10 flex w-full items-center gap-2 border-0 bg-neutral-50 px-3 py-2 text-left text-sm font-semibold text-neutral-800"
                       >
-                        <span className="flex items-center gap-2">
-                          <span
-                            className="inline-flex p-1 -m-1 text-neutral-400"
-                            style={{
-                              transition: prefersReducedMotion ? 'none' : 'transform 0.2s ease',
-                              transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
-                            }}
-                            aria-hidden
-                          >
-                            ▶
-                          </span>
-                          <span>{displayStageName(stage.name)}</span>
-                          <span className="ml-2 inline-flex items-center rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 tabular-nums">
-                            {sectionLeads.length}
-                          </span>
+                        <span
+                          className="inline-flex p-0.5 -m-0.5 text-neutral-400"
+                          style={{
+                            transition: prefersReducedMotion ? 'none' : 'transform 0.2s ease',
+                            transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                          }}
+                          aria-hidden
+                        >
+                          ▶
+                        </span>
+                        <span>{displayStageName(stage.name)}</span>
+                        <span className="ml-2 inline-flex items-center justify-center rounded-full bg-neutral-200/80 px-2 py-0.5 text-[11px] font-medium text-neutral-600 tabular-nums min-w-[1.25rem]">
+                          {sectionLeads.length}
                         </span>
                       </th>
                     </tr>
