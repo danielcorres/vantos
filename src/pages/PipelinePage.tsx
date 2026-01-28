@@ -5,7 +5,6 @@ import { LeadCreateModal } from '../features/pipeline/components/LeadCreateModal
 import { Toast } from '../shared/components/Toast'
 import { formatDateMX } from '../shared/utils/dates'
 import { getStageTagClasses, getStageAccentStyle } from '../shared/utils/stageStyles'
-import { StageTabs } from '../features/pipeline/components/StageTabs'
 import { PipelineTable } from '../features/pipeline/components/PipelineTable'
 import { getProximaLabel } from '../features/pipeline/utils/proximaLabel'
 
@@ -49,7 +48,6 @@ export function PipelinePage() {
   const [pipelineMode, setPipelineMode] = useState<'activos' | 'archivados'>('activos')
   const [activosCount, setActivosCount] = useState(0)
   const [archivadosCount, setArchivadosCount] = useState(0)
-  const [selectedStageTab, setSelectedStageTab] = useState<'all' | string>('all')
   const [groupByStage, setGroupByStage] = useState(true)
 
   useEffect(() => {
@@ -97,13 +95,11 @@ export function PipelinePage() {
     setToast({ type: 'success', message: 'Lead creado' })
   }
 
-  // Activos: filtrado por etapa y orden por next_follow_up_at asc, nulls last
+  // Activos: todos los leads; orden por next_follow_up_at asc, nulls last
   const filteredLeads = useMemo(() => {
     if (pipelineMode !== 'activos') return []
-    return selectedStageTab === 'all'
-      ? leads
-      : leads.filter((l) => l.stage_id === selectedStageTab)
-  }, [pipelineMode, leads, selectedStageTab])
+    return leads
+  }, [pipelineMode, leads])
 
   const sortedLeads = useMemo(
     () => sortLeadsByPriority(filteredLeads),
@@ -316,12 +312,6 @@ export function PipelinePage() {
         <>
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-3">
-              <StageTabs
-                stages={stages}
-                leads={leads}
-                selectedStageTab={selectedStageTab}
-                onSelect={setSelectedStageTab}
-              />
               <div
                 className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5"
                 role="group"

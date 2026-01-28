@@ -1,6 +1,8 @@
+import { useState, useEffect } from 'react'
 import type { Lead } from '../pipeline.api'
 import type { ProximaLabel } from '../utils/proximaLabel'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
+import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 
 type Stage = { id: string; name: string; position: number }
 
@@ -188,53 +190,91 @@ export function PipelineTable({
   onRowClick,
 }: PipelineTableProps) {
   const showGrouped = groupByStage && groupedSections.length > 0
+  const prefersReducedMotion = useReducedMotion()
+  const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({})
+
+  // Estado inicial: etapas con 0 leads colapsadas, con >=1 lead expandidas
+  useEffect(() => {
+    if (!showGrouped || groupedSections.length === 0) return
+    setCollapsedStages((prev) => {
+      let next = prev
+      for (const { stage, leads: sectionLeads } of groupedSections) {
+        if (stage.id in next) continue
+        next = { ...next, [stage.id]: sectionLeads.length === 0 }
+      }
+      return next
+    })
+  }, [showGrouped, groupedSections])
+
+  const toggleStage = (stageId: string) => {
+    setCollapsedStages((prev) => ({ ...prev, [stageId]: !prev[stageId] }))
+  }
 
   if (showGrouped) {
     return (
       <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          {groupedSections.map(({ stage, leads: sectionLeads }) => (
-            <div key={stage.id} className="border-b border-neutral-100 last:border-b-0">
-              <div
-                className="sticky top-0 z-10 flex items-center gap-2 border-b border-neutral-200 bg-neutral-50/95 px-4 py-2.5 backdrop-blur-[2px]"
-                style={getStageAccentStyle(stage.name)}
-              >
-                <span className="text-sm font-semibold text-neutral-800">{displayStageName(stage.name)}</span>
-                <span className="tabular-nums text-xs text-neutral-500">{sectionLeads.length}</span>
+          {groupedSections.map(({ stage, leads: sectionLeads }) => {
+            const isCollapsed = collapsedStages[stage.id] ?? sectionLeads.length === 0
+            return (
+              <div key={stage.id} className="border-b border-neutral-100 last:border-b-0">
+                <button
+                  type="button"
+                  onClick={() => toggleStage(stage.id)}
+                  className="sticky top-0 z-10 flex w-full items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50/95 px-4 py-2.5 text-left backdrop-blur-[2px] transition-colors hover:bg-neutral-100/80"
+                  style={getStageAccentStyle(stage.name)}
+                  aria-expanded={!isCollapsed}
+                >
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="text-neutral-400 transition-opacity duration-150"
+                      style={{ transition: prefersReducedMotion ? 'none' : undefined }}
+                      aria-hidden
+                    >
+                      {isCollapsed ? '▶' : '▼'}
+                    </span>
+                    <span className="text-sm font-semibold text-neutral-800">{displayStageName(stage.name)}</span>
+                  </span>
+                  <span className="tabular-nums text-xs text-neutral-500">{sectionLeads.length}</span>
+                </button>
+                {!isCollapsed && (
+                  <div>
+                    <table className="w-full">
+                      <thead className="sr-only">
+                        <tr>
+                          <th className={TABLE_HEAD_CLASS}>Lead</th>
+                          <th className={TABLE_HEAD_CLASS}>Contacto</th>
+                          <th className={TABLE_HEAD_CLASS}>Fuente</th>
+                          <th className={TABLE_HEAD_CLASS}>Próxima</th>
+                          <th className={TABLE_HEAD_ACTIONS_CLASS}>Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-100">
+                        {sectionLeads.length === 0 ? (
+                          <tr>
+                            <td colSpan={5} className="px-4 py-6 text-center text-sm text-neutral-500">
+                              Sin leads en esta etapa
+                            </td>
+                          </tr>
+                        ) : (
+                          sectionLeads.map((lead) => (
+                            <PipelineTableRow
+                              key={lead.id}
+                              lead={lead}
+                              stageName={stage.name}
+                              showEtapaColumn={false}
+                              getProximaLabel={getProximaLabel}
+                              onRowClick={onRowClick}
+                            />
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-              <table className="w-full">
-                <thead className="sr-only">
-                  <tr>
-                    <th className={TABLE_HEAD_CLASS}>Lead</th>
-                    <th className={TABLE_HEAD_CLASS}>Contacto</th>
-                    <th className={TABLE_HEAD_CLASS}>Fuente</th>
-                    <th className={TABLE_HEAD_CLASS}>Próxima</th>
-                    <th className={TABLE_HEAD_ACTIONS_CLASS}>Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-neutral-100">
-                  {sectionLeads.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center text-sm text-neutral-500">
-                        Sin leads en esta etapa
-                      </td>
-                    </tr>
-                  ) : (
-                    sectionLeads.map((lead) => (
-                      <PipelineTableRow
-                        key={lead.id}
-                        lead={lead}
-                        stageName={stage.name}
-                        showEtapaColumn={false}
-                        getProximaLabel={getProximaLabel}
-                        onRowClick={onRowClick}
-                      />
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     )
