@@ -37,9 +37,13 @@ const IconChevronRight = () => (
   </svg>
 )
 
+export type GroupedSection = { stage: Stage; leads: Lead[] }
+
 type PipelineTableProps = {
   leads: Lead[]
   stages: Stage[]
+  groupByStage?: boolean
+  groupedSections?: GroupedSection[]
   getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
   onRowClick: (lead: Lead) => void
 }
@@ -49,36 +53,205 @@ function getTableStagePillClasses(stageName: string | undefined): string {
   return `${base} opacity-90`
 }
 
+const TABLE_HEAD_CLASS = 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500'
+const TABLE_HEAD_ACTIONS_CLASS = 'w-28 min-w-28 px-4 py-3 text-right text-xs text-neutral-400'
+
+type RowRenderProps = {
+  lead: Lead
+  stageName: string | undefined
+  showEtapaColumn: boolean
+  getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
+  onRowClick: (lead: Lead) => void
+}
+
+function PipelineTableRow({ lead, stageName, showEtapaColumn, getProximaLabel, onRowClick }: RowRenderProps) {
+  const proxima = getProximaLabel(stageName ?? '', lead.next_follow_up_at)
+  const digits = phoneDigits(lead.phone ?? '')
+  const waNumber = normalizeWhatsAppNumber(digits)
+  const hasPhone = !!(lead.phone?.trim())
+  const hasEmail = !!(lead.email?.trim())
+  const [actionPart, datePart] = proxima.line.includes(' · ')
+    ? proxima.line.split(' · ')
+    : [proxima.line, '']
+
+  return (
+    <tr
+      onClick={() => onRowClick(lead)}
+      className="group cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset"
+      style={getStageAccentStyle(stageName)}
+    >
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-neutral-900 text-sm">{lead.full_name}</span>
+          <span className="opacity-0 text-neutral-300 transition-opacity duration-200 group-hover:opacity-100" aria-hidden>
+            <IconChevronRight />
+          </span>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <div className="text-sm">
+          {lead.phone ? (
+            <div className="font-mono text-neutral-700 mb-0.5">{lead.phone}</div>
+          ) : null}
+          {lead.email ? (
+            <div className="truncate text-xs text-neutral-500 max-w-[180px]">{lead.email}</div>
+          ) : null}
+          {!lead.phone && !lead.email ? '—' : null}
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        {lead.source ? (
+          <span className="text-xs text-neutral-500">{lead.source}</span>
+        ) : (
+          <span className="text-xs text-neutral-400">—</span>
+        )}
+      </td>
+      <td className="px-4 py-3">
+        <div className="text-sm">
+          <div className={actionPart === 'Cerrado' ? 'font-medium text-neutral-700' : 'font-medium text-neutral-900'}>
+            {actionPart}
+          </div>
+          {datePart ? <div className="text-xs text-neutral-500">{datePart}</div> : null}
+        </div>
+      </td>
+      {showEtapaColumn && (
+        <td className="px-4 py-3">
+          <span className={getTableStagePillClasses(stageName)}>{displayStageName(stageName)}</span>
+        </td>
+      )}
+      <td
+        className="w-28 min-w-28 px-4 py-3 align-middle"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex min-h-[2rem] items-center justify-end gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          {waNumber ? (
+            <a
+              href={`https://wa.me/${waNumber}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg p-1.5 text-green-600 transition-colors hover:bg-green-50"
+              title="WhatsApp"
+              aria-label="WhatsApp"
+            >
+              <IconWhatsApp />
+            </a>
+          ) : (
+            <span className="cursor-not-allowed rounded-lg p-1.5 text-neutral-300" title="Sin número para WhatsApp" aria-hidden>
+              <IconWhatsApp />
+            </span>
+          )}
+          {hasPhone ? (
+            <a
+              href={`tel:${(lead.phone || '').replace(/\s/g, '')}`}
+              className="rounded-lg p-1.5 text-blue-600 transition-colors hover:bg-blue-50"
+              title="Llamar"
+              aria-label="Llamar"
+            >
+              <IconPhone />
+            </a>
+          ) : (
+            <span className="cursor-not-allowed rounded-lg p-1.5 text-neutral-300" title="Sin teléfono" aria-hidden>
+              <IconPhone />
+            </span>
+          )}
+          {hasEmail ? (
+            <a
+              href={`mailto:${lead.email}`}
+              className="rounded-lg p-1.5 text-neutral-600 transition-colors hover:bg-neutral-100"
+              title="Email"
+              aria-label="Email"
+            >
+              <IconEmail />
+            </a>
+          ) : (
+            <span className="cursor-not-allowed rounded-lg p-1.5 text-neutral-300" title="Sin email" aria-hidden>
+              <IconEmail />
+            </span>
+          )}
+        </div>
+      </td>
+    </tr>
+  )
+}
+
 /**
  * Vista tabla enterprise del Pipeline.
- * Estructura y estilos alineados con referencia: head bg-neutral-50, rows hover:bg-neutral-50,
- * iconos de acción visibles solo al hover de fila (opacity-0 → group-hover:opacity-100).
+ * Modo plano: una tabla con columna Etapa.
+ * Modo agrupado: secciones por etapa (header sticky + tabla sin columna Etapa).
  */
-export function PipelineTable({ leads, stages, getProximaLabel, onRowClick }: PipelineTableProps) {
+export function PipelineTable({
+  leads,
+  stages,
+  groupByStage = false,
+  groupedSections = [],
+  getProximaLabel,
+  onRowClick,
+}: PipelineTableProps) {
+  const showGrouped = groupByStage && groupedSections.length > 0
+
+  if (showGrouped) {
+    return (
+      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
+        <div className="overflow-x-auto">
+          {groupedSections.map(({ stage, leads: sectionLeads }) => (
+            <div key={stage.id} className="border-b border-neutral-100 last:border-b-0">
+              <div
+                className="sticky top-0 z-10 flex items-center gap-2 border-b border-neutral-200 bg-neutral-50/95 px-4 py-2.5 backdrop-blur-[2px]"
+                style={getStageAccentStyle(stage.name)}
+              >
+                <span className="text-sm font-semibold text-neutral-800">{displayStageName(stage.name)}</span>
+                <span className="tabular-nums text-xs text-neutral-500">{sectionLeads.length}</span>
+              </div>
+              <table className="w-full">
+                <thead className="sr-only">
+                  <tr>
+                    <th className={TABLE_HEAD_CLASS}>Lead</th>
+                    <th className={TABLE_HEAD_CLASS}>Contacto</th>
+                    <th className={TABLE_HEAD_CLASS}>Fuente</th>
+                    <th className={TABLE_HEAD_CLASS}>Próxima</th>
+                    <th className={TABLE_HEAD_ACTIONS_CLASS}>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-neutral-100">
+                  {sectionLeads.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-6 text-center text-sm text-neutral-500">
+                        Sin leads en esta etapa
+                      </td>
+                    </tr>
+                  ) : (
+                    sectionLeads.map((lead) => (
+                      <PipelineTableRow
+                        key={lead.id}
+                        lead={lead}
+                        stageName={stage.name}
+                        showEtapaColumn={false}
+                        getProximaLabel={getProximaLabel}
+                        onRowClick={onRowClick}
+                      />
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="border-b border-neutral-200 bg-neutral-50">
             <tr>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                Lead
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                Contacto
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                Fuente
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                Próxima
-              </th>
-              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500">
-                Etapa
-              </th>
-              <th className="w-28 min-w-28 px-4 py-3 text-right text-xs text-neutral-400">
-                Acciones
-              </th>
+              <th className={TABLE_HEAD_CLASS}>Lead</th>
+              <th className={TABLE_HEAD_CLASS}>Contacto</th>
+              <th className={TABLE_HEAD_CLASS}>Fuente</th>
+              <th className={TABLE_HEAD_CLASS}>Próxima</th>
+              <th className={TABLE_HEAD_CLASS}>Etapa</th>
+              <th className={TABLE_HEAD_ACTIONS_CLASS}>Acciones</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-neutral-100">
@@ -91,131 +264,15 @@ export function PipelineTable({ leads, stages, getProximaLabel, onRowClick }: Pi
             ) : (
               leads.map((lead) => {
                 const stageName = stages.find((s) => s.id === lead.stage_id)?.name
-                const proxima = getProximaLabel(stageName ?? '', lead.next_follow_up_at)
-                const digits = phoneDigits(lead.phone ?? '')
-                const waNumber = normalizeWhatsAppNumber(digits)
-                const hasPhone = !!(lead.phone?.trim())
-                const hasEmail = !!(lead.email?.trim())
-                const [actionPart, datePart] = proxima.line.includes(' · ')
-                  ? proxima.line.split(' · ')
-                  : [proxima.line, '']
-
                 return (
-                  <tr
+                  <PipelineTableRow
                     key={lead.id}
-                    onClick={() => onRowClick(lead)}
-                    className="group cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset"
-                    style={getStageAccentStyle(stageName)}
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-neutral-900 text-sm">{lead.full_name}</span>
-                        <span className="opacity-0 text-neutral-300 transition-opacity duration-200 group-hover:opacity-100" aria-hidden>
-                          <IconChevronRight />
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm">
-                        {lead.phone ? (
-                          <div className="font-mono text-neutral-700 mb-0.5">{lead.phone}</div>
-                        ) : null}
-                        {lead.email ? (
-                          <div className="truncate text-xs text-neutral-500 max-w-[180px]">
-                            {lead.email}
-                          </div>
-                        ) : null}
-                        {!lead.phone && !lead.email ? '—' : null}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      {lead.source ? (
-                        <span className="text-xs text-neutral-500">{lead.source}</span>
-                      ) : (
-                        <span className="text-xs text-neutral-400">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-sm">
-                        <div className={actionPart === 'Cerrado' ? 'font-medium text-neutral-700' : 'font-medium text-neutral-900'}>
-                          {actionPart}
-                        </div>
-                        {datePart ? (
-                          <div className="text-xs text-neutral-500">
-                            {datePart}
-                          </div>
-                        ) : null}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={getTableStagePillClasses(stageName)}>
-                        {displayStageName(stageName)}
-                      </span>
-                    </td>
-                    <td
-                      className="w-28 min-w-28 px-4 py-3 align-middle"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex min-h-[2rem] items-center justify-end gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                        {waNumber ? (
-                          <a
-                            href={`https://wa.me/${waNumber}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="rounded-lg p-1.5 text-green-600 transition-colors hover:bg-green-50"
-                            title="WhatsApp"
-                            aria-label="WhatsApp"
-                          >
-                            <IconWhatsApp />
-                          </a>
-                        ) : (
-                          <span
-                            className="cursor-not-allowed rounded-lg p-1.5 text-neutral-300"
-                            title="Sin número para WhatsApp"
-                            aria-hidden
-                          >
-                            <IconWhatsApp />
-                          </span>
-                        )}
-                        {hasPhone ? (
-                          <a
-                            href={`tel:${(lead.phone || '').replace(/\s/g, '')}`}
-                            className="rounded-lg p-1.5 text-blue-600 transition-colors hover:bg-blue-50"
-                            title="Llamar"
-                            aria-label="Llamar"
-                          >
-                            <IconPhone />
-                          </a>
-                        ) : (
-                          <span
-                            className="cursor-not-allowed rounded-lg p-1.5 text-neutral-300"
-                            title="Sin teléfono"
-                            aria-hidden
-                          >
-                            <IconPhone />
-                          </span>
-                        )}
-                        {hasEmail ? (
-                          <a
-                            href={`mailto:${lead.email}`}
-                            className="rounded-lg p-1.5 text-neutral-600 transition-colors hover:bg-neutral-100"
-                            title="Email"
-                            aria-label="Email"
-                          >
-                            <IconEmail />
-                          </a>
-                        ) : (
-                          <span
-                            className="cursor-not-allowed rounded-lg p-1.5 text-neutral-300"
-                            title="Sin email"
-                            aria-hidden
-                          >
-                            <IconEmail />
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+                    lead={lead}
+                    stageName={stageName}
+                    showEtapaColumn={true}
+                    getProximaLabel={getProximaLabel}
+                    onRowClick={onRowClick}
+                  />
                 )
               })
             )}

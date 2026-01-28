@@ -50,6 +50,7 @@ export function PipelinePage() {
   const [activosCount, setActivosCount] = useState(0)
   const [archivadosCount, setArchivadosCount] = useState(0)
   const [selectedStageTab, setSelectedStageTab] = useState<'all' | string>('all')
+  const [groupByStage, setGroupByStage] = useState(true)
 
   useEffect(() => {
     loadData()
@@ -108,6 +109,15 @@ export function PipelinePage() {
     () => sortLeadsByPriority(filteredLeads),
     [filteredLeads]
   )
+
+  // Agrupado por etapa: orden por stages.position; dentro de cada etapa ya está orden por next_follow_up_at (sortedLeads)
+  const groupedSections = useMemo(() => {
+    if (pipelineMode !== 'activos') return []
+    return stages.map((stage) => ({
+      stage,
+      leads: sortedLeads.filter((l) => l.stage_id === stage.id),
+    }))
+  }, [pipelineMode, stages, sortedLeads])
 
   if (loading) {
     return (
@@ -305,15 +315,43 @@ export function PipelinePage() {
       ) : (
         <>
           <div className="space-y-3">
-            <StageTabs
-              stages={stages}
-              leads={leads}
-              selectedStageTab={selectedStageTab}
-              onSelect={setSelectedStageTab}
-            />
+            <div className="flex flex-wrap items-center gap-3">
+              <StageTabs
+                stages={stages}
+                leads={leads}
+                selectedStageTab={selectedStageTab}
+                onSelect={setSelectedStageTab}
+              />
+              <div
+                className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5"
+                role="group"
+                aria-label="Vista de tabla"
+              >
+                <button
+                  type="button"
+                  onClick={() => setGroupByStage(true)}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    groupByStage ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+                  }`}
+                >
+                  Agrupar por etapa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGroupByStage(false)}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+                    !groupByStage ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+                  }`}
+                >
+                  Vista plana
+                </button>
+              </div>
+            </div>
             <PipelineTable
               leads={sortedLeads}
               stages={stages}
+              groupedSections={groupByStage ? groupedSections : undefined}
+              groupByStage={groupByStage}
               getProximaLabel={getProximaLabel}
               onRowClick={(l) => navigate(`/leads/${l.id}`)}
             />
