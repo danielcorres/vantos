@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from 'react'
+import { useState, useEffect, useRef, Fragment, forwardRef } from 'react'
 import type { Lead } from '../pipeline.api'
 import type { ProximaLabel } from '../utils/proximaLabel'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
@@ -46,6 +46,9 @@ type PipelineTableProps = {
   stages: Stage[]
   groupByStage?: boolean
   groupedSections?: GroupedSection[]
+  collapsedStages?: Record<string, boolean>
+  onCollapsedStagesChange?: (next: Record<string, boolean>) => void
+  highlightLeadId?: string | null
   getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
   onRowClick: (lead: Lead) => void
 }
@@ -93,11 +96,15 @@ type RowRenderProps = {
   lead: Lead
   stageName: string | undefined
   showEtapaColumn: boolean
+  isHighlight?: boolean
   getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
   onRowClick: (lead: Lead) => void
 }
 
-function PipelineTableRow({ lead, stageName, showEtapaColumn, getProximaLabel, onRowClick }: RowRenderProps) {
+const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(function PipelineTableRow(
+  { lead, stageName, showEtapaColumn, isHighlight, getProximaLabel, onRowClick },
+  ref
+) {
   const proxima = getProximaLabel(stageName ?? '', lead.next_follow_up_at)
   const digits = phoneDigits(lead.phone ?? '')
   const waNumber = normalizeWhatsAppNumber(digits)
@@ -109,8 +116,9 @@ function PipelineTableRow({ lead, stageName, showEtapaColumn, getProximaLabel, o
 
   return (
     <tr
+      ref={ref}
       onClick={() => onRowClick(lead)}
-      className="group cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset"
+      className={`group cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset ${isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''}`}
       style={getStageAccentStyle(stageName)}
     >
       <td className={`${TD_BASE} ${COL_LEAD}`}>
@@ -205,7 +213,7 @@ function PipelineTableRow({ lead, stageName, showEtapaColumn, getProximaLabel, o
       </td>
     </tr>
   )
-}
+})
 
 /**
  * Vista tabla enterprise del Pipeline.
@@ -217,17 +225,25 @@ export function PipelineTable({
   stages,
   groupByStage = false,
   groupedSections = [],
+  collapsedStages: controlledCollapsed,
+  onCollapsedStagesChange,
+  highlightLeadId,
   getProximaLabel,
   onRowClick,
 }: PipelineTableProps) {
   const showGrouped = groupByStage && groupedSections.length > 0
   const prefersReducedMotion = useReducedMotion()
-  const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({})
+  const [internalCollapsed, setInternalCollapsed] = useState<Record<string, boolean>>({})
+  const highlightRowRef = useRef<HTMLTableRowElement | null>(null)
 
-  // Estado inicial: etapas con 0 leads colapsadas, con >=1 lead expandidas
+  const isControlled = controlledCollapsed != null && onCollapsedStagesChange != null
+  const collapsedStages = isControlled ? controlledCollapsed : internalCollapsed
+  const setCollapsedStages = isControlled ? onCollapsedStagesChange : setInternalCollapsed
+
+  // Estado inicial (solo modo no controlado): etapas con 0 leads colapsadas, con >=1 lead expandidas
   useEffect(() => {
-    if (!showGrouped || groupedSections.length === 0) return
-    setCollapsedStages((prev) => {
+    if (isControlled || !showGrouped || groupedSections.length === 0) return
+    setInternalCollapsed((prev) => {
       let next = prev
       for (const { stage, leads: sectionLeads } of groupedSections) {
         if (stage.id in next) continue
@@ -235,11 +251,19 @@ export function PipelineTable({
       }
       return next
     })
-  }, [showGrouped, groupedSections])
+  }, [isControlled, showGrouped, groupedSections])
 
   const toggleStage = (stageId: string) => {
-    setCollapsedStages((prev) => ({ ...prev, [stageId]: !prev[stageId] }))
+    setCollapsedStages({ ...collapsedStages, [stageId]: !collapsedStages[stageId] })
   }
+
+  // Scroll suave al lead destacado (respetar reduced motion)
+  useEffect(() => {
+    if (!highlightLeadId) return
+    const el = highlightRowRef.current
+    if (!el) return
+    el.scrollIntoView({ behavior: prefersReducedMotion ? 'auto' : 'smooth', block: 'nearest' })
+  }, [highlightLeadId, prefersReducedMotion])
 
   if (showGrouped) {
     return (
@@ -286,27 +310,22 @@ export function PipelineTable({
                           </span>
                           <span>{displayStageName(stage.name)}</span>
                         </span>
-                        <span className="tabular-nums text-xs text-muted">{sectionLeads.length}</span>
+                        <span className="tabular-nums text-xs text-muted text-right">{sectionLeads.length}</span>
                       </th>
                     </tr>
                     {!isCollapsed &&
-                      (sectionLeads.length === 0 ? (
-                        <tr key={`${stage.id}-empty`}>
-                          <td colSpan={NUM_COLS_GROUPED} className="px-4 py-4 text-center text-xs text-muted">
-                            Sin leads en esta etapa
-                          </td>
-                        </tr>
-                      ) : (
-                        sectionLeads.map((lead) => (
-                          <PipelineTableRow
-                            key={lead.id}
-                            lead={lead}
-                            stageName={stage.name}
-                            showEtapaColumn={false}
-                            getProximaLabel={getProximaLabel}
-                            onRowClick={onRowClick}
-                          />
-                        ))
+                      sectionLeads.length > 0 &&
+                      sectionLeads.map((lead) => (
+                        <PipelineTableRow
+                          key={lead.id}
+                          ref={lead.id === highlightLeadId ? highlightRowRef : undefined}
+                          lead={lead}
+                          stageName={stage.name}
+                          showEtapaColumn={false}
+                          isHighlight={lead.id === highlightLeadId}
+                          getProximaLabel={getProximaLabel}
+                          onRowClick={onRowClick}
+                        />
                       ))}
                   </Fragment>
                 )
@@ -338,9 +357,11 @@ export function PipelineTable({
                 return (
                   <PipelineTableRow
                     key={lead.id}
+                    ref={lead.id === highlightLeadId ? highlightRowRef : undefined}
                     lead={lead}
                     stageName={stageName}
                     showEtapaColumn={true}
+                    isHighlight={lead.id === highlightLeadId}
                     getProximaLabel={getProximaLabel}
                     onRowClick={onRowClick}
                   />

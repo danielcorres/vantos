@@ -49,10 +49,26 @@ export function PipelinePage() {
   const [activosCount, setActivosCount] = useState(0)
   const [archivadosCount, setArchivadosCount] = useState(0)
   const [groupByStage, setGroupByStage] = useState(true)
+  const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({})
+  const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
+  const [hideEmptyStages, setHideEmptyStages] = useState(true)
 
   useEffect(() => {
     loadData()
   }, [pipelineMode])
+
+  // Inicializar collapsedStages: 0 leads → colapsado, ≥1 → expandido (solo stages no presentes en estado)
+  useEffect(() => {
+    if (pipelineMode !== 'activos' || !groupedSections.length) return
+    setCollapsedStages((prev) => {
+      let next = prev
+      for (const { stage, leads: sectionLeads } of groupedSections) {
+        if (stage.id in next) continue
+        next = { ...next, [stage.id]: sectionLeads.length === 0 }
+      }
+      return next
+    })
+  }, [pipelineMode, groupedSections])
 
   const loadData = async () => {
     setLoading(true)
@@ -79,7 +95,7 @@ export function PipelinePage() {
     }
   }
 
-  // Handle create lead
+  // Handle create lead: expandir etapa destino y highlight del lead creado
   const handleCreateLead = async (data: {
     full_name: string
     phone?: string
@@ -89,8 +105,11 @@ export function PipelinePage() {
     stage_id: string
     next_follow_up_at?: string
   }) => {
-    await pipelineApi.createLead(data)
+    const newLead = await pipelineApi.createLead(data)
     setIsCreateModalOpen(false)
+    setCollapsedStages((prev) => ({ ...prev, [newLead.stage_id]: false }))
+    setHighlightLeadId(newLead.id)
+    setTimeout(() => setHighlightLeadId(null), 3000)
     await loadData()
     setToast({ type: 'success', message: 'Lead creado' })
   }
@@ -114,6 +133,27 @@ export function PipelinePage() {
       leads: sortedLeads.filter((l) => l.stage_id === stage.id),
     }))
   }, [pipelineMode, stages, sortedLeads])
+
+  // Secciones a renderizar: con hideEmptyStages ON no se muestran etapas con 0 leads
+  const sectionsToRender = useMemo(() => {
+    if (!groupByStage || pipelineMode !== 'activos') return []
+    return hideEmptyStages ? groupedSections.filter((s) => s.leads.length > 0) : groupedSections
+  }, [groupByStage, pipelineMode, hideEmptyStages, groupedSections])
+
+  const collapseAllStages = () => {
+    setCollapsedStages((prev) => {
+      const next = { ...prev }
+      groupedSections.forEach(({ stage }) => { next[stage.id] = true })
+      return next
+    })
+  }
+  const expandAllStages = () => {
+    setCollapsedStages((prev) => {
+      const next = { ...prev }
+      groupedSections.forEach(({ stage }) => { next[stage.id] = false })
+      return next
+    })
+  }
 
   if (loading) {
     return (
@@ -336,12 +376,44 @@ export function PipelinePage() {
                   Vista plana
                 </button>
               </div>
+              {groupByStage && sectionsToRender.length > 0 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={collapseAllStages}
+                    className="btn btn-ghost text-sm"
+                  >
+                    Colapsar todo
+                  </button>
+                  <button
+                    type="button"
+                    onClick={expandAllStages}
+                    className="btn btn-ghost text-sm"
+                  >
+                    Expandir todo
+                  </button>
+                </>
+              )}
+              {groupByStage && (
+                <label className="inline-flex items-center gap-2 text-sm text-neutral-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hideEmptyStages}
+                    onChange={(e) => setHideEmptyStages(e.target.checked)}
+                    className="rounded border-neutral-300"
+                  />
+                  Ocultar etapas vacías
+                </label>
+              )}
             </div>
             <PipelineTable
               leads={sortedLeads}
               stages={stages}
-              groupedSections={groupByStage ? groupedSections : undefined}
+              groupedSections={groupByStage ? sectionsToRender : undefined}
               groupByStage={groupByStage}
+              collapsedStages={collapsedStages}
+              onCollapsedStagesChange={setCollapsedStages}
+              highlightLeadId={highlightLeadId}
               getProximaLabel={getProximaLabel}
               onRowClick={(l) => navigate(`/leads/${l.id}`)}
             />
