@@ -53,6 +53,32 @@ export function PipelinePage() {
   const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
   const [hideEmptyStages, setHideEmptyStages] = useState(true)
 
+  // Activos: todos los leads; orden por next_follow_up_at asc, nulls last
+  const filteredLeads = useMemo(() => {
+    if (pipelineMode !== 'activos') return []
+    return leads
+  }, [pipelineMode, leads])
+
+  const sortedLeads = useMemo(
+    () => sortLeadsByPriority(filteredLeads),
+    [filteredLeads]
+  )
+
+  // Agrupado por etapa: orden por stages.position; dentro de cada etapa ya está orden por next_follow_up_at (sortedLeads)
+  const groupedSections = useMemo(() => {
+    if (pipelineMode !== 'activos') return []
+    return stages.map((stage) => ({
+      stage,
+      leads: sortedLeads.filter((l) => l.stage_id === stage.id),
+    }))
+  }, [pipelineMode, stages, sortedLeads])
+
+  // Secciones a renderizar: con hideEmptyStages ON no se muestran etapas con 0 leads
+  const sectionsToRender = useMemo(() => {
+    if (!groupByStage || pipelineMode !== 'activos') return []
+    return hideEmptyStages ? groupedSections.filter((s) => s.leads.length > 0) : groupedSections
+  }, [groupByStage, pipelineMode, hideEmptyStages, groupedSections])
+
   useEffect(() => {
     loadData()
   }, [pipelineMode])
@@ -113,32 +139,6 @@ export function PipelinePage() {
     await loadData()
     setToast({ type: 'success', message: 'Lead creado' })
   }
-
-  // Activos: todos los leads; orden por next_follow_up_at asc, nulls last
-  const filteredLeads = useMemo(() => {
-    if (pipelineMode !== 'activos') return []
-    return leads
-  }, [pipelineMode, leads])
-
-  const sortedLeads = useMemo(
-    () => sortLeadsByPriority(filteredLeads),
-    [filteredLeads]
-  )
-
-  // Agrupado por etapa: orden por stages.position; dentro de cada etapa ya está orden por next_follow_up_at (sortedLeads)
-  const groupedSections = useMemo(() => {
-    if (pipelineMode !== 'activos') return []
-    return stages.map((stage) => ({
-      stage,
-      leads: sortedLeads.filter((l) => l.stage_id === stage.id),
-    }))
-  }, [pipelineMode, stages, sortedLeads])
-
-  // Secciones a renderizar: con hideEmptyStages ON no se muestran etapas con 0 leads
-  const sectionsToRender = useMemo(() => {
-    if (!groupByStage || pipelineMode !== 'activos') return []
-    return hideEmptyStages ? groupedSections.filter((s) => s.leads.length > 0) : groupedSections
-  }, [groupByStage, pipelineMode, hideEmptyStages, groupedSections])
 
   const collapseAllStages = () => {
     setCollapsedStages((prev) => {
