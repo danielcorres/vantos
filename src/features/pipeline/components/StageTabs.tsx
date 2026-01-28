@@ -13,7 +13,7 @@ type StageTabsProps = {
 export function StageTabs({ stages, leads, selectedStageTab, onSelect }: StageTabsProps) {
   return (
     <div
-      className="inline-flex flex-wrap rounded-lg border border-border bg-neutral-100/80 p-0.5 gap-0.5"
+      className="inline-flex flex-wrap gap-0.5 rounded-lg border border-neutral-200 bg-neutral-100 p-0.5"
       role="tablist"
       aria-label="Filtrar por etapa"
     >
@@ -22,14 +22,14 @@ export function StageTabs({ stages, leads, selectedStageTab, onSelect }: StageTa
         role="tab"
         aria-selected={selectedStageTab === 'all'}
         onClick={() => onSelect('all')}
-        className={`px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 ${
+        className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
           selectedStageTab === 'all'
-            ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium'
-            : 'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200 hover:bg-neutral-200/60'
+            ? 'bg-white font-medium text-neutral-900 ring-1 ring-neutral-200 shadow-sm'
+            : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200/60 hover:text-neutral-700'
         }`}
       >
         Todos
-        <span className="rounded-full text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 ring-1 ring-neutral-300 tabular-nums">
+        <span className="tabular-nums text-xs text-neutral-500">
           {leads.length}
         </span>
       </button>
@@ -43,14 +43,14 @@ export function StageTabs({ stages, leads, selectedStageTab, onSelect }: StageTa
             role="tab"
             aria-selected={selected}
             onClick={() => onSelect(stage.id)}
-            className={`px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 ${
+            className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors ${
               selected
-                ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium'
-                : 'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200 hover:bg-neutral-200/60'
+                ? 'bg-white font-medium text-neutral-900 ring-1 ring-neutral-200 shadow-sm'
+                : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200/60 hover:text-neutral-700'
             }`}
           >
             {displayStageName(stage.name)}
-            <span className="rounded-full text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 ring-1 ring-neutral-300 tabular-nums">
+            <span className="tabular-nums text-xs text-neutral-500">
               {count}
             </span>
           </button>
