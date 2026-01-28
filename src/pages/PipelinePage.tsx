@@ -51,46 +51,36 @@ function normalizeStageKey(name: string): string | null {
   return null
 }
 
-type StageActionCopy = { text: string; line2: string | null; colorClass: string }
+type StageActionCopy = { line: string; colorClass: string; isMuted?: boolean }
 
 /**
- * Copy por etapa para la columna "Siguiente acción": máximo 2 líneas.
- * Línea 1 = acción (colored). Línea 2 = fecha o Creado (muted), solo cuando aplique.
- * Sin microtítulo interno; el header ya dice "Siguiente acción".
+ * Pipeline muestra SOLO next_follow_up_at como fecha operativa.
+ * Regla: una sola línea "Acción · fecha" o "Acción · sin fecha" o "Cerrado".
+ * No usar created_at, stage_changed_at, cerrado_at, "Creado:", "Cierre:", etc.
  */
 function getStageActionCopy(stageName: string, lead: Lead): StageActionCopy {
   const key = normalizeStageKey(stageName)
   const fmt = formatHumanDateShort
+  const fechaCorta = lead.next_follow_up_at ? fmt(lead.next_follow_up_at) : null
+  const isCerrada = key === 'Cerrado ganado' || key === 'Cerrado perdido'
 
-  switch (key) {
-    case 'Nuevo':
-      return { text: 'Agendar primer contacto', line2: fmt(lead.created_at) ? `Creado: ${fmt(lead.created_at)}` : null, colorClass: 'text-sky-600' }
-    case 'Contactado':
-      return { text: 'Volver a llamar / dar seguimiento', line2: fmt(lead.created_at) ? `Creado: ${fmt(lead.created_at)}` : null, colorClass: 'text-sky-600' }
-    case 'Cita agendada': {
-      const fecha = lead.next_follow_up_at ? fmt(lead.next_follow_up_at) : '—'
-      return { text: 'Cita programada', line2: fecha !== '—' ? fecha : null, colorClass: 'text-neutral-700' }
-    }
-    case 'Cita realizada': {
-      const fechaAcordada = lead.next_follow_up_at ? fmt(lead.next_follow_up_at) : null
-      const line2 = fechaAcordada ? `Fecha acordada: ${fechaAcordada}` : 'Define fecha de propuesta'
-      return { text: 'Presentar propuesta', line2, colorClass: 'text-sky-600' }
-    }
-    case 'Propuesta': {
-      const fecha = lead.stage_changed_at ? fmt(lead.stage_changed_at) : null
-      return { text: 'Dar seguimiento a propuesta', line2: fecha ? `Presentada: ${fecha}` : null, colorClass: 'text-sky-600' }
-    }
-    case 'Cerrado ganado': {
-      const fecha = lead.stage_changed_at ? fmt(lead.stage_changed_at) : null
-      return { text: 'Venta cerrada', line2: fecha ? `Cierre: ${fecha}` : null, colorClass: 'text-emerald-600' }
-    }
-    case 'Cerrado perdido': {
-      const fecha = lead.stage_changed_at ? fmt(lead.stage_changed_at) : null
-      return { text: 'Oportunidad perdida', line2: fecha ? `Cierre: ${fecha}` : null, colorClass: 'text-rose-600' }
-    }
-    default:
-      return { text: 'Dar seguimiento', line2: lead.stage_changed_at ? fmt(lead.stage_changed_at) : null, colorClass: 'text-neutral-600' }
+  if (isCerrada) {
+    return { line: 'Cerrado', colorClass: key === 'Cerrado ganado' ? 'text-emerald-600' : 'text-rose-600' }
   }
+
+  const acciones: Record<string, string> = {
+    'Nuevo': 'Contactar',
+    'Contactado': 'Agendar cita',
+    'Cita agendada': 'Confirmar cita',
+    'Cita realizada': 'Presentar propuesta',
+    'Propuesta': 'Dar seguimiento',
+  }
+  const accion = acciones[key ?? ''] ?? 'Dar seguimiento'
+
+  if (fechaCorta) {
+    return { line: `${accion} · ${fechaCorta}`, colorClass: 'text-sky-600' }
+  }
+  return { line: `${accion} · sin fecha`, colorClass: 'text-neutral-600', isMuted: true }
 }
 
 // Helper: Get follow-up status from next_follow_up_at
@@ -105,45 +95,16 @@ function getFollowUpStatus(nextFollowUpAt: string | null | undefined): 'overdue'
   return 'future'
 }
 
-// Helper: Sort leads by intelligent priority
+// Orden dentro de cada etapa: next_follow_up_at asc (más próximo arriba), nulls last.
+// Pipeline muestra solo next_follow_up_at; no usar otras fechas para ordenar aquí.
 function sortLeadsByPriority(leads: Lead[]): Lead[] {
   return [...leads].sort((a, b) => {
-    const aStatus = getFollowUpStatus(a.next_follow_up_at)
-    const bStatus = getFollowUpStatus(b.next_follow_up_at)
-    
-    // Priority order: overdue > today > future (closer first) > none > oldest created
-    const statusOrder: Record<string, number> = {
-      overdue: 0,
-      today: 1,
-      future: 2,
-      none: 3,
-    }
-    
-    const aOrder = statusOrder[aStatus] ?? 3
-    const bOrder = statusOrder[bStatus] ?? 3
-    
-    if (aOrder !== bOrder) {
-      return aOrder - bOrder
-    }
-    
-    // Same status: sort by next_follow_up_at (earlier first for future)
-    if (aStatus === 'future' && bStatus === 'future') {
-      if (a.next_follow_up_at && b.next_follow_up_at) {
-        return new Date(a.next_follow_up_at).getTime() - new Date(b.next_follow_up_at).getTime()
-      }
-    }
-    
-    // For overdue/today: sort by next_follow_up_at (more overdue first)
-    if ((aStatus === 'overdue' || aStatus === 'today') && (bStatus === 'overdue' || bStatus === 'today')) {
-      if (a.next_follow_up_at && b.next_follow_up_at) {
-        return new Date(a.next_follow_up_at).getTime() - new Date(b.next_follow_up_at).getTime()
-      }
-    }
-    
-    // None or same priority: sort by created_at (oldest first)
-    const aCreated = new Date(a.created_at).getTime()
-    const bCreated = new Date(b.created_at).getTime()
-    return aCreated - bCreated
+    const aAt = a.next_follow_up_at ? new Date(a.next_follow_up_at).getTime() : null
+    const bAt = b.next_follow_up_at ? new Date(b.next_follow_up_at).getTime() : null
+    if (aAt != null && bAt != null) return aAt - bAt
+    if (aAt != null && bAt == null) return -1
+    if (aAt == null && bAt != null) return 1
+    return 0
   })
 }
 
@@ -811,10 +772,9 @@ export function PipelinePage() {
                                     onClick={(e) => e.stopPropagation()}
                                   />
                                 ) : (
-                                  <div className="flex flex-col gap-0.5">
-                                    <span className={`text-sm font-medium ${actionCopy.colorClass}`}>{actionCopy.text}</span>
-                                    {actionCopy.line2 != null && <span className="text-muted">{actionCopy.line2}</span>}
-                                  </div>
+                                  <span className={`text-sm ${actionCopy.isMuted ? 'text-muted' : actionCopy.colorClass}`}>
+                                    {actionCopy.line}
+                                  </span>
                                 )}
                               </div>
 
@@ -953,10 +913,9 @@ export function PipelinePage() {
                                         onClick={(e) => e.stopPropagation()}
                                       />
                                     ) : (
-                                      <div className="flex flex-col gap-0.5">
-                                        <span className={`text-sm font-medium ${actionCopy.colorClass}`}>{actionCopy.text}</span>
-                                        {actionCopy.line2 != null && <span className="text-muted">{actionCopy.line2}</span>}
-                                      </div>
+                                      <span className={`text-sm ${actionCopy.isMuted ? 'text-muted' : actionCopy.colorClass}`}>
+                                        {actionCopy.line}
+                                      </span>
                                     )}
                                   </div>
                                 </td>

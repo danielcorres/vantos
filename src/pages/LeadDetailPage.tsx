@@ -542,7 +542,6 @@ export function LeadDetailPage() {
   const waNumber = normalizeWhatsAppNumber(phoneDigits(lead.phone || ''))
   const isStageClosed = currentStage?.name && /cerrado\s+(ganado|perdido)/i.test(currentStage.name)
   const stageNameNorm = currentStage?.name?.trim().toLowerCase() ?? ''
-  const isEarlyStage = /nuevo|contactado/.test(stageNameNorm)
   const highlightCitaRealizada = /cita\s+realizada/.test(stageNameNorm)
   const highlightPropuesta = /propuesta/.test(stageNameNorm)
   const cerradoAccentStyle = isStageClosed && currentStage ? getStageAccentStyle(currentStage.name) : undefined
@@ -966,9 +965,9 @@ export function LeadDetailPage() {
           )}
         </div>
 
-        {/* Columna derecha: Fechas clave (arriba) + Pipeline (abajo) */}
+        {/* Columna derecha: Hechos del proceso (arriba) + Pipeline (abajo) */}
         <div className="lg:col-span-4 flex flex-col gap-4 lg:sticky lg:top-4 self-start order-2">
-          {/* Fechas clave — compacta, inputs en columna */}
+          {/* Hechos del proceso (para métricas): fechas editables para métricas. */}
           <div
             className="rounded-lg border border-border bg-bg/30 p-4"
             style={{
@@ -978,8 +977,8 @@ export function LeadDetailPage() {
               transition: prefersReducedMotion ? 'none' : 'all 200ms ease-out',
             }}
           >
-            <h3 className="text-sm font-medium text-muted mb-0.5">Fechas clave</h3>
-            <p className="text-xs text-muted mb-3">Fechas reales del proceso. Se usan para métricas y tiempos.</p>
+            <h3 className="text-sm font-medium text-muted mb-0.5">Hechos del proceso (para métricas)</h3>
+            <p className="text-xs text-muted mb-3">Se usan para métricas y tiempos.</p>
             <div className="space-y-3">
               <div
                 className="rounded pl-2 -ml-2"
@@ -996,7 +995,6 @@ export function LeadDetailPage() {
                   disabled={saving || !!lead.archived_at}
                   className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
                 />
-                {isEarlyStage && <p className="text-[11px] text-muted mt-0.5">Opcional (se usa para métricas)</p>}
               </div>
               <div
                 className="rounded pl-2 -ml-2"
@@ -1013,25 +1011,26 @@ export function LeadDetailPage() {
                   disabled={saving || !!lead.archived_at}
                   className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
                 />
-                {isEarlyStage && <p className="text-[11px] text-muted mt-0.5">Opcional (se usa para métricas)</p>}
               </div>
-              <div
-                className="rounded pl-2 -ml-2"
-                style={cerradoAccentStyle ? { borderLeft: `2px solid ${cerradoAccentStyle.borderLeftColor}` } : undefined}
-              >
-                <label htmlFor="cerrado_at" className="block text-xs font-medium text-muted mb-0.5">
-                  Cierre
-                </label>
-                <input
-                  id="cerrado_at"
-                  type="date"
-                  value={cerradoAtYmd}
-                  onChange={(e) => setCerradoAtYmd(e.target.value)}
-                  disabled={saving || !!lead.archived_at}
-                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
-                />
-                {!isStageClosed && <p className="text-[11px] text-muted mt-0.5">Se usa cuando el lead está cerrado.</p>}
-              </div>
+              {/* Cierre: solo visible si la etapa es cerrada (ganado/perdido), para no obligar a llenar en leads abiertos. */}
+              {isStageClosed && (
+                <div
+                  className="rounded pl-2 -ml-2"
+                  style={cerradoAccentStyle ? { borderLeft: `2px solid ${cerradoAccentStyle.borderLeftColor}` } : undefined}
+                >
+                  <label htmlFor="cerrado_at" className="block text-xs font-medium text-muted mb-0.5">
+                    Cierre
+                  </label>
+                  <input
+                    id="cerrado_at"
+                    type="date"
+                    value={cerradoAtYmd}
+                    onChange={(e) => setCerradoAtYmd(e.target.value)}
+                    disabled={saving || !!lead.archived_at}
+                    className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                  />
+                </div>
+              )}
             </div>
           </div>
 
