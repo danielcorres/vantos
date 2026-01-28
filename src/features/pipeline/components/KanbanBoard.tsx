@@ -25,24 +25,19 @@ export function KanbanBoard({
   })
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        gap: '16px',
-        overflowX: 'auto',
-        paddingBottom: '16px',
-      }}
-    >
-      {stages.map((stage) => (
-        <KanbanColumn
-          key={stage.id}
-          stage={stage}
-          leads={leadsByStage.get(stage.id) || []}
-          onDragStart={onDragStart}
-          onDragOver={onDragOver}
-          onDrop={onDrop}
-        />
-      ))}
+    <div className="-mx-4 px-4 pb-4 overflow-x-auto">
+      <div className="flex gap-3 items-start min-w-max">
+        {stages.map((stage) => (
+          <KanbanColumn
+            key={stage.id}
+            stage={stage}
+            leads={leadsByStage.get(stage.id) || []}
+            onDragStart={onDragStart}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
+          />
+        ))}
+      </div>
     </div>
   )
 }

@@ -48,7 +48,7 @@ export function KanbanColumn({
 
   return (
     <div
-      className={`flex min-w-[280px] max-w-[280px] flex-col max-h-[calc(100vh-200px)] rounded-xl border border-neutral-200 bg-white shadow-sm transition-all duration-200 ${
+      className={`flex min-w-[280px] max-w-[280px] flex-col max-h-[calc(100vh-220px)] rounded-xl border border-neutral-200 bg-white shadow-sm transition-all duration-200 ${
         isDragOver
           ? 'ring-2 ring-primary/40 ring-inset bg-primary/5 border-primary/30'
           : ''
@@ -85,7 +85,7 @@ export function KanbanColumn({
       </div>
       <div className="flex-1 overflow-y-auto min-h-[200px] p-3">
         {sortedLeads.length === 0 ? (
-          <div className="flex items-center justify-center py-12 text-sm text-neutral-500">
+          <div className="flex items-center justify-center rounded-lg border border-dashed border-neutral-200 py-8 text-xs text-neutral-500">
             Sin leads
           </div>
         ) : (
