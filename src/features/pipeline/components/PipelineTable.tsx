@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Fragment } from 'react'
 import type { Lead } from '../pipeline.api'
 import type { ProximaLabel } from '../utils/proximaLabel'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
@@ -55,8 +55,39 @@ function getTableStagePillClasses(stageName: string | undefined): string {
   return `${base} opacity-90`
 }
 
-const TABLE_HEAD_CLASS = 'px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-neutral-500'
-const TABLE_HEAD_ACTIONS_CLASS = 'w-28 min-w-28 px-4 py-3 text-right text-xs text-neutral-400'
+const NUM_COLS_GROUPED = 5
+const NUM_COLS_FLAT = 6
+
+// Column width classes (consistent in grouped and flat)
+const COL_LEAD = 'min-w-[140px] w-[22%]'
+const COL_CONTACTO = 'min-w-[160px] w-[24%]'
+const COL_FUENTE = 'min-w-[90px] w-[14%]'
+const COL_PRÓXIMA = 'min-w-[120px] w-[18%]'
+const COL_ETAPA = 'min-w-[100px] w-[14%]'
+const COL_ACCIONES = 'w-28 min-w-28'
+
+const TH_BASE = 'px-4 py-3 text-[11px] font-medium uppercase tracking-wide text-muted'
+const TD_BASE = 'px-4 py-3'
+
+const HEADER_ROW_GROUPED = (
+  <tr>
+    <th className={`${TH_BASE} text-left ${COL_LEAD}`}>LEAD</th>
+    <th className={`${TH_BASE} text-left ${COL_CONTACTO}`}>CONTACTO</th>
+    <th className={`${TH_BASE} text-left ${COL_FUENTE}`}>FUENTE</th>
+    <th className={`${TH_BASE} text-left ${COL_PRÓXIMA}`}>PRÓXIMA</th>
+    <th className={`${TH_BASE} text-right ${COL_ACCIONES}`}>ACCIONES</th>
+  </tr>
+)
+const HEADER_ROW_FLAT = (
+  <tr>
+    <th className={`${TH_BASE} text-left ${COL_LEAD}`}>LEAD</th>
+    <th className={`${TH_BASE} text-left ${COL_CONTACTO}`}>CONTACTO</th>
+    <th className={`${TH_BASE} text-left ${COL_FUENTE}`}>FUENTE</th>
+    <th className={`${TH_BASE} text-left ${COL_PRÓXIMA}`}>PRÓXIMA</th>
+    <th className={`${TH_BASE} text-left ${COL_ETAPA}`}>ETAPA</th>
+    <th className={`${TH_BASE} text-right ${COL_ACCIONES}`}>ACCIONES</th>
+  </tr>
+)
 
 type RowRenderProps = {
   lead: Lead
@@ -82,7 +113,7 @@ function PipelineTableRow({ lead, stageName, showEtapaColumn, getProximaLabel, o
       className="group cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset"
       style={getStageAccentStyle(stageName)}
     >
-      <td className="px-4 py-3">
+      <td className={`${TD_BASE} ${COL_LEAD}`}>
         <div className="flex items-center gap-2">
           <span className="font-semibold text-neutral-900 text-sm">{lead.full_name}</span>
           <span className="opacity-0 text-neutral-300 transition-opacity duration-200 group-hover:opacity-100" aria-hidden>
@@ -90,7 +121,7 @@ function PipelineTableRow({ lead, stageName, showEtapaColumn, getProximaLabel, o
           </span>
         </div>
       </td>
-      <td className="px-4 py-3">
+      <td className={`${TD_BASE} ${COL_CONTACTO}`}>
         <div className="text-sm">
           {lead.phone ? (
             <div className="font-mono text-neutral-700 mb-0.5">{lead.phone}</div>
@@ -101,14 +132,14 @@ function PipelineTableRow({ lead, stageName, showEtapaColumn, getProximaLabel, o
           {!lead.phone && !lead.email ? '—' : null}
         </div>
       </td>
-      <td className="px-4 py-3">
+      <td className={`${TD_BASE} ${COL_FUENTE}`}>
         {lead.source ? (
           <span className="text-xs text-neutral-500">{lead.source}</span>
         ) : (
           <span className="text-xs text-neutral-400">—</span>
         )}
       </td>
-      <td className="px-4 py-3">
+      <td className={`${TD_BASE} ${COL_PRÓXIMA}`}>
         <div className="text-sm">
           <div className={actionPart === 'Cerrado' ? 'font-medium text-neutral-700' : 'font-medium text-neutral-900'}>
             {actionPart}
@@ -117,12 +148,12 @@ function PipelineTableRow({ lead, stageName, showEtapaColumn, getProximaLabel, o
         </div>
       </td>
       {showEtapaColumn && (
-        <td className="px-4 py-3">
+        <td className={`${TD_BASE} ${COL_ETAPA}`}>
           <span className={getTableStagePillClasses(stageName)}>{displayStageName(stageName)}</span>
         </td>
       )}
       <td
-        className="w-28 min-w-28 px-4 py-3 align-middle"
+        className={`${COL_ACCIONES} ${TD_BASE} align-middle`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex min-h-[2rem] items-center justify-end gap-1 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
@@ -214,67 +245,74 @@ export function PipelineTable({
     return (
       <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
-          {groupedSections.map(({ stage, leads: sectionLeads }) => {
-            const isCollapsed = collapsedStages[stage.id] ?? sectionLeads.length === 0
-            return (
-              <div key={stage.id} className="border-b border-neutral-100 last:border-b-0">
-                <button
-                  type="button"
-                  onClick={() => toggleStage(stage.id)}
-                  className="sticky top-0 z-10 flex w-full items-center justify-between gap-2 border-b border-neutral-200 bg-neutral-50/95 px-4 py-2.5 text-left backdrop-blur-[2px] transition-colors hover:bg-neutral-100/80"
-                  style={getStageAccentStyle(stage.name)}
-                  aria-expanded={!isCollapsed}
-                >
-                  <span className="flex items-center gap-2">
-                    <span
-                      className="text-neutral-400 transition-opacity duration-150"
-                      style={{ transition: prefersReducedMotion ? 'none' : undefined }}
-                      aria-hidden
+          <table className="w-full">
+            <thead className="border-b border-neutral-200 bg-neutral-50">
+              {HEADER_ROW_GROUPED}
+            </thead>
+            <tbody className="divide-y divide-neutral-100">
+              {groupedSections.map(({ stage, leads: sectionLeads }) => {
+                const isCollapsed = collapsedStages[stage.id] ?? sectionLeads.length === 0
+                return (
+                  <Fragment key={stage.id}>
+                    <tr
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => toggleStage(stage.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          toggleStage(stage.id)
+                        }
+                      }}
+                      className="cursor-pointer border-b border-neutral-100 transition-colors hover:bg-black/[0.04] focus:bg-black/[0.04] focus:outline-none focus:ring-2 focus:ring-neutral-200 focus:ring-inset"
+                      style={getStageAccentStyle(stage.name)}
+                      aria-expanded={!isCollapsed}
                     >
-                      {isCollapsed ? '▶' : '▼'}
-                    </span>
-                    <span className="text-sm font-semibold text-neutral-800">{displayStageName(stage.name)}</span>
-                  </span>
-                  <span className="tabular-nums text-xs text-neutral-500">{sectionLeads.length}</span>
-                </button>
-                {!isCollapsed && (
-                  <div>
-                    <table className="w-full">
-                      <thead className="sr-only">
-                        <tr>
-                          <th className={TABLE_HEAD_CLASS}>Lead</th>
-                          <th className={TABLE_HEAD_CLASS}>Contacto</th>
-                          <th className={TABLE_HEAD_CLASS}>Fuente</th>
-                          <th className={TABLE_HEAD_CLASS}>Próxima</th>
-                          <th className={TABLE_HEAD_ACTIONS_CLASS}>Acciones</th>
+                      <th
+                        scope="row"
+                        colSpan={NUM_COLS_GROUPED}
+                        className="sticky top-0 z-10 flex w-full items-center justify-between gap-2 border-b border-neutral-200 bg-black/[0.02] px-4 py-3 text-left font-medium text-sm text-neutral-800 backdrop-blur-[2px]"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="inline-flex p-1 -m-1 text-neutral-400"
+                            style={{
+                              transition: prefersReducedMotion ? 'none' : 'transform 0.2s ease',
+                              transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                            }}
+                            aria-hidden
+                          >
+                            ▶
+                          </span>
+                          <span>{displayStageName(stage.name)}</span>
+                        </span>
+                        <span className="tabular-nums text-xs text-muted">{sectionLeads.length}</span>
+                      </th>
+                    </tr>
+                    {!isCollapsed &&
+                      (sectionLeads.length === 0 ? (
+                        <tr key={`${stage.id}-empty`}>
+                          <td colSpan={NUM_COLS_GROUPED} className="px-4 py-4 text-center text-xs text-muted">
+                            Sin leads en esta etapa
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-neutral-100">
-                        {sectionLeads.length === 0 ? (
-                          <tr>
-                            <td colSpan={5} className="px-4 py-6 text-center text-sm text-neutral-500">
-                              Sin leads en esta etapa
-                            </td>
-                          </tr>
-                        ) : (
-                          sectionLeads.map((lead) => (
-                            <PipelineTableRow
-                              key={lead.id}
-                              lead={lead}
-                              stageName={stage.name}
-                              showEtapaColumn={false}
-                              getProximaLabel={getProximaLabel}
-                              onRowClick={onRowClick}
-                            />
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+                      ) : (
+                        sectionLeads.map((lead) => (
+                          <PipelineTableRow
+                            key={lead.id}
+                            lead={lead}
+                            stageName={stage.name}
+                            showEtapaColumn={false}
+                            getProximaLabel={getProximaLabel}
+                            onRowClick={onRowClick}
+                          />
+                        ))
+                      ))}
+                  </Fragment>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     )
@@ -285,19 +323,12 @@ export function PipelineTable({
       <div className="overflow-x-auto">
         <table className="w-full">
           <thead className="border-b border-neutral-200 bg-neutral-50">
-            <tr>
-              <th className={TABLE_HEAD_CLASS}>Lead</th>
-              <th className={TABLE_HEAD_CLASS}>Contacto</th>
-              <th className={TABLE_HEAD_CLASS}>Fuente</th>
-              <th className={TABLE_HEAD_CLASS}>Próxima</th>
-              <th className={TABLE_HEAD_CLASS}>Etapa</th>
-              <th className={TABLE_HEAD_ACTIONS_CLASS}>Acciones</th>
-            </tr>
+            {HEADER_ROW_FLAT}
           </thead>
           <tbody className="divide-y divide-neutral-100">
             {leads.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-sm text-neutral-500">
+                <td colSpan={NUM_COLS_FLAT} className="px-4 py-12 text-center text-sm text-muted">
                   No se encontraron leads con los filtros aplicados
                 </td>
               </tr>
