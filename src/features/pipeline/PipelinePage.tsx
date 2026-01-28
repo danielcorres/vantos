@@ -8,7 +8,25 @@ import {
 } from './pipeline.store'
 import { KanbanBoard } from './components/KanbanBoard'
 import { LeadCreateModal } from './components/LeadCreateModal'
+import { PipelineTableView } from './views/PipelineTableView'
 import { PipelineInsightsPage } from './insights/PipelineInsightsPage'
+
+const STORAGE_KEY_VIEW = 'pipeline:viewMode'
+type ViewMode = 'table' | 'kanban' | 'insights'
+
+function getStoredViewMode(): ViewMode {
+  try {
+    const v = localStorage.getItem(STORAGE_KEY_VIEW)
+    if (v === 'table' || v === 'kanban' || v === 'insights') return v
+  } catch (_) {}
+  return 'table'
+}
+
+function setStoredViewMode(mode: ViewMode) {
+  try {
+    localStorage.setItem(STORAGE_KEY_VIEW, mode)
+  } catch (_) {}
+}
 
 const initialState: PipelineState = {
   stages: [],
@@ -17,11 +35,9 @@ const initialState: PipelineState = {
   error: null,
 }
 
-type Tab = 'kanban' | 'insights'
-
 export function PipelinePage() {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [activeTab, setActiveTab] = useState<Tab>('kanban')
+  const [activeTab, setActiveTab] = useState<ViewMode>(getStoredViewMode)
   const [state, dispatch] = useReducer(pipelineReducer, initialState)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
@@ -31,17 +47,17 @@ export function PipelinePage() {
     loadData()
   }, [])
 
-  // Handle lead query param from Focus page
+  useEffect(() => {
+    setStoredViewMode(activeTab)
+  }, [activeTab])
+
   useEffect(() => {
     const leadId = searchParams.get('lead')
     if (leadId && state.leads.length > 0) {
       setActiveTab('kanban')
-      // Scroll to kanban and optionally highlight the lead
       setTimeout(() => {
         kanbanRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        // TODO: Add highlight logic for the specific lead card
       }, 100)
-      // Remove query param after handling
       setSearchParams({}, { replace: true })
     }
   }, [searchParams, state.leads.length, setSearchParams])
@@ -54,8 +70,8 @@ export function PipelinePage() {
         pipelineApi.getLeads('activos'),
       ])
       dispatch({ type: 'LOAD_SUCCESS', payload: { stages, leads } })
-    } catch (err: any) {
-      dispatch({ type: 'LOAD_ERROR', payload: err.message || 'Error al cargar datos' })
+    } catch (err: unknown) {
+      dispatch({ type: 'LOAD_ERROR', payload: err instanceof Error ? err.message : 'Error al cargar datos' })
     }
   }
 
@@ -66,6 +82,7 @@ export function PipelinePage() {
     source?: string
     notes?: string
     stage_id: string
+    next_follow_up_at?: string
   }) => {
     const newLead = await pipelineApi.createLead(data)
     dispatch({ type: 'CREATE_LEAD', payload: newLead })
@@ -85,39 +102,30 @@ export function PipelinePage() {
 
   const handleDrop = async (e: React.DragEvent, toStageId: string) => {
     e.preventDefault()
-
     if (!draggedLead) return
-
     const fromStageId = draggedLead.stage_id
-
     if (fromStageId === toStageId) {
       setDraggedLead(null)
       return
     }
-
-    // Optimistic update
     dispatch({
       type: 'MOVE_OPTIMISTIC',
       payload: { leadId: draggedLead.id, toStageId },
     })
-
     const idempotencyKey = generateIdempotencyKey(
       draggedLead.id,
       fromStageId,
       toStageId
     )
-
     try {
       await pipelineApi.moveLeadStage(draggedLead.id, toStageId, idempotencyKey)
-      // Recargar para obtener datos actualizados
       await loadData()
-    } catch (err: any) {
-      // Rollback
+    } catch (err: unknown) {
       dispatch({
         type: 'MOVE_ROLLBACK',
         payload: { leadId: draggedLead.id, fromStageId },
       })
-      alert(err.message || 'Error al mover el lead')
+      alert(err instanceof Error ? err.message : 'Error al mover el lead')
     } finally {
       setDraggedLead(null)
     }
@@ -126,71 +134,103 @@ export function PipelinePage() {
   const handleViewInKanban = (leadId?: string) => {
     setActiveTab('kanban')
     if (leadId && kanbanRef.current) {
-      // Scroll to kanban and try to highlight the lead
       setTimeout(() => {
         kanbanRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        // Could add highlight logic here if needed
       }, 100)
     }
   }
 
   if (state.loading) {
-    return <div style={{ textAlign: 'center', padding: '40px' }}>Cargando...</div>
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
+            <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
+          </div>
+        </div>
+        <div className="text-center p-8">
+          <span className="text-muted">Cargando...</span>
+        </div>
+      </div>
+    )
   }
 
   if (state.error) {
     return (
-      <div className="error-box" style={{ marginBottom: '16px' }}>
-        {state.error}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
+            <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
+          </div>
+        </div>
+        <div className="card p-4 bg-red-50 border border-red-200">
+          <p className="text-sm text-red-700 mb-3">{state.error}</p>
+          <button onClick={() => loadData()} className="btn btn-primary text-sm">
+            Reintentar
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div>
-      <div className="row space-between" style={{ marginBottom: '24px' }}>
-        <h2 className="title">Pipeline</h2>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
+          <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
+        </div>
         {activeTab === 'kanban' && (
           <button
             onClick={() => setIsModalOpen(true)}
-            className="btn btn-primary"
+            className="btn btn-primary text-sm"
           >
-            Nuevo lead
+            + Nuevo lead
           </button>
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="row" style={{ gap: '8px', marginBottom: '24px', borderBottom: '2px solid var(--border)' }}>
+      <div
+        className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5 gap-0.5"
+        role="tablist"
+        aria-label="Vista del pipeline"
+      >
         <button
+          role="tab"
+          aria-selected={activeTab === 'table'}
+          onClick={() => setActiveTab('table')}
+          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+            activeTab === 'table' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+          }`}
+        >
+          Tabla
+        </button>
+        <button
+          role="tab"
+          aria-selected={activeTab === 'kanban'}
           onClick={() => setActiveTab('kanban')}
-          className="btn btn-ghost"
-          style={{
-            padding: '10px 16px',
-            borderBottom: activeTab === 'kanban' ? '2px solid var(--text)' : '2px solid transparent',
-            marginBottom: '-2px',
-            borderRadius: '0',
-            fontWeight: activeTab === 'kanban' ? '600' : '400',
-          }}
+          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+            activeTab === 'kanban' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+          }`}
         >
           Kanban
         </button>
         <button
+          role="tab"
+          aria-selected={activeTab === 'insights'}
           onClick={() => setActiveTab('insights')}
-          className="btn btn-ghost"
-          style={{
-            padding: '10px 16px',
-            borderBottom: activeTab === 'insights' ? '2px solid var(--text)' : '2px solid transparent',
-            marginBottom: '-2px',
-            borderRadius: '0',
-            fontWeight: activeTab === 'insights' ? '600' : '400',
-          }}
+          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+            activeTab === 'insights' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+          }`}
         >
           Insights
         </button>
       </div>
 
-      {/* Tab Content */}
+      {activeTab === 'table' && <PipelineTableView />}
+
       {activeTab === 'kanban' && (
         <div ref={kanbanRef}>
           <KanbanBoard
@@ -207,12 +247,14 @@ export function PipelinePage() {
         <PipelineInsightsPage onViewInKanban={handleViewInKanban} />
       )}
 
-      <LeadCreateModal
-        stages={state.stages}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        onSubmit={handleCreateLead}
-      />
+      {activeTab === 'kanban' && (
+        <LeadCreateModal
+          stages={state.stages}
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          onSubmit={handleCreateLead}
+        />
+      )}
     </div>
   )
 }

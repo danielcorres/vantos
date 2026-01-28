@@ -18,6 +18,7 @@ function normalizeLead(row: Record<string, unknown>): Lead {
 export type PipelineStage = {
   id: string
   name: string
+  slug: string
   position: number
   is_active: boolean
 }
@@ -69,12 +70,12 @@ export const pipelineApi = {
   async getStages(): Promise<PipelineStage[]> {
     const { data, error } = await supabase
       .from('pipeline_stages')
-      .select('*')
+      .select('id, name, slug, position, is_active')
       .eq('is_active', true)
       .order('position', { ascending: true })
 
     if (error) throw error
-    return data || []
+    return (data || []) as PipelineStage[]
   },
 
   /**
