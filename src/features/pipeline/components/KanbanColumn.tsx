@@ -23,10 +23,7 @@ export function KanbanColumn({
 }: KanbanColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
-  // Sort leads by SLA urgency
   const sortedLeads = useMemo(() => sortLeadsBySla(leads), [leads])
-
-  // Count SLA statuses for this column
   const counts = useMemo(() => aggregateColumnCounts(leads), [leads])
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -51,54 +48,26 @@ export function KanbanColumn({
 
   return (
     <div
-      className={`card ${isDragOver ? 'kanban-column-drag-over' : ''}`}
-      style={{
-        minWidth: '280px',
-        maxWidth: '280px',
-        display: 'flex',
-        flexDirection: 'column',
-        maxHeight: 'calc(100vh - 200px)',
-        transition: 'all 0.2s',
-      }}
+      className={`flex min-w-[280px] max-w-[280px] flex-col max-h-[calc(100vh-200px)] rounded-xl border border-neutral-200 bg-white shadow-sm transition-all duration-200 ${
+        isDragOver
+          ? 'ring-2 ring-primary/40 ring-inset bg-primary/5 border-primary/30'
+          : ''
+      }`}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      <div
-        style={{
-          marginBottom: '12px',
-          paddingBottom: '8px',
-          borderBottom: '2px solid var(--border)',
-        }}
-      >
-        <div
-          style={{
-            fontWeight: '600',
-            fontSize: '16px',
-            marginBottom: '6px',
-          }}
-        >
+      <div className="sticky top-0 z-10 shrink-0 border-b border-neutral-200 bg-neutral-50/95 px-4 py-3 backdrop-blur-[2px]">
+        <div className="mb-2 text-base font-semibold text-neutral-800">
           {stage.name}
         </div>
-        <div
-          style={{
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '6px',
-            alignItems: 'center',
-            fontSize: '12px',
-          }}
-        >
-          <span className="muted">Total: {counts.total}</span>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-neutral-500 tabular-nums">
+            Total: {counts.total}
+          </span>
           {counts.overdue > 0 && (
             <span
-              style={{
-                background: '#fee',
-                color: '#c33',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                fontWeight: '600',
-              }}
+              className="inline-flex items-center rounded-md bg-red-50 px-2 py-0.5 font-semibold text-red-700"
               title="Vencidos"
             >
               Vencidos: {counts.overdue}
@@ -106,13 +75,7 @@ export function KanbanColumn({
           )}
           {counts.warn > 0 && (
             <span
-              style={{
-                background: '#ffe',
-                color: '#c90',
-                padding: '2px 6px',
-                borderRadius: '4px',
-                fontWeight: '600',
-              }}
+              className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 font-semibold text-amber-700"
               title="Por vencer"
             >
               Por vencer: {counts.warn}
@@ -120,28 +83,17 @@ export function KanbanColumn({
           )}
         </div>
       </div>
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          minHeight: '200px',
-        }}
-      >
+      <div className="flex-1 overflow-y-auto min-h-[200px] p-3">
         {sortedLeads.length === 0 ? (
-          <div
-            className="muted"
-            style={{
-              textAlign: 'center',
-              padding: '24px',
-              fontSize: '14px',
-            }}
-          >
+          <div className="flex items-center justify-center py-12 text-sm text-neutral-500">
             Sin leads
           </div>
         ) : (
-          sortedLeads.map((lead) => (
-            <LeadCard key={lead.id} lead={lead} onDragStart={onDragStart} />
-          ))
+          <div className="space-y-2">
+            {sortedLeads.map((lead) => (
+              <LeadCard key={lead.id} lead={lead} onDragStart={onDragStart} />
+            ))}
+          </div>
         )}
       </div>
     </div>

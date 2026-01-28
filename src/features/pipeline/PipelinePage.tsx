@@ -182,7 +182,7 @@ export function PipelinePage() {
           <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
           <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
         </div>
-        {activeTab === 'kanban' && (
+        {(activeTab === 'table' || activeTab === 'kanban') && (
           <button
             onClick={() => setIsModalOpen(true)}
             className="btn btn-primary text-sm"
@@ -247,7 +247,7 @@ export function PipelinePage() {
         <PipelineInsightsPage onViewInKanban={handleViewInKanban} />
       )}
 
-      {activeTab === 'kanban' && (
+      {(activeTab === 'table' || activeTab === 'kanban') && (
         <LeadCreateModal
           stages={state.stages}
           isOpen={isModalOpen}
