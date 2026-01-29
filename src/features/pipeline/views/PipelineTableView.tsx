@@ -196,21 +196,22 @@ export function PipelineTableView() {
 
   return (
     <div className="space-y-4">
-      <div className="md:sticky md:top-0 z-20 -mx-0 md:-mx-0 border-b border-neutral-200/80 bg-white/95 backdrop-blur-sm md:pb-4 md:pt-1">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-1">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+      <div className="md:sticky md:top-0 z-20 border-b border-neutral-200/80 bg-white/95 backdrop-blur-sm md:pb-4 md:pt-1">
+        <div className="flex flex-col gap-3 pt-1">
+          {/* Fila 1 (primary): búsqueda + fuente + chip opcional + Nuevo lead alineado a la derecha */}
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
             <input
               type="search"
               placeholder="Buscar nombre, teléfono o email…"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full sm:w-[260px] rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200"
+              className="min-w-[240px] flex-1 w-full max-w-full rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200"
               aria-label="Buscar leads"
             />
             <select
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
-              className="w-full sm:w-[180px] rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200"
+              className="w-[180px] md:w-[220px] flex-shrink-0 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200"
               aria-label="Filtrar por fuente"
             >
               <option value="">Todas</option>
@@ -220,7 +221,7 @@ export function PipelineTableView() {
               <option value="Social media">Social media</option>
             </select>
             {sourceFilter.trim() !== '' && (
-              <span className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-sm text-neutral-700">
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-sm text-neutral-700 flex-shrink-0">
                 Fuente: <span className="font-medium">{sourceFilter.trim()}</span>
                 <button
                   type="button"
@@ -232,62 +233,62 @@ export function PipelineTableView() {
                 </button>
               </span>
             )}
-          </div>
-        <div className="flex flex-wrap items-center gap-3 sm:gap-4 sm:justify-end">
-          {/* Zona B: Estado / Vista — mismo skin que Tabla/Kanban/Insights (chips neutros) */}
-          <div className="flex items-center gap-3 shrink-0" role="group" aria-label="Estado y vista">
-            <div className={CHIP_WRAPPER} role="tablist" aria-label="Modo del pipeline">
-              <button
-                role="tab"
-                aria-selected={pipelineMode === 'activos'}
-                onClick={() => setPipelineMode('activos')}
-                className={pipelineMode === 'activos' ? CHIP_ACTIVE : CHIP_INACTIVE}
-              >
-                Activos
-                <span className={CHIP_BADGE}>{activosCount}</span>
-              </button>
-              <button
-                role="tab"
-                aria-selected={pipelineMode === 'archivados'}
-                onClick={() => setPipelineMode('archivados')}
-                className={pipelineMode === 'archivados' ? CHIP_ACTIVE : CHIP_INACTIVE}
-              >
-                Archivados
-                <span className={CHIP_BADGE}>{archivadosCount}</span>
-              </button>
-            </div>
             {pipelineMode === 'activos' && (
-              <div className={CHIP_WRAPPER} role="group" aria-label="Vista de tabla">
-                <button
-                  type="button"
-                  aria-pressed={groupByStage}
-                  onClick={() => setGroupByStage(true)}
-                  className={groupByStage ? CHIP_ACTIVE : CHIP_INACTIVE}
-                >
-                  Agrupar por etapa
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={!groupByStage}
-                  onClick={() => setGroupByStage(false)}
-                  className={!groupByStage ? CHIP_ACTIVE : CHIP_INACTIVE}
-                >
-                  Vista plana
-                </button>
-              </div>
+              <button
+                onClick={() => setIsCreateModalOpen(true)}
+                className="btn btn-primary text-sm flex-shrink-0 ml-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
+              >
+                + Nuevo lead
+              </button>
             )}
           </div>
 
-          {/* Separación visual entre zona B y C */}
-          <div
-            className="hidden sm:block w-px self-stretch min-h-[28px] bg-neutral-200 shrink-0"
-            aria-hidden
-          />
-
-          {/* Zona C: Acciones — secundarias (link/ghost) + primaria aislada */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3" role="group" aria-label="Acciones">
+          {/* Fila 2 (secondary): chips Activos/Archivados + Agrupar/Vista plana + acciones secundarias */}
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <div className="flex flex-wrap items-center gap-2 md:gap-3 flex-shrink-0 min-w-0" role="group" aria-label="Estado y vista">
+              <div className={`${CHIP_WRAPPER} flex-shrink-0`} role="tablist" aria-label="Modo del pipeline">
+                <button
+                  role="tab"
+                  aria-selected={pipelineMode === 'activos'}
+                  onClick={() => setPipelineMode('activos')}
+                  className={pipelineMode === 'activos' ? CHIP_ACTIVE : CHIP_INACTIVE}
+                >
+                  Activos
+                  <span className={CHIP_BADGE}>{activosCount}</span>
+                </button>
+                <button
+                  role="tab"
+                  aria-selected={pipelineMode === 'archivados'}
+                  onClick={() => setPipelineMode('archivados')}
+                  className={pipelineMode === 'archivados' ? CHIP_ACTIVE : CHIP_INACTIVE}
+                >
+                  Archivados
+                  <span className={CHIP_BADGE}>{archivadosCount}</span>
+                </button>
+              </div>
+              {pipelineMode === 'activos' && (
+                <div className={`${CHIP_WRAPPER} flex-shrink-0`} role="group" aria-label="Vista de tabla">
+                  <button
+                    type="button"
+                    aria-pressed={groupByStage}
+                    onClick={() => setGroupByStage(true)}
+                    className={groupByStage ? CHIP_ACTIVE : CHIP_INACTIVE}
+                  >
+                    Agrupar por etapa
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={!groupByStage}
+                    onClick={() => setGroupByStage(false)}
+                    className={!groupByStage ? CHIP_ACTIVE : CHIP_INACTIVE}
+                  >
+                    Vista plana
+                  </button>
+                </div>
+              )}
+            </div>
             {groupByStage && pipelineMode === 'activos' && (
-              <>
+              <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Acciones">
                 <button
                   type="button"
                   onClick={collapseAllStages}
@@ -315,18 +316,9 @@ export function PipelineTableView() {
                 >
                   Ocultar vacías{hideEmptyStages ? ' ✓' : ''}
                 </button>
-              </>
-            )}
-            {pipelineMode === 'activos' && (
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="btn btn-primary text-sm shrink-0 ml-0 sm:ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
-              >
-                + Nuevo lead
-              </button>
+              </div>
             )}
           </div>
-        </div>
         </div>
       </div>
 
