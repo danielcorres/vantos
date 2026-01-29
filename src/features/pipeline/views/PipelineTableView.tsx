@@ -35,11 +35,28 @@ export function PipelineTableView() {
   const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({})
   const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
   const [hideEmptyStages, setHideEmptyStages] = useState(true)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('')
 
   const filteredLeads = useMemo(() => {
     if (pipelineMode !== 'activos') return []
-    return leads
-  }, [pipelineMode, leads])
+    let list = leads
+    const q = searchQuery.trim().toLowerCase()
+    if (q) {
+      list = list.filter(
+        (l) =>
+          (l.full_name?.toLowerCase().includes(q)) ||
+          (l.phone?.toLowerCase().includes(q)) ||
+          (l.email?.toLowerCase().includes(q))
+      )
+    }
+    const src = sourceFilter.trim()
+    if (src) {
+      const srcLower = src.toLowerCase()
+      list = list.filter((l) => (l.source?.toLowerCase().trim() || '') === srcLower)
+    }
+    return list
+  }, [pipelineMode, leads, searchQuery, sourceFilter])
 
   const sortedLeads = useMemo(
     () => sortLeadsByPriority(filteredLeads),
@@ -291,6 +308,26 @@ export function PipelineTableView() {
         <>
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-3">
+              <input
+                type="search"
+                placeholder="Buscar nombre, teléfono o email…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200 min-w-[200px]"
+                aria-label="Buscar leads"
+              />
+              <select
+                value={sourceFilter}
+                onChange={(e) => setSourceFilter(e.target.value)}
+                className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200"
+                aria-label="Filtrar por fuente"
+              >
+                <option value="">Todas</option>
+                <option value="Referido">Referido</option>
+                <option value="Mercado natural">Mercado natural</option>
+                <option value="Frío">Frío</option>
+                <option value="Social media">Social media</option>
+              </select>
               <div
                 className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5"
                 role="group"

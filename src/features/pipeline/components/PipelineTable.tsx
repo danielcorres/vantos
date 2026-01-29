@@ -2,11 +2,23 @@ import { useState, useEffect, useRef, Fragment, forwardRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../pipeline.api'
 import type { ProximaLabel } from '../utils/proximaLabel'
-import { getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
+import { getStageAccentStyle, displayStageName, getStageTagClasses } from '../../../shared/utils/stageStyles'
 import { getSourceTag } from '../../../shared/utils/sourceTag'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 
 type Stage = { id: string; name: string; position: number }
+
+function phoneDigits(phone: string): string {
+  return (phone || '').replace(/\D/g, '')
+}
+
+/** Número para wa.me en MX: 10 dígitos -> "52"+digits; 12–13 con 52 -> as-is; <10 -> "" */
+function normalizeWhatsAppNumber(digits: string): string {
+  if (digits.length < 10) return ''
+  if (digits.length === 10) return '52' + digits
+  if (digits.startsWith('52') && digits.length >= 12 && digits.length <= 13) return digits
+  return ''
+}
 
 /** Estado de próxima acción para el dot: overdue | today | soon | ok | none */
 export function getNextStatus(next_follow_up_at: string | null | undefined): 'overdue' | 'today' | 'soon' | 'ok' | 'none' {
@@ -71,38 +83,50 @@ type PipelineTableProps = {
   onRowClick: (lead: Lead) => void
 }
 
-const NUM_COLS = 5
+/** Agrupado: Lead, Teléfono, Email, Fuente, Último contacto, Creado = 6. Vista plana: + Etapa = 7. */
+const NUM_COLS_GROUPED = 6
+const NUM_COLS_FLAT = 7
 
 const TH_BASE = 'px-4 py-2 text-[11px] uppercase tracking-wide text-neutral-500'
 /** Celdas de fila lead: borde inferior punteado tenue en todas las columnas */
 const TD_BASE = 'py-2.5 px-4 align-middle border-b border-dashed border-neutral-200/60'
-const HEADER_ROW = (
-  <tr>
-    <th className={`${TH_BASE} text-left`}>Lead</th>
-    <th className={`${TH_BASE} text-left`}>Teléfono</th>
-    <th className={`${TH_BASE} text-left`}>Email</th>
-    <th className={`${TH_BASE} text-left`}>Fuente</th>
-    <th className={`${TH_BASE} text-right`}>Creado</th>
-  </tr>
-)
+
+function buildHeaderRow(showStageColumn: boolean) {
+  return (
+    <tr>
+      <th className={`${TH_BASE} text-left`}>Lead</th>
+      <th className={`${TH_BASE} text-left`}>Teléfono</th>
+      <th className={`${TH_BASE} text-left`}>Email</th>
+      <th className={`${TH_BASE} text-left`}>Fuente</th>
+      {showStageColumn && <th className={`${TH_BASE} text-left`}>Etapa</th>}
+      <th className={`${TH_BASE} text-left`}>Último contacto</th>
+      <th className={`${TH_BASE} text-right`}>Creado</th>
+    </tr>
+  )
+}
 
 type RowRenderProps = {
   lead: Lead
   stageName: string | undefined
+  showStageColumn?: boolean
   isHighlight?: boolean
   getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
   onRowClick: (lead: Lead) => void
 }
 
 const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(function PipelineTableRow(
-  { lead, stageName, isHighlight, getProximaLabel: _getProximaLabel, onRowClick },
+  { lead, stageName, showStageColumn = false, isHighlight, getProximaLabel: _getProximaLabel, onRowClick },
   ref
 ) {
   const navigate = useNavigate()
   const closed = isClosedStage(stageName)
   const createdShort = formatCreatedShort(lead.created_at)
   const days = daysAgo(lead.created_at)
+  const lastContactShort = formatCreatedShort(lead.last_contact_at)
   const sourceTagClass = getSourceTag(lead.source)
+  const digits = phoneDigits(lead.phone ?? '')
+  const waNumber = normalizeWhatsAppNumber(digits)
+  const telHref = lead.phone?.trim() ? `tel:${lead.phone.replace(/\s/g, '')}` : null
 
   const handleRowClick = () => {
     navigate(`/leads/${lead.id}`)
@@ -137,18 +161,52 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
         </div>
       </td>
       <td className={`${TD_BASE} max-w-[140px]`}>
-        {lead.phone?.trim() ? (
-          <a
-            href={`tel:${lead.phone.replace(/\s/g, '')}`}
-            className="block text-sm text-neutral-700 truncate hover:text-neutral-900 hover:underline"
-            onClick={stopProp}
-            onKeyDown={stopProp}
-          >
-            {lead.phone}
-          </a>
-        ) : (
-          <span className="text-sm text-neutral-400">—</span>
-        )}
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="min-w-0 flex-1 truncate text-sm text-neutral-700">
+            {lead.phone?.trim() ? (
+              telHref ? (
+                <a
+                  href={telHref}
+                  className="hover:text-neutral-900 hover:underline"
+                  onClick={stopProp}
+                  onKeyDown={stopProp}
+                >
+                  {lead.phone}
+                </a>
+              ) : (
+                lead.phone
+              )
+            ) : (
+              <span className="text-neutral-400">—</span>
+            )}
+          </span>
+          {lead.phone?.trim() && (
+            <span className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100" onClick={stopProp} onKeyDown={stopProp}>
+              {waNumber ? (
+                <a
+                  href={`https://wa.me/${waNumber}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex p-1.5 rounded text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100"
+                  title="WhatsApp"
+                  onClick={stopProp}
+                >
+                  <svg className="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+                </a>
+              ) : null}
+              {telHref && (
+                <a
+                  href={telHref}
+                  className="inline-flex p-1.5 rounded text-neutral-500 hover:text-neutral-700 hover:bg-neutral-100"
+                  title="Llamar"
+                  onClick={stopProp}
+                >
+                  <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" /></svg>
+                </a>
+              )}
+            </span>
+          )}
+        </div>
       </td>
       <td className={`${TD_BASE} max-w-[180px]`}>
         {lead.email?.trim() ? (
@@ -169,6 +227,24 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
           <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full ${sourceTagClass}`}>
             {lead.source}
           </span>
+        ) : (
+          <span className="text-sm text-neutral-400">—</span>
+        )}
+      </td>
+      {showStageColumn && (
+        <td className={`${TD_BASE} max-w-[120px]`}>
+          {stageName ? (
+            <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full ${getStageTagClasses(stageName)}`}>
+              {displayStageName(stageName)}
+            </span>
+          ) : (
+            <span className="text-sm text-neutral-400">—</span>
+          )}
+        </td>
+      )}
+      <td className={`${TD_BASE} max-w-[100px]`}>
+        {lastContactShort ? (
+          <span className="text-sm text-neutral-600 tabular-nums">{lastContactShort}</span>
         ) : (
           <span className="text-sm text-neutral-400">—</span>
         )}
@@ -210,6 +286,9 @@ export function PipelineTable({
   const [internalCollapsed, setInternalCollapsed] = useState<Record<string, boolean>>({})
   const highlightRowRef = useRef<HTMLTableRowElement | null>(null)
 
+  const numCols = showGrouped ? NUM_COLS_GROUPED : NUM_COLS_FLAT
+  const showStageColumn = !groupByStage
+
   const isControlled = controlledCollapsed != null && onCollapsedStagesChange != null
   const collapsedStages = isControlled ? controlledCollapsed : internalCollapsed
   const setCollapsedStages = isControlled ? onCollapsedStagesChange : setInternalCollapsed
@@ -245,8 +324,8 @@ export function PipelineTable({
       <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="table-fixed w-full text-sm border-separate border-spacing-0">
-            <thead className="border-b border-neutral-200 bg-neutral-50">
-              {HEADER_ROW}
+            <thead className="sticky top-0 z-10 border-b border-neutral-200 bg-neutral-50">
+              {buildHeaderRow(false)}
             </thead>
             <tbody>
               {groupedSections.map(({ stage, leads: sectionLeads }, sectionIndex) => {
@@ -259,14 +338,14 @@ export function PipelineTable({
                   <Fragment key={stage.id}>
                     {insertResultsSeparator && (
                       <tr>
-                        <td colSpan={NUM_COLS} className="py-2 border-t border-neutral-200 text-center text-[11px] uppercase tracking-wide text-neutral-400">
+                        <td colSpan={numCols} className="py-2 border-t border-neutral-200 text-center text-[11px] uppercase tracking-wide text-neutral-400">
                           Resultados
                         </td>
                       </tr>
                     )}
                     {!isFirstSection && (
                       <tr aria-hidden="true">
-                        <td colSpan={NUM_COLS} className="h-3 bg-neutral-50" />
+                        <td colSpan={numCols} className="h-3 bg-neutral-50" />
                       </tr>
                     )}
                     <tr
@@ -284,8 +363,8 @@ export function PipelineTable({
                       aria-expanded={!isCollapsed}
                     >
                       <td
-                        colSpan={NUM_COLS}
-                        className="border-y border-neutral-200 bg-neutral-100 hover:bg-neutral-200/60"
+                        colSpan={numCols}
+                        className="sticky top-10 z-[9] border-y border-neutral-200 bg-neutral-100 hover:bg-neutral-200/60"
                       >
                         <div className="flex items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold text-neutral-800">
                           <span className="w-1 shrink-0 self-stretch min-h-[2rem] bg-neutral-300 rounded-r" aria-hidden="true" />
@@ -314,6 +393,7 @@ export function PipelineTable({
                           ref={lead.id === highlightLeadId ? highlightRowRef : undefined}
                           lead={lead}
                           stageName={stage.name}
+                          showStageColumn={false}
                           isHighlight={lead.id === highlightLeadId}
                           getProximaLabel={getProximaLabel}
                           onRowClick={onRowClick}
@@ -321,7 +401,7 @@ export function PipelineTable({
                       ))}
                     {!isCollapsed && sectionLeads.length > 0 && (
                       <tr aria-hidden="true">
-                        <td colSpan={NUM_COLS} className="h-2 bg-transparent" />
+                        <td colSpan={numCols} className="h-2 bg-transparent" />
                       </tr>
                     )}
                   </Fragment>
@@ -338,13 +418,13 @@ export function PipelineTable({
     <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="table-fixed w-full text-sm border-separate border-spacing-0">
-          <thead className="border-b border-neutral-200 bg-neutral-50">
-            {HEADER_ROW}
+          <thead className="sticky top-0 z-10 border-b border-neutral-200 bg-neutral-50">
+            {buildHeaderRow(showStageColumn)}
           </thead>
           <tbody>
             {leads.length === 0 ? (
               <tr>
-                <td colSpan={NUM_COLS} className="px-4 py-12 text-center text-sm text-muted">
+                <td colSpan={numCols} className="px-4 py-12 text-center text-sm text-muted">
                   No se encontraron leads con los filtros aplicados
                 </td>
               </tr>
@@ -357,6 +437,7 @@ export function PipelineTable({
                     ref={lead.id === highlightLeadId ? highlightRowRef : undefined}
                     lead={lead}
                     stageName={stageName}
+                    showStageColumn={showStageColumn}
                     isHighlight={lead.id === highlightLeadId}
                     getProximaLabel={getProximaLabel}
                     onRowClick={onRowClick}
