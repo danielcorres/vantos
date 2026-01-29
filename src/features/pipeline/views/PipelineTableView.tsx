@@ -233,78 +233,94 @@ export function PipelineTableView() {
               </span>
             )}
           </div>
-        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <div className={SEGMENT_WRAPPER} role="tablist" aria-label="Modo del pipeline">
-            <button
-              role="tab"
-              aria-selected={pipelineMode === 'activos'}
-              onClick={() => setPipelineMode('activos')}
-              className={pipelineMode === 'activos' ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
-            >
-              Activos
-              <span className={SEGMENT_BADGE}>{activosCount}</span>
-            </button>
-            <button
-              role="tab"
-              aria-selected={pipelineMode === 'archivados'}
-              onClick={() => setPipelineMode('archivados')}
-              className={pipelineMode === 'archivados' ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
-            >
-              Archivados
-              <span className={SEGMENT_BADGE}>{archivadosCount}</span>
-            </button>
-          </div>
-          {pipelineMode === 'activos' && (
-            <div className={SEGMENT_WRAPPER} role="group" aria-label="Vista de tabla">
+        <div className="flex flex-wrap items-center gap-3 sm:gap-4 sm:justify-end">
+          {/* Zona B: Estado / Vista — chips homogéneos (mismo sistema visual) */}
+          <div className="flex items-center gap-3 shrink-0" role="group" aria-label="Estado y vista">
+            <div className={SEGMENT_WRAPPER} role="tablist" aria-label="Modo del pipeline">
               <button
-                type="button"
-                onClick={() => setGroupByStage(true)}
-                className={groupByStage ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
+                role="tab"
+                aria-selected={pipelineMode === 'activos'}
+                onClick={() => setPipelineMode('activos')}
+                className={pipelineMode === 'activos' ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
               >
-                Agrupar por etapa
+                Activos
+                <span className={SEGMENT_BADGE}>{activosCount}</span>
               </button>
               <button
-                type="button"
-                onClick={() => setGroupByStage(false)}
-                className={!groupByStage ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
+                role="tab"
+                aria-selected={pipelineMode === 'archivados'}
+                onClick={() => setPipelineMode('archivados')}
+                className={pipelineMode === 'archivados' ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
               >
-                Vista plana
+                Archivados
+                <span className={SEGMENT_BADGE}>{archivadosCount}</span>
               </button>
             </div>
-          )}
-          {groupByStage && pipelineMode === 'activos' && (
-            <>
+            {pipelineMode === 'activos' && (
+              <div className={SEGMENT_WRAPPER} role="group" aria-label="Vista de tabla">
+                <button
+                  type="button"
+                  onClick={() => setGroupByStage(true)}
+                  className={groupByStage ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
+                >
+                  Agrupar por etapa
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGroupByStage(false)}
+                  className={!groupByStage ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
+                >
+                  Vista plana
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Separación visual entre zona B y C */}
+          <div
+            className="hidden sm:block w-px self-stretch min-h-[28px] bg-neutral-200 shrink-0"
+            aria-hidden
+          />
+
+          {/* Zona C: Acciones — secundarias (ghost) + primaria aislada */}
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3" role="group" aria-label="Acciones">
+            {groupByStage && pipelineMode === 'activos' && (
+              <>
+                <button
+                  type="button"
+                  onClick={collapseAllStages}
+                  className="btn btn-ghost text-sm text-neutral-600 hover:text-neutral-900 py-1.5 px-2.5 min-h-0 font-normal"
+                >
+                  Colapsar
+                </button>
+                <button
+                  type="button"
+                  onClick={expandAllStages}
+                  className="btn btn-ghost text-sm text-neutral-600 hover:text-neutral-900 py-1.5 px-2.5 min-h-0 font-normal"
+                >
+                  Expandir
+                </button>
+                <label className="btn btn-ghost text-sm text-neutral-600 hover:text-neutral-900 py-1.5 px-2.5 min-h-0 font-normal cursor-pointer inline-flex items-center gap-1.5">
+                  <input
+                    type="checkbox"
+                    checked={hideEmptyStages}
+                    onChange={(e) => setHideEmptyStages(e.target.checked)}
+                    className="sr-only"
+                    aria-label="Ocultar etapas vacías"
+                  />
+                  Ocultar vacías
+                </label>
+              </>
+            )}
+            {pipelineMode === 'activos' && (
               <button
-                type="button"
-                onClick={collapseAllStages}
-                className="h-[34px] shrink-0 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
+                onClick={() => setIsCreateModalOpen(true)}
+                className="btn btn-primary text-sm shrink-0 ml-0 sm:ml-1"
               >
-                Colapsar
+                + Nuevo lead
               </button>
-              <button
-                type="button"
-                onClick={expandAllStages}
-                className="h-[34px] shrink-0 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
-              >
-                Expandir
-              </button>
-              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-neutral-50">
-                <input
-                  type="checkbox"
-                  checked={hideEmptyStages}
-                  onChange={(e) => setHideEmptyStages(e.target.checked)}
-                  className="sr-only"
-                  aria-label="Ocultar etapas vacías"
-                />
-                <span>Ocultar vacías</span>
-              </label>
-            </>
-          )}
-          {pipelineMode === 'activos' && (
-            <button onClick={() => setIsCreateModalOpen(true)} className="btn btn-primary text-sm">
-              + Nuevo lead
-            </button>
-          )}
+            )}
+          </div>
         </div>
         </div>
       </div>
