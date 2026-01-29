@@ -279,9 +279,11 @@ export function PipelineTableView() {
               Ocultar etapas vacías
             </label>
           )}
-          <button onClick={() => setIsCreateModalOpen(true)} className="btn btn-primary text-sm">
-            + Nuevo lead
-          </button>
+          {pipelineMode === 'activos' && (
+            <button onClick={() => setIsCreateModalOpen(true)} className="btn btn-primary text-sm">
+              + Nuevo lead
+            </button>
+          )}
         </div>
       </div>
 
@@ -362,84 +364,8 @@ export function PipelineTableView() {
           </table>
         </div>
       ) : (
-        <>
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <input
-                type="search"
-                placeholder="Buscar nombre, teléfono o email…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200 min-w-[200px]"
-                aria-label="Buscar leads"
-              />
-              <select
-                value={sourceFilter}
-                onChange={(e) => setSourceFilter(e.target.value)}
-                className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200"
-                aria-label="Filtrar por fuente"
-              >
-                <option value="">Todas</option>
-                <option value="Referido">Referido</option>
-                <option value="Mercado natural">Mercado natural</option>
-                <option value="Frío">Frío</option>
-                <option value="Social media">Social media</option>
-              </select>
-              <div
-                className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5"
-                role="group"
-                aria-label="Vista de tabla"
-              >
-                <button
-                  type="button"
-                  onClick={() => setGroupByStage(true)}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    groupByStage ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
-                  }`}
-                >
-                  Agrupar por etapa
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGroupByStage(false)}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                    !groupByStage ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
-                  }`}
-                >
-                  Vista plana
-                </button>
-              </div>
-              {groupByStage && sectionsToRender.length > 0 && (
-                <>
-                  <button
-                    type="button"
-                    onClick={collapseAllStages}
-                    className="btn btn-ghost text-sm"
-                  >
-                    Colapsar todo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={expandAllStages}
-                    className="btn btn-ghost text-sm"
-                  >
-                    Expandir todo
-                  </button>
-                </>
-              )}
-              {groupByStage && (
-                <label className="inline-flex items-center gap-2 text-sm text-neutral-600 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={hideEmptyStages}
-                    onChange={(e) => setHideEmptyStages(e.target.checked)}
-                    className="rounded border-neutral-300"
-                  />
-                  Ocultar etapas vacías
-                </label>
-              )}
-            </div>
-            <PipelineTable
+        <div className="space-y-3">
+          <PipelineTable
               leads={sortedLeads}
               stages={stages.map((s) => ({ id: s.id, name: s.name, position: s.position }))}
               groupedSections={groupByStage ? sectionsToRender : undefined}
@@ -450,8 +376,7 @@ export function PipelineTableView() {
               getProximaLabel={getProximaLabel}
               onRowClick={(l) => navigate(`/leads/${l.id}`)}
             />
-          </div>
-        </>
+        </div>
       )}
 
       <LeadCreateModal
