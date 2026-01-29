@@ -74,6 +74,8 @@ type PipelineTableProps = {
 const NUM_COLS = 5
 
 const TH_BASE = 'px-4 py-2 text-[11px] uppercase tracking-wide text-neutral-500'
+/** Celdas de fila lead: borde inferior punteado tenue en todas las columnas */
+const TD_BASE = 'py-2.5 px-4 align-middle border-b border-dashed border-neutral-200/60'
 const HEADER_ROW = (
   <tr>
     <th className={`${TH_BASE} text-left`}>Lead</th>
@@ -123,10 +125,10 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
       tabIndex={0}
       onClick={handleRowClick}
       onKeyDown={handleKeyDown}
-      className={`group select-none cursor-pointer bg-white transition-colors border-b border-dashed border-neutral-200/70 hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-inset ${closed ? 'opacity-70' : ''} ${isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''}`}
+      className={`group select-none cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-inset ${closed ? 'opacity-70' : ''} ${isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''}`}
       style={getStageAccentStyle(stageName)}
     >
-      <td className="py-2.5 px-4 align-middle">
+      <td className={`${TD_BASE}`}>
         <div className="flex min-w-0 items-center gap-1.5">
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 leading-tight">
             {closed ? <span className="text-neutral-700">{lead.full_name}</span> : lead.full_name}
@@ -134,7 +136,7 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
           <span className="shrink-0 text-neutral-300 opacity-0 transition-opacity group-hover:opacity-100" aria-hidden>›</span>
         </div>
       </td>
-      <td className="py-2.5 px-4 align-middle max-w-[140px]">
+      <td className={`${TD_BASE} max-w-[140px]`}>
         {lead.phone?.trim() ? (
           <a
             href={`tel:${lead.phone.replace(/\s/g, '')}`}
@@ -148,7 +150,7 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
           <span className="text-sm text-neutral-400">—</span>
         )}
       </td>
-      <td className="py-2.5 px-4 align-middle max-w-[180px]">
+      <td className={`${TD_BASE} max-w-[180px]`}>
         {lead.email?.trim() ? (
           <a
             href={`mailto:${lead.email}`}
@@ -162,7 +164,7 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
           <span className="text-sm text-neutral-400">—</span>
         )}
       </td>
-      <td className="py-2.5 px-4 align-middle max-w-[120px]">
+      <td className={`${TD_BASE} max-w-[120px]`}>
         {lead.source?.trim() ? (
           <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full ${sourceTagClass}`}>
             {lead.source}
@@ -171,7 +173,7 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
           <span className="text-sm text-neutral-400">—</span>
         )}
       </td>
-      <td className="py-2.5 px-4 align-middle text-right">
+      <td className={`${TD_BASE} text-right`}>
         {createdShort ? (
           <div>
             <div className="text-xs text-neutral-700 tabular-nums">{createdShort}</div>
@@ -277,31 +279,32 @@ export function PipelineTable({
                           toggleStage(stage.id)
                         }
                       }}
-                      className="cursor-pointer border-y border-neutral-200 bg-neutral-100 transition-colors hover:bg-neutral-200/60 focus:outline-none focus:ring-2 focus:ring-neutral-200 focus:ring-inset"
+                      className="cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-neutral-200 focus:ring-inset"
                       style={getStageAccentStyle(stage.name)}
                       aria-expanded={!isCollapsed}
                     >
-                      <th
-                        scope="row"
+                      <td
                         colSpan={NUM_COLS}
-                        className="sticky top-0 z-10 relative flex w-full items-center gap-2 border-0 bg-neutral-100 px-4 py-2.5 text-left text-sm font-semibold text-neutral-800"
+                        className="border-y border-neutral-200 bg-neutral-100 hover:bg-neutral-200/60"
                       >
-                        <span className="absolute left-0 top-0 h-full w-1 bg-neutral-300 rounded-r" aria-hidden="true" />
-                        <span
-                          className="inline-flex p-0.5 -m-0.5 text-neutral-400"
-                          style={{
-                            transition: prefersReducedMotion ? 'none' : 'transform 0.2s ease',
-                            transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
-                          }}
-                          aria-hidden
-                        >
-                          ▶
-                        </span>
-                        <span>{displayStageName(stage.name)}</span>
-                        <span className="ml-2 inline-flex items-center justify-center rounded-full bg-neutral-200/80 px-2 py-0.5 text-[11px] font-medium text-neutral-600 tabular-nums min-w-[1.25rem]">
-                          {sectionLeads.length}
-                        </span>
-                      </th>
+                        <div className="flex items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold text-neutral-800">
+                          <span className="w-1 shrink-0 self-stretch min-h-[2rem] bg-neutral-300 rounded-r" aria-hidden="true" />
+                          <span
+                            className="inline-flex p-0.5 -m-0.5 text-neutral-400 shrink-0"
+                            style={{
+                              transition: prefersReducedMotion ? 'none' : 'transform 0.2s ease',
+                              transform: isCollapsed ? 'rotate(0deg)' : 'rotate(90deg)',
+                            }}
+                            aria-hidden
+                          >
+                            ▶
+                          </span>
+                          <span>{displayStageName(stage.name)}</span>
+                          <span className="inline-flex items-center justify-center rounded-full bg-neutral-200/80 px-2 py-0.5 text-[11px] font-medium text-neutral-600 tabular-nums min-w-[1.25rem]">
+                            {sectionLeads.length}
+                          </span>
+                        </div>
+                      </td>
                     </tr>
                     {!isCollapsed &&
                       sectionLeads.length > 0 &&
