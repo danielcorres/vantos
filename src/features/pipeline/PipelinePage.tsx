@@ -6,12 +6,10 @@ import {
   generateIdempotencyKey,
   type PipelineState,
 } from './pipeline.store'
+import { PIPELINE_HIDDEN_STAGE_SLUGS, getVisiblePipelineStages } from './constants'
 import { KanbanBoard } from './components/KanbanBoard'
 import { LeadCreateModal } from './components/LeadCreateModal'
-import { ScheduleFirstMeetingModal } from './components/ScheduleFirstMeetingModal'
 import { PipelineTableView } from './views/PipelineTableView'
-import { AppointmentFormModal } from '../calendar/components/AppointmentFormModal'
-import type { AppointmentType } from '../calendar/types/calendar.types'
 import { getWeeklyEntryLeads } from '../productivity/api/drilldown.api'
 
 const PipelineInsightsPage = lazy(() =>
@@ -21,11 +19,9 @@ import type { StageSlug } from '../productivity/types/productivity.types'
 import { STAGE_SLUGS_ORDER } from '../productivity/types/productivity.types'
 import { Toast } from '../../shared/components/Toast'
 
-const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
+const WEEKLY_STAGE_LABELS: Record<string, string> = {
   contactos_nuevos: 'Contactos Nuevos',
-  citas_agendadas: 'Citas Agendadas',
   casos_abiertos: 'Casos Abiertos',
-  citas_cierre: 'Citas de Cierre',
   solicitudes_ingresadas: 'Solicitudes Ingresadas',
   casos_ganados: 'Casos Ganados',
 }
@@ -82,20 +78,22 @@ export function PipelinePage() {
   const weekStartYmd = searchParams.get('weekStart')
   const weekStartValid = weekStartYmd != null && isValidWeekStartYmd(weekStartYmd)
   const stageSlugParam = searchParams.get('stage')
-  const stageSlugValid = stageSlugParam != null && (STAGE_SLUGS_ORDER as readonly string[]).includes(stageSlugParam)
-  const stageSlug = stageSlugValid ? (stageSlugParam as StageSlug) : (STAGE_SLUGS_ORDER[0] as StageSlug)
+  const pipelineVisibleSlugs = useMemo(
+    () => (STAGE_SLUGS_ORDER as readonly string[]).filter((s) => !PIPELINE_HIDDEN_STAGE_SLUGS.has(s)),
+    []
+  )
+  const stageSlugValid =
+    stageSlugParam != null &&
+    (STAGE_SLUGS_ORDER as readonly string[]).includes(stageSlugParam) &&
+    !PIPELINE_HIDDEN_STAGE_SLUGS.has(stageSlugParam)
+  const stageSlug = stageSlugValid ? (stageSlugParam as StageSlug) : (pipelineVisibleSlugs[0] as StageSlug)
   const weeklyMode = Boolean(weekStartValid && stageSlugValid)
+
+  const visibleStages = useMemo(() => getVisiblePipelineStages(state.stages), [state.stages])
+  const visibleStageIds = useMemo(() => new Set(visibleStages.map((s) => s.id)), [visibleStages])
 
   const [weeklyLeadIds, setWeeklyLeadIds] = useState<Set<string> | null>(null)
   const [weeklyLoadError, setWeeklyLoadError] = useState<string | null>(null)
-  const [pendingScheduleFirstMeeting, setPendingScheduleFirstMeeting] = useState<{
-    leadId: string
-    intentSlug: StageSlug | null
-  } | null>(null)
-  const tableRefreshRef = useRef<(() => void) | null>(null)
-  const [appointmentFlow, setAppointmentFlow] = useState<{ leadId: string; type: 'first_meeting' | 'closing' } | null>(null)
-  const [pendingAppointmentCancel, setPendingAppointmentCancel] = useState<{ leadId: string; type: 'first_meeting' | 'closing' } | null>(null)
-  const [showAppointmentCancelConfirm, setShowAppointmentCancelConfirm] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -104,6 +102,21 @@ export function PipelinePage() {
   useEffect(() => {
     setStoredViewMode(activeTab)
   }, [activeTab])
+
+  // Si la URL trae stage de cita (inválido para pipeline), normalizar a etapa visible
+  useEffect(() => {
+    if (!weekStartValid || !weekStartYmd || !stageSlugParam) return
+    if (PIPELINE_HIDDEN_STAGE_SLUGS.has(stageSlugParam)) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.set('stage', pipelineVisibleSlugs[0] ?? 'contactos_nuevos')
+          return next
+        },
+        { replace: true }
+      )
+    }
+  }, [weekStartValid, weekStartYmd, stageSlugParam, pipelineVisibleSlugs, setSearchParams])
 
   useEffect(() => {
     if (!weekStartValid || !stageSlugValid || !weekStartYmd) {
@@ -133,10 +146,11 @@ export function PipelinePage() {
   }, [searchParams, state.leads.length, setSearchParams])
 
   const displayedLeads = useMemo(() => {
-    if (!weeklyMode) return state.leads
-    if (weeklyLeadIds === null) return [] // loading/error: no mostrar totales globales en Kanban
-    return state.leads.filter((l) => weeklyLeadIds.has(l.id))
-  }, [weeklyMode, weeklyLeadIds, state.leads])
+    const inVisibleStages = state.leads.filter((l) => visibleStageIds.has(l.stage_id))
+    if (!weeklyMode) return inVisibleStages
+    if (weeklyLeadIds === null) return []
+    return inVisibleStages.filter((l) => weeklyLeadIds.has(l.id))
+  }, [weeklyMode, weeklyLeadIds, state.leads, visibleStageIds])
 
   const [tableVisibleCount, setTableVisibleCount] = useState<number | null>(null)
 
@@ -170,7 +184,6 @@ export function PipelinePage() {
     notes?: string
     stage_id: string
   }) => {
-    const selectedStage = state.stages.find((s) => s.id === data.stage_id)
     const contactosNuevosStage = state.stages.find((s) => s.slug === 'contactos_nuevos') ?? state.stages[0]
     const stageIdToUse = contactosNuevosStage?.id ?? data.stage_id
 
@@ -180,11 +193,6 @@ export function PipelinePage() {
     })
     dispatch({ type: 'CREATE_LEAD', payload: newLead })
     setIsModalOpen(false)
-
-    setPendingScheduleFirstMeeting({
-      leadId: newLead.id,
-      intentSlug: (selectedStage?.slug as StageSlug) ?? null,
-    })
   }
 
   const handleDragStart = (e: React.DragEvent, lead: Lead) => {
@@ -302,7 +310,7 @@ export function PipelinePage() {
             id="pipeline-weekly-stage-pick"
             value={stageSlugValid ? stageSlugParam : ''}
             onChange={(e) => {
-              const slug = e.target.value as StageSlug
+              const slug = e.target.value
               if (!slug) return
               setSearchParams(
                 (prev) => {
@@ -317,9 +325,9 @@ export function PipelinePage() {
             className="px-2 py-1 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200"
           >
             <option value="">— Elige etapa —</option>
-            {STAGE_SLUGS_ORDER.map((slug) => (
+            {pipelineVisibleSlugs.map((slug) => (
               <option key={slug} value={slug}>
-                {WEEKLY_STAGE_LABELS[slug]}
+                {WEEKLY_STAGE_LABELS[slug] ?? slug}
               </option>
             ))}
           </select>
@@ -348,7 +356,7 @@ export function PipelinePage() {
                   id="pipeline-weekly-stage"
                   value={stageSlug}
                   onChange={(e) => {
-                    const slug = e.target.value as StageSlug
+                    const slug = e.target.value
                     setSearchParams(
                       (prev) => {
                         const next = new URLSearchParams(prev)
@@ -361,9 +369,9 @@ export function PipelinePage() {
                   }}
                   className="ml-2 px-2 py-1 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200"
                 >
-                  {STAGE_SLUGS_ORDER.map((slug) => (
+                  {pipelineVisibleSlugs.map((slug) => (
                     <option key={slug} value={slug}>
-                      {WEEKLY_STAGE_LABELS[slug]}
+                      {WEEKLY_STAGE_LABELS[slug] ?? slug}
                     </option>
                   ))}
                 </select>
@@ -443,17 +451,11 @@ export function PipelinePage() {
       {activeTab === 'table' && (
         <PipelineTableView
           weeklyFilterLeadIds={weeklyMode ? weeklyLeadIds : null}
-          weeklyStageLabel={weeklyMode && stageSlug ? WEEKLY_STAGE_LABELS[stageSlug as StageSlug] ?? stageSlug : null}
+          weeklyStageLabel={weeklyMode && stageSlug ? WEEKLY_STAGE_LABELS[stageSlug] ?? stageSlug : null}
           weeklyWeekRange={weeklyMode && weekStartYmd ? formatWeekRangeLabel(weekStartYmd) : null}
           weeklyLoadError={weeklyMode ? weeklyLoadError : null}
           onClearWeekly={clearWeeklyMode}
           onVisibleCountChange={setTableVisibleCount}
-          onLeadCreated={(lead, intentSlug) =>
-            setPendingScheduleFirstMeeting({ leadId: lead.id, intentSlug })
-          }
-          onRegisterRefresh={(fn) => {
-            tableRefreshRef.current = fn
-          }}
         />
       )}
 
@@ -475,7 +477,7 @@ export function PipelinePage() {
       {activeTab === 'kanban' && (!weeklyMode || displayedLeads.length > 0) && (
         <div ref={kanbanRef}>
           <KanbanBoard
-            stages={state.stages}
+            stages={visibleStages}
             leads={displayedLeads}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
@@ -501,26 +503,10 @@ export function PipelinePage() {
 
       {activeTab === 'kanban' && (
         <LeadCreateModal
-          stages={state.stages}
+          stages={visibleStages}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSubmit={handleCreateLead}
-        />
-      )}
-
-      {pendingScheduleFirstMeeting && (
-        <ScheduleFirstMeetingModal
-          isOpen={true}
-          onClose={() => setPendingScheduleFirstMeeting(null)}
-          intentSlug={pendingScheduleFirstMeeting.intentSlug}
-          onAgendar={() => {
-            setAppointmentFlow({
-              leadId: pendingScheduleFirstMeeting.leadId,
-              type: pendingScheduleFirstMeeting.intentSlug === 'citas_cierre' ? 'closing' : 'first_meeting',
-            })
-            setPendingScheduleFirstMeeting(null)
-          }}
-          onDecline={() => setPipelineToast('Listo. Lead creado en Contactos nuevos.')}
         />
       )}
 
@@ -531,98 +517,6 @@ export function PipelinePage() {
           onClose={() => setPipelineToast(null)}
           durationMs={2200}
         />
-      )}
-
-      {appointmentFlow && (
-        <AppointmentFormModal
-          isOpen={true}
-          onClose={() => {
-            setPendingAppointmentCancel(appointmentFlow)
-            setAppointmentFlow(null)
-            setShowAppointmentCancelConfirm(true)
-          }}
-          mode="create"
-          onSaved={() => {
-            loadData()
-            tableRefreshRef.current?.()
-            setAppointmentFlow(null)
-          }}
-          initialLeadId={appointmentFlow.leadId}
-          lockType={appointmentFlow.type as AppointmentType}
-          createDefaults={{ durationMinutes: 30, startsAtOffsetHours: 1, roundToMinutes: 30 }}
-        />
-      )}
-
-      {showAppointmentCancelConfirm && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
-          onClick={() => setShowAppointmentCancelConfirm(false)}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="appointment-cancel-title"
-        >
-          <div
-            className="bg-bg border border-border rounded-xl shadow-xl w-full max-w-sm p-4 space-y-3"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 id="appointment-cancel-title" className="text-sm font-semibold text-text">
-              Esta etapa requiere una cita. ¿Qué prefieres?
-            </h3>
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  if (pendingAppointmentCancel) {
-                    setAppointmentFlow(pendingAppointmentCancel)
-                    setPendingAppointmentCancel(null)
-                  }
-                  setShowAppointmentCancelConfirm(false)
-                }}
-                className="w-full px-3 py-2 text-sm font-medium rounded-lg bg-primary text-white hover:bg-primary/90"
-              >
-                Agendar cita
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPendingAppointmentCancel(null)
-                  setShowAppointmentCancelConfirm(false)
-                }}
-                className="w-full px-3 py-2 text-sm font-medium rounded-lg border border-border bg-bg hover:bg-black/5"
-              >
-                Dejar en Contactos Nuevos
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (!pendingAppointmentCancel) {
-                    setShowAppointmentCancelConfirm(false)
-                    return
-                  }
-                  const casosAbiertosStage = state.stages.find((s) => s.slug === 'casos_abiertos')
-                  if (casosAbiertosStage) {
-                    try {
-                      const lead = state.leads.find((l) => l.id === pendingAppointmentCancel.leadId)
-                      if (lead) {
-                        await pipelineApi.moveLeadStage(
-                          lead.id,
-                          casosAbiertosStage.id,
-                          generateIdempotencyKey(lead.id, lead.stage_id, casosAbiertosStage.id)
-                        )
-                        await loadData()
-                      }
-                    } catch (_) {}
-                  }
-                  setPendingAppointmentCancel(null)
-                  setShowAppointmentCancelConfirm(false)
-                }}
-                className="w-full px-3 py-2 text-sm font-medium rounded-lg border border-border bg-bg hover:bg-black/5"
-              >
-                Cambiar a Casos Abiertos
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   )

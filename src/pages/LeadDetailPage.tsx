@@ -985,12 +985,8 @@ export function LeadDetailPage() {
 
         {/* Columna derecha: Citas (arriba) → Hechos del proceso → Pipeline; layout limpio en móvil */}
         <div className="lg:col-span-4 flex flex-col gap-3 lg:sticky lg:top-4 self-start order-2">
-          {/* Citas (módulo Calendario) — primero para flujo orientado a citas */}
-          <LeadAppointmentsList
-            leadId={lead.id}
-            leadLabel={lead.full_name ?? undefined}
-            currentStageSlug={stages.find((s) => s.id === lead.stage_id)?.slug as 'citas_agendadas' | 'citas_cierre' | undefined}
-          />
+          {/* Citas: solo lectura; se gestionan desde Calendario */}
+          <LeadAppointmentsList leadId={lead.id} leadLabel={lead.full_name ?? undefined} />
 
           {/* Hechos del proceso (para métricas): fechas editables para métricas. */}
           <div

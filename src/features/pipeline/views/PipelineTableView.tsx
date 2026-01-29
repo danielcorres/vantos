@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { pipelineApi, type Lead, type PipelineStage } from '../pipeline.api'
 import { generateIdempotencyKey } from '../pipeline.store'
-import type { StageSlug } from '../../productivity/types/productivity.types'
+import { getVisiblePipelineStages } from '../constants'
 import { LeadCreateModal } from '../components/LeadCreateModal'
 import { PipelineTable } from '../components/PipelineTable'
 import { getProximaLabel } from '../utils/proximaLabel'
@@ -33,8 +33,6 @@ export function PipelineTableView({
   weeklyLoadError = null,
   onClearWeekly,
   onVisibleCountChange,
-  onLeadCreated,
-  onRegisterRefresh,
 }: {
   weeklyFilterLeadIds?: Set<string> | null
   weeklyStageLabel?: string | null
@@ -43,10 +41,6 @@ export function PipelineTableView({
   onClearWeekly?: () => void
   /** Cantidad visible tras filtros (weekly + búsqueda + fuente) para "Mostrando N" en banner. */
   onVisibleCountChange?: (n: number) => void
-  /** Llamado tras crear lead (para mostrar mini-modal "¿Agendar primera cita?" en PipelinePage). */
-  onLeadCreated?: (lead: Lead, intentSlug: StageSlug | null) => void
-  /** Registra la función de refresh de la tabla para que PipelinePage la llame al guardar cita. */
-  onRegisterRefresh?: (fn: (() => void) | null) => void
 } = {}) {
   const navigate = useNavigate()
   const [stages, setStages] = useState<PipelineStage[]>([])
@@ -65,11 +59,18 @@ export function PipelineTableView({
   const [searchQuery, setSearchQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
 
+  const visibleStages = useMemo(() => getVisiblePipelineStages(stages), [stages])
+  const visibleStageIds = useMemo(() => new Set(visibleStages.map((s) => s.id)), [visibleStages])
+  const leadsInVisibleStages = useMemo(
+    () => leads.filter((l) => visibleStageIds.has(l.stage_id)),
+    [leads, visibleStageIds]
+  )
+
   const weeklyMode = weeklyFilterLeadIds != null && weeklyLoadError == null
 
   const filteredLeads = useMemo(() => {
     if (pipelineMode !== 'activos') return []
-    let list = leads
+    let list = leadsInVisibleStages
     if (weeklyMode && weeklyFilterLeadIds?.size) {
       list = list.filter((l) => weeklyFilterLeadIds.has(l.id))
     }
@@ -88,7 +89,7 @@ export function PipelineTableView({
       list = list.filter((l) => (l.source?.toLowerCase().trim() || '') === srcLower)
     }
     return list
-  }, [pipelineMode, leads, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds])
+  }, [pipelineMode, leadsInVisibleStages, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds])
 
   useEffect(() => {
     onVisibleCountChange?.(filteredLeads.length)
@@ -101,11 +102,11 @@ export function PipelineTableView({
 
   const groupedSections = useMemo(() => {
     if (pipelineMode !== 'activos') return []
-    return stages.map((stage) => ({
+    return visibleStages.map((stage) => ({
       stage: { id: stage.id, name: stage.name, position: stage.position },
       leads: sortedLeads.filter((l) => l.stage_id === stage.id),
     }))
-  }, [pipelineMode, stages, sortedLeads])
+  }, [pipelineMode, visibleStages, sortedLeads])
 
   const sectionsToRender = useMemo(() => {
     if (!groupByStage || pipelineMode !== 'activos') return []
@@ -138,8 +139,9 @@ export function PipelineTableView({
         pipelineApi.getLeads('archivados'),
       ])
       setStages(stagesData)
-      setActivosCount(activosData.length)
-      setArchivadosCount(archivadosData.length)
+      const visibleIds = new Set(getVisiblePipelineStages(stagesData).map((s) => s.id))
+      setActivosCount(activosData.filter((l) => visibleIds.has(l.stage_id)).length)
+      setArchivadosCount(archivadosData.filter((l) => visibleIds.has(l.stage_id)).length)
       setLeads(pipelineMode === 'activos' ? activosData : archivadosData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar datos')
@@ -147,13 +149,6 @@ export function PipelineTableView({
       setLoading(false)
     }
   }
-
-  useEffect(() => {
-    onRegisterRefresh?.(loadData)
-    return () => {
-      onRegisterRefresh?.(null)
-    }
-  }, [loadData, onRegisterRefresh])
 
   const handleCreateLead = async (data: {
     full_name: string
@@ -164,7 +159,6 @@ export function PipelineTableView({
     stage_id: string
     next_follow_up_at?: string
   }) => {
-    const selectedStage = stages.find((s) => s.id === data.stage_id)
     const contactosNuevosStage = stages.find((s) => s.slug === 'contactos_nuevos') ?? stages[0]
     const stageIdToUse = contactosNuevosStage?.id ?? data.stage_id
 
@@ -178,7 +172,6 @@ export function PipelineTableView({
     setTimeout(() => setHighlightLeadId(null), 3000)
     await loadData()
     setToast({ type: 'success', message: 'Lead creado' })
-    onLeadCreated?.(newLead, (selectedStage?.slug as StageSlug) ?? null)
   }
 
   const collapseAllStages = () => {
@@ -247,7 +240,7 @@ export function PipelineTableView({
     )
   }
 
-  if (pipelineMode === 'activos' && leads.length === 0) {
+  if (pipelineMode === 'activos' && leadsInVisibleStages.length === 0) {
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -412,14 +405,14 @@ export function PipelineTableView({
               </tr>
             </thead>
             <tbody>
-              {leads.length === 0 ? (
+              {leadsInVisibleStages.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-muted">
                     No hay leads archivados.
                   </td>
                 </tr>
               ) : (
-                leads.map((lead) => {
+                leadsInVisibleStages.map((lead) => {
                   const stageName = stages.find((s) => s.id === lead.stage_id)?.name
                   const isArchived = lead.archived_at != null
                   return (
@@ -479,7 +472,7 @@ export function PipelineTableView({
         <div className="space-y-3">
             <PipelineTable
               leads={sortedLeads}
-              stages={stages.map((s) => ({ id: s.id, name: s.name, position: s.position }))}
+              stages={visibleStages.map((s) => ({ id: s.id, name: s.name, position: s.position }))}
               groupedSections={groupByStage ? sectionsToRender : undefined}
               groupByStage={groupByStage}
               collapsedStages={collapsedStages}
@@ -493,7 +486,7 @@ export function PipelineTableView({
       )}
 
       <LeadCreateModal
-        stages={stages}
+        stages={visibleStages}
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateLead}
