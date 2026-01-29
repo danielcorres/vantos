@@ -123,7 +123,7 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
       tabIndex={0}
       onClick={handleRowClick}
       onKeyDown={handleKeyDown}
-      className={`group select-none cursor-pointer bg-white transition-colors border-b border-neutral-100 hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-inset ${closed ? 'opacity-70' : ''} ${isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''}`}
+      className={`group select-none cursor-pointer bg-white transition-colors border-b border-dashed border-neutral-200/70 hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-inset ${closed ? 'opacity-70' : ''} ${isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''}`}
       style={getStageAccentStyle(stageName)}
     >
       <td className="py-2.5 px-4 align-middle">
@@ -246,7 +246,7 @@ export function PipelineTable({
             <thead className="border-b border-neutral-200 bg-neutral-50">
               {HEADER_ROW}
             </thead>
-            <tbody className="divide-y divide-neutral-100">
+            <tbody>
               {groupedSections.map(({ stage, leads: sectionLeads }, sectionIndex) => {
                 const isCollapsed = collapsedStages[stage.id] ?? sectionLeads.length === 0
                 const insertResultsSeparator = isClosedStage(stage.name) && !resultsSeparatorInserted
@@ -264,7 +264,7 @@ export function PipelineTable({
                     )}
                     {!isFirstSection && (
                       <tr aria-hidden="true">
-                        <td colSpan={NUM_COLS} className="h-3 bg-transparent" />
+                        <td colSpan={NUM_COLS} className="h-3 bg-neutral-50" />
                       </tr>
                     )}
                     <tr
@@ -284,7 +284,7 @@ export function PipelineTable({
                       <th
                         scope="row"
                         colSpan={NUM_COLS}
-                        className="sticky top-0 z-10 relative flex w-full items-center gap-2 border-0 bg-neutral-100 pl-4 pr-4 py-2.5 text-left text-sm font-semibold text-neutral-800"
+                        className="sticky top-0 z-10 relative flex w-full items-center gap-2 border-0 bg-neutral-100 px-4 py-2.5 text-left text-sm font-semibold text-neutral-800"
                       >
                         <span className="absolute left-0 top-0 h-full w-1 bg-neutral-300 rounded-r" aria-hidden="true" />
                         <span
@@ -338,7 +338,7 @@ export function PipelineTable({
           <thead className="border-b border-neutral-200 bg-neutral-50">
             {HEADER_ROW}
           </thead>
-          <tbody className="divide-y divide-neutral-100">
+          <tbody>
             {leads.length === 0 ? (
               <tr>
                 <td colSpan={NUM_COLS} className="px-4 py-12 text-center text-sm text-muted">
