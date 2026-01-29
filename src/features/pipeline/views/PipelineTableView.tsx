@@ -8,6 +8,12 @@ import { Toast } from '../../../shared/components/Toast'
 import { formatDateMX } from '../../../shared/utils/dates'
 import { getStageTagClasses, getStageAccentStyle } from '../../../shared/utils/stageStyles'
 
+// Estilos unificados para segmented controls (Activos/Archivados, Agrupar/Vista plana, etc.)
+const SEGMENT_WRAPPER = 'inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5 gap-0.5'
+const SEGMENT_ACTIVE = 'px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium'
+const SEGMENT_INACTIVE = 'px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200 hover:bg-neutral-200/60'
+const SEGMENT_BADGE = 'rounded-full text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 ring-1 ring-neutral-300 tabular-nums'
+
 // Orden dentro de cada etapa: next_follow_up_at asc (más próximo arriba), nulls last.
 function sortLeadsByPriority(leads: Lead[]): Lead[] {
   return [...leads].sort((a, b) => {
@@ -168,14 +174,14 @@ export function PipelineTableView() {
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-end gap-2">
-            <div className="inline-flex rounded-lg border border-border bg-neutral-100/80 p-0.5 gap-0.5" role="tablist" aria-label="Vista del pipeline">
-              <button role="tab" aria-selected={true} onClick={() => setPipelineMode('activos')} className="px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium">
-                Activos <span className="rounded-full text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 ring-1 ring-neutral-300 tabular-nums">{activosCount}</span>
-              </button>
-              <button role="tab" aria-selected={false} onClick={() => setPipelineMode('archivados')} className="px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200 hover:bg-neutral-200/60">
-                Archivados <span className="rounded-full text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 ring-1 ring-neutral-300 tabular-nums">{archivadosCount}</span>
-              </button>
-            </div>
+          <div className={SEGMENT_WRAPPER} role="tablist" aria-label="Modo del pipeline">
+            <button role="tab" aria-selected={true} onClick={() => setPipelineMode('activos')} className={SEGMENT_ACTIVE}>
+              Activos <span className={SEGMENT_BADGE}>{activosCount}</span>
+            </button>
+            <button role="tab" aria-selected={false} onClick={() => setPipelineMode('archivados')} className={SEGMENT_INACTIVE}>
+              Archivados <span className={SEGMENT_BADGE}>{archivadosCount}</span>
+            </button>
+          </div>
           <button onClick={() => setIsCreateModalOpen(true)} className="btn btn-primary text-sm">+ Nuevo lead</button>
         </div>
         <div className="card text-center p-12">
@@ -190,42 +196,93 @@ export function PipelineTableView() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <div
-          className="inline-flex rounded-lg border border-border bg-neutral-100/80 p-0.5 gap-0.5"
-          role="tablist"
-          aria-label="Activos / Archivados"
-        >
-          <button
-            role="tab"
-            aria-selected={pipelineMode === 'activos'}
-            onClick={() => setPipelineMode('activos')}
-            className={`px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 ${
-              pipelineMode === 'activos' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200 hover:bg-neutral-200/60'
-            }`}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <input
+            type="search"
+            placeholder="Buscar nombre, teléfono o email…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full sm:w-[260px] rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200"
+            aria-label="Buscar leads"
+          />
+          <select
+            value={sourceFilter}
+            onChange={(e) => setSourceFilter(e.target.value)}
+            className="w-full sm:w-[180px] rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200"
+            aria-label="Filtrar por fuente"
           >
-            Activos
-            <span className="rounded-full text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 ring-1 ring-neutral-300 tabular-nums">
-              {activosCount}
-            </span>
-          </button>
-          <button
-            role="tab"
-            aria-selected={pipelineMode === 'archivados'}
-            onClick={() => setPipelineMode('archivados')}
-            className={`px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 ${
-              pipelineMode === 'archivados' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200 hover:bg-neutral-200/60'
-            }`}
-          >
-            Archivados
-            <span className="rounded-full text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 ring-1 ring-neutral-300 tabular-nums">
-              {archivadosCount}
-            </span>
+            <option value="">Todas</option>
+            <option value="Referido">Referido</option>
+            <option value="Mercado natural">Mercado natural</option>
+            <option value="Frío">Frío</option>
+            <option value="Social media">Social media</option>
+          </select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <div className={SEGMENT_WRAPPER} role="tablist" aria-label="Modo del pipeline">
+            <button
+              role="tab"
+              aria-selected={pipelineMode === 'activos'}
+              onClick={() => setPipelineMode('activos')}
+              className={pipelineMode === 'activos' ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
+            >
+              Activos
+              <span className={SEGMENT_BADGE}>{activosCount}</span>
+            </button>
+            <button
+              role="tab"
+              aria-selected={pipelineMode === 'archivados'}
+              onClick={() => setPipelineMode('archivados')}
+              className={pipelineMode === 'archivados' ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
+            >
+              Archivados
+              <span className={SEGMENT_BADGE}>{archivadosCount}</span>
+            </button>
+          </div>
+          {pipelineMode === 'activos' && (
+            <div className={SEGMENT_WRAPPER} role="group" aria-label="Vista de tabla">
+              <button
+                type="button"
+                onClick={() => setGroupByStage(true)}
+                className={groupByStage ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
+              >
+                Agrupar por etapa
+              </button>
+              <button
+                type="button"
+                onClick={() => setGroupByStage(false)}
+                className={!groupByStage ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
+              >
+                Vista plana
+              </button>
+            </div>
+          )}
+          {groupByStage && sectionsToRender.length > 0 && (
+            <>
+              <button type="button" onClick={collapseAllStages} className="btn btn-ghost text-sm">
+                Colapsar todo
+              </button>
+              <button type="button" onClick={expandAllStages} className="btn btn-ghost text-sm">
+                Expandir todo
+              </button>
+            </>
+          )}
+          {groupByStage && (
+            <label className="inline-flex items-center gap-2 text-sm text-neutral-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hideEmptyStages}
+                onChange={(e) => setHideEmptyStages(e.target.checked)}
+                className="rounded border-neutral-300"
+              />
+              Ocultar etapas vacías
+            </label>
+          )}
+          <button onClick={() => setIsCreateModalOpen(true)} className="btn btn-primary text-sm">
+            + Nuevo lead
           </button>
         </div>
-        <button onClick={() => setIsCreateModalOpen(true)} className="btn btn-primary text-sm">
-          + Nuevo lead
-        </button>
       </div>
 
       {pipelineMode === 'archivados' ? (
