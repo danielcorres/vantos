@@ -87,9 +87,9 @@ type PipelineTableProps = {
 const NUM_COLS_GROUPED = 6
 const NUM_COLS_FLAT = 7
 
-const TH_BASE = 'px-4 py-2 text-[11px] uppercase tracking-wide text-neutral-500'
+const TH_BASE = 'px-4 py-1.5 text-[11px] uppercase tracking-wide text-neutral-500'
 /** Celdas de fila lead: borde inferior punteado tenue en todas las columnas */
-const TD_BASE = 'py-2.5 px-4 align-middle border-b border-dashed border-neutral-200/60'
+const TD_BASE = 'py-2 px-4 align-middle border-b border-dashed border-neutral-200/60'
 
 function buildHeaderRow(showStageColumn: boolean) {
   return (
@@ -235,7 +235,10 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
       {showStageColumn && (
         <td className={`${TD_BASE} max-w-[120px]`}>
           {stageName ? (
-            <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full ${getStageTagClasses(stageName)}`}>
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full ${getStageTagClasses(stageName)}`}
+              title={displayStageName(stageName)}
+            >
               {displayStageName(stageName)}
             </span>
           ) : (
@@ -367,7 +370,7 @@ export function PipelineTable({
                         colSpan={numCols}
                         className="sticky top-10 z-[9] border-y border-neutral-200 bg-neutral-100 hover:bg-neutral-200/60"
                       >
-                        <div className="flex items-center gap-2 px-4 py-2.5 text-left text-sm font-semibold text-neutral-800">
+                        <div className="flex items-center gap-2 px-4 py-2 text-left text-sm font-semibold text-neutral-800">
                           <span className="w-1 shrink-0 self-stretch min-h-[2rem] bg-neutral-300 rounded-r" aria-hidden="true" />
                           <span
                             className="inline-flex p-0.5 -m-0.5 text-neutral-400 shrink-0"

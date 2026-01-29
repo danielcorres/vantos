@@ -196,29 +196,43 @@ export function PipelineTableView() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-          <input
-            type="search"
-            placeholder="Buscar nombre, teléfono o email…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full sm:w-[260px] rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200"
-            aria-label="Buscar leads"
-          />
-          <select
-            value={sourceFilter}
-            onChange={(e) => setSourceFilter(e.target.value)}
-            className="w-full sm:w-[180px] rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200"
-            aria-label="Filtrar por fuente"
-          >
-            <option value="">Todas</option>
-            <option value="Referido">Referido</option>
-            <option value="Mercado natural">Mercado natural</option>
-            <option value="Frío">Frío</option>
-            <option value="Social media">Social media</option>
-          </select>
-        </div>
+      <div className="md:sticky md:top-0 z-20 -mx-0 md:-mx-0 border-b border-neutral-200/80 bg-white/95 backdrop-blur-sm md:pb-4 md:pt-1">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between pt-1">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+            <input
+              type="search"
+              placeholder="Buscar nombre, teléfono o email…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full sm:w-[260px] rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200"
+              aria-label="Buscar leads"
+            />
+            <select
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+              className="w-full sm:w-[180px] rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus:border-neutral-300 focus:outline-none focus:ring-1 focus:ring-neutral-200"
+              aria-label="Filtrar por fuente"
+            >
+              <option value="">Todas</option>
+              <option value="Referido">Referido</option>
+              <option value="Mercado natural">Mercado natural</option>
+              <option value="Frío">Frío</option>
+              <option value="Social media">Social media</option>
+            </select>
+            {sourceFilter.trim() !== '' && (
+              <span className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-sm text-neutral-700">
+                Fuente: <span className="font-medium">{sourceFilter.trim()}</span>
+                <button
+                  type="button"
+                  onClick={() => setSourceFilter('')}
+                  className="rounded p-0.5 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800 transition-colors"
+                  aria-label="Quitar filtro de fuente"
+                >
+                  ×
+                </button>
+              </span>
+            )}
+          </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
           <div className={SEGMENT_WRAPPER} role="tablist" aria-label="Modo del pipeline">
             <button
@@ -291,6 +305,7 @@ export function PipelineTableView() {
               + Nuevo lead
             </button>
           )}
+        </div>
         </div>
       </div>
 
