@@ -258,26 +258,33 @@ export function PipelineTableView() {
               </button>
             </div>
           )}
-          {groupByStage && sectionsToRender.length > 0 && (
+          {groupByStage && pipelineMode === 'activos' && (
             <>
-              <button type="button" onClick={collapseAllStages} className="btn btn-ghost text-sm">
-                Colapsar todo
+              <button
+                type="button"
+                onClick={collapseAllStages}
+                className="h-[34px] shrink-0 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
+              >
+                Colapsar
               </button>
-              <button type="button" onClick={expandAllStages} className="btn btn-ghost text-sm">
-                Expandir todo
+              <button
+                type="button"
+                onClick={expandAllStages}
+                className="h-[34px] shrink-0 rounded-lg border border-neutral-200 bg-white px-3 text-sm text-neutral-700 transition-colors hover:bg-neutral-50"
+              >
+                Expandir
               </button>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 transition-colors hover:bg-neutral-50">
+                <input
+                  type="checkbox"
+                  checked={hideEmptyStages}
+                  onChange={(e) => setHideEmptyStages(e.target.checked)}
+                  className="sr-only"
+                  aria-label="Ocultar etapas vacías"
+                />
+                <span>Ocultar vacías</span>
+              </label>
             </>
-          )}
-          {groupByStage && (
-            <label className="inline-flex items-center gap-2 text-sm text-neutral-600 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={hideEmptyStages}
-                onChange={(e) => setHideEmptyStages(e.target.checked)}
-                className="rounded border-neutral-300"
-              />
-              Ocultar etapas vacías
-            </label>
           )}
           {pipelineMode === 'activos' && (
             <button onClick={() => setIsCreateModalOpen(true)} className="btn btn-primary text-sm">
