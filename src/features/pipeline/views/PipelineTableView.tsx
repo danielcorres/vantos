@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { pipelineApi, type Lead, type PipelineStage } from '../pipeline.api'
+import { generateIdempotencyKey } from '../pipeline.store'
 import { LeadCreateModal } from '../components/LeadCreateModal'
 import { PipelineTable } from '../components/PipelineTable'
 import { getProximaLabel } from '../utils/proximaLabel'
@@ -151,6 +152,19 @@ export function PipelineTableView() {
     })
   }
 
+  const handleMoveStage = async (leadId: string, toStageId: string) => {
+    const lead = leads.find((l) => l.id === leadId)
+    if (!lead || lead.stage_id === toStageId) return
+    const idempotencyKey = generateIdempotencyKey(leadId, lead.stage_id, toStageId)
+    try {
+      await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
+      await loadData()
+      setToast({ type: 'success', message: 'Etapa actualizada' })
+    } catch (err) {
+      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al mover' })
+    }
+  }
+
   if (loading) {
     return (
       <div className="text-center p-8">
@@ -196,7 +210,7 @@ export function PipelineTableView() {
 
   return (
     <div className="space-y-4">
-      <div className="md:sticky md:top-0 z-20 border-b border-neutral-200/80 bg-white/95 backdrop-blur-sm md:pb-4 md:pt-1">
+      <div className="md:sticky md:top-0 z-20 border-b border-neutral-200/70 md:pb-4 md:pt-1 supports-[backdrop-filter]:backdrop-blur-sm supports-[backdrop-filter]:bg-white/50">
         <div className="flex flex-col gap-3 pt-1">
           {/* Fila 1 (primary): búsqueda + fuente + chip opcional + Nuevo lead alineado a la derecha */}
           <div className="flex flex-wrap items-center gap-2 md:gap-3">
@@ -400,7 +414,7 @@ export function PipelineTableView() {
         </div>
       ) : (
         <div className="space-y-3">
-          <PipelineTable
+            <PipelineTable
               leads={sortedLeads}
               stages={stages.map((s) => ({ id: s.id, name: s.name, position: s.position }))}
               groupedSections={groupByStage ? sectionsToRender : undefined}
@@ -410,6 +424,7 @@ export function PipelineTableView() {
               highlightLeadId={highlightLeadId}
               getProximaLabel={getProximaLabel}
               onRowClick={(l) => navigate(`/leads/${l.id}`)}
+              onMoveStage={handleMoveStage}
             />
         </div>
       )}

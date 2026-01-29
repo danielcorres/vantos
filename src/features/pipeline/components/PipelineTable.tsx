@@ -81,17 +81,18 @@ type PipelineTableProps = {
   highlightLeadId?: string | null
   getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
   onRowClick: (lead: Lead) => void
+  onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
 }
 
-/** Agrupado: Lead, Teléfono, Email, Fuente, Último contacto, Creado = 6. Vista plana: + Etapa = 7. */
-const NUM_COLS_GROUPED = 6
+/** Agrupado: 6 columnas base + 1 opcional Mover = 7. Vista plana: 7 columnas. */
+const NUM_COLS_GROUPED = 7
 const NUM_COLS_FLAT = 7
 
 const TH_BASE = 'px-4 py-1.5 text-[11px] uppercase tracking-wide text-neutral-500'
 /** Celdas de fila lead: borde inferior punteado tenue en todas las columnas */
 const TD_BASE = 'py-2 px-4 align-middle border-b border-dashed border-neutral-200/60'
 
-function buildHeaderRow(showStageColumn: boolean) {
+function buildHeaderRow(showStageColumn: boolean, showMoveColumn?: boolean) {
   return (
     <tr>
       <th className={`${TH_BASE} text-left`}>Lead</th>
@@ -101,6 +102,7 @@ function buildHeaderRow(showStageColumn: boolean) {
       {showStageColumn && <th className={`${TH_BASE} text-left`}>Etapa</th>}
       <th className={`${TH_BASE} text-left`}>Último contacto</th>
       <th className={`${TH_BASE} text-right`}>Creado</th>
+      {showMoveColumn && <th className={`${TH_BASE} w-12 text-right`} aria-label="Mover de etapa" />}
     </tr>
   )
 }
@@ -108,17 +110,24 @@ function buildHeaderRow(showStageColumn: boolean) {
 type RowRenderProps = {
   lead: Lead
   stageName: string | undefined
+  stages: Stage[]
   showStageColumn?: boolean
+  showMoveButton?: boolean
   isHighlight?: boolean
   getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
   onRowClick: (lead: Lead) => void
+  onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
 }
 
 const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(function PipelineTableRow(
-  { lead, stageName, showStageColumn = false, isHighlight, getProximaLabel: _getProximaLabel, onRowClick },
+  { lead, stageName, stages, showStageColumn = false, showMoveButton = false, isHighlight, getProximaLabel: _getProximaLabel, onRowClick, onMoveStage },
   ref
 ) {
   const navigate = useNavigate()
+  const [moveMenuOpen, setMoveMenuOpen] = useState(false)
+  const moveMenuRef = useRef<HTMLDivElement>(null)
+  const moveTriggerRef = useRef<HTMLButtonElement>(null)
+
   const closed = isClosedStage(stageName)
   const createdShort = formatCreatedShort(lead.created_at)
   const days = daysAgo(lead.created_at)
@@ -141,6 +150,25 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
   }
 
   const stopProp = (e: React.MouseEvent | React.KeyboardEvent) => e.stopPropagation()
+
+  // Cerrar menú Mover: Escape y click fuera
+  useEffect(() => {
+    if (!moveMenuOpen) return
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMoveMenuOpen(false)
+    }
+    const handleClickOutside = (e: MouseEvent) => {
+      const el = moveMenuRef.current
+      const trigger = moveTriggerRef.current
+      if (el && !el.contains(e.target as Node) && trigger && !trigger.contains(e.target as Node)) setMoveMenuOpen(false)
+    }
+    document.addEventListener('keydown', handleEscape)
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [moveMenuOpen])
 
   return (
     <tr
@@ -233,14 +261,59 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
         )}
       </td>
       {showStageColumn && (
-        <td className={`${TD_BASE} max-w-[120px]`}>
-          {stageName ? (
-            <span
-              className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full ${getStageTagClasses(stageName)}`}
-              title={displayStageName(stageName)}
-            >
-              {displayStageName(stageName)}
-            </span>
+        <td className={`${TD_BASE} max-w-[120px]`} onClick={stopProp} onKeyDown={stopProp}>
+          {stageName && stages.length > 0 ? (
+            onMoveStage ? (
+              <div className="relative inline-block min-w-0 max-w-full" ref={moveMenuRef}>
+                <button
+                  type="button"
+                  ref={moveTriggerRef}
+                  aria-haspopup="true"
+                  aria-expanded={moveMenuOpen}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setMoveMenuOpen((o) => !o)
+                  }}
+                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full cursor-pointer hover:ring-neutral-300 ${getStageTagClasses(stageName)}`}
+                  title={`${displayStageName(stageName)} — Mover de etapa`}
+                >
+                  {displayStageName(stageName)}
+                </button>
+                {moveMenuOpen && (
+                  <div
+                    className="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+                    role="menu"
+                  >
+                    {stages.map((s) => {
+                      const isCurrent = s.id === lead.stage_id
+                      return (
+                        <button
+                          key={s.id}
+                          type="button"
+                          role="menuitem"
+                          disabled={isCurrent}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (!isCurrent && onMoveStage) void onMoveStage(lead.id, s.id)
+                            setMoveMenuOpen(false)
+                          }}
+                          className={`w-full px-3 py-1.5 text-left text-sm ${isCurrent ? 'bg-neutral-50 text-neutral-400 cursor-default' : 'hover:bg-neutral-50 text-neutral-800'}`}
+                        >
+                          {displayStageName(s.name)}{isCurrent ? ' ✓' : ''}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <span
+                className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full ${getStageTagClasses(stageName)}`}
+                title={displayStageName(stageName)}
+              >
+                {displayStageName(stageName)}
+              </span>
+            )
           ) : (
             <span className="text-sm text-neutral-400">—</span>
           )}
@@ -265,6 +338,52 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
           <span className="text-sm text-neutral-400">—</span>
         )}
       </td>
+      {showMoveButton && onMoveStage && stages.length > 0 && (
+        <td className={`${TD_BASE} text-right w-12`} onClick={stopProp} onKeyDown={stopProp}>
+          <div className="relative inline-flex justify-end" ref={showStageColumn ? null : moveMenuRef}>
+            <button
+              type="button"
+              ref={showStageColumn ? null : moveTriggerRef}
+              aria-haspopup="true"
+              aria-expanded={moveMenuOpen}
+              aria-label="Mover de etapa"
+              onClick={(e) => {
+                e.stopPropagation()
+                setMoveMenuOpen((o) => !o)
+              }}
+              className="inline-flex rounded-md p-1 text-neutral-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity hover:bg-neutral-100 hover:text-neutral-700"
+            >
+              <span className="text-sm font-medium" aria-hidden>⋯</span>
+            </button>
+            {moveMenuOpen && !showStageColumn && (
+              <div
+                className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+                role="menu"
+              >
+                {stages.map((s) => {
+                  const isCurrent = s.id === lead.stage_id
+                  return (
+                    <button
+                      key={s.id}
+                      type="button"
+                      role="menuitem"
+                      disabled={isCurrent}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (!isCurrent && onMoveStage) void onMoveStage(lead.id, s.id)
+                        setMoveMenuOpen(false)
+                      }}
+                      className={`w-full px-3 py-1.5 text-left text-sm ${isCurrent ? 'bg-neutral-50 text-neutral-400 cursor-default' : 'hover:bg-neutral-50 text-neutral-800'}`}
+                    >
+                      {displayStageName(s.name)}{isCurrent ? ' ✓' : ''}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        </td>
+      )}
     </tr>
   )
 })
@@ -284,6 +403,7 @@ export function PipelineTable({
   highlightLeadId,
   getProximaLabel,
   onRowClick,
+  onMoveStage,
 }: PipelineTableProps) {
   const showGrouped = groupByStage && groupedSections.length > 0
   const prefersReducedMotion = useReducedMotion()
@@ -329,7 +449,7 @@ export function PipelineTable({
         <div className="overflow-x-auto">
           <table className="table-fixed w-full text-sm border-separate border-spacing-0">
             <thead className="sticky top-0 z-10 border-b border-neutral-200 bg-neutral-50">
-              {buildHeaderRow(false)}
+              {buildHeaderRow(false, !!onMoveStage)}
             </thead>
             <tbody>
               {groupedSections.map(({ stage, leads: sectionLeads }, sectionIndex) => {
@@ -397,10 +517,13 @@ export function PipelineTable({
                           ref={lead.id === highlightLeadId ? highlightRowRef : undefined}
                           lead={lead}
                           stageName={stage.name}
+                          stages={stages}
                           showStageColumn={false}
+                          showMoveButton={!!onMoveStage}
                           isHighlight={lead.id === highlightLeadId}
                           getProximaLabel={getProximaLabel}
                           onRowClick={onRowClick}
+                          onMoveStage={onMoveStage}
                         />
                       ))}
                     {!isCollapsed && sectionLeads.length > 0 && (
@@ -441,10 +564,13 @@ export function PipelineTable({
                     ref={lead.id === highlightLeadId ? highlightRowRef : undefined}
                     lead={lead}
                     stageName={stageName}
+                    stages={stages}
                     showStageColumn={showStageColumn}
+                    showMoveButton={false}
                     isHighlight={lead.id === highlightLeadId}
                     getProximaLabel={getProximaLabel}
                     onRowClick={onRowClick}
+                    onMoveStage={onMoveStage}
                   />
                 )
               })
