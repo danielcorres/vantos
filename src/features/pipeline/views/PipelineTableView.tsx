@@ -8,11 +8,11 @@ import { Toast } from '../../../shared/components/Toast'
 import { formatDateMX } from '../../../shared/utils/dates'
 import { getStageTagClasses, getStageAccentStyle } from '../../../shared/utils/stageStyles'
 
-// Estilos unificados para segmented controls (Activos/Archivados, Agrupar/Vista plana, etc.)
-const SEGMENT_WRAPPER = 'inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5 gap-0.5'
-const SEGMENT_ACTIVE = 'px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium'
-const SEGMENT_INACTIVE = 'px-3 py-1.5 text-sm rounded-md inline-flex items-center gap-1.5 bg-neutral-100 text-neutral-600 ring-1 ring-neutral-200 hover:bg-neutral-200/60'
-const SEGMENT_BADGE = 'rounded-full text-xs px-2 py-0.5 bg-neutral-200 text-neutral-700 ring-1 ring-neutral-300 tabular-nums'
+// Mismo skin que Tabla/Kanban/Insights en PipelinePage: chips/tabs neutros
+const CHIP_WRAPPER = 'inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5 gap-0.5'
+const CHIP_ACTIVE = 'px-3 py-1.5 text-sm rounded-md transition-colors inline-flex items-center gap-1.5 bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-offset-1'
+const CHIP_INACTIVE = 'px-3 py-1.5 text-sm rounded-md transition-colors inline-flex items-center gap-1.5 text-neutral-600 hover:bg-neutral-200/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-offset-1'
+const CHIP_BADGE = 'rounded-full text-[10px] px-1.5 py-0.5 bg-neutral-100 text-neutral-500 tabular-nums'
 
 // Orden dentro de cada etapa: next_follow_up_at asc (más próximo arriba), nulls last.
 function sortLeadsByPriority(leads: Lead[]): Lead[] {
@@ -174,12 +174,12 @@ export function PipelineTableView() {
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <div className={SEGMENT_WRAPPER} role="tablist" aria-label="Modo del pipeline">
-            <button role="tab" aria-selected={true} onClick={() => setPipelineMode('activos')} className={SEGMENT_ACTIVE}>
-              Activos <span className={SEGMENT_BADGE}>{activosCount}</span>
+          <div className={CHIP_WRAPPER} role="tablist" aria-label="Modo del pipeline">
+            <button role="tab" aria-selected={true} onClick={() => setPipelineMode('activos')} className={CHIP_ACTIVE}>
+              Activos <span className={CHIP_BADGE}>{activosCount}</span>
             </button>
-            <button role="tab" aria-selected={false} onClick={() => setPipelineMode('archivados')} className={SEGMENT_INACTIVE}>
-              Archivados <span className={SEGMENT_BADGE}>{archivadosCount}</span>
+            <button role="tab" aria-selected={false} onClick={() => setPipelineMode('archivados')} className={CHIP_INACTIVE}>
+              Archivados <span className={CHIP_BADGE}>{archivadosCount}</span>
             </button>
           </div>
           <button onClick={() => setIsCreateModalOpen(true)} className="btn btn-primary text-sm">+ Nuevo lead</button>
@@ -234,41 +234,43 @@ export function PipelineTableView() {
             )}
           </div>
         <div className="flex flex-wrap items-center gap-3 sm:gap-4 sm:justify-end">
-          {/* Zona B: Estado / Vista — chips homogéneos (mismo sistema visual) */}
+          {/* Zona B: Estado / Vista — mismo skin que Tabla/Kanban/Insights (chips neutros) */}
           <div className="flex items-center gap-3 shrink-0" role="group" aria-label="Estado y vista">
-            <div className={SEGMENT_WRAPPER} role="tablist" aria-label="Modo del pipeline">
+            <div className={CHIP_WRAPPER} role="tablist" aria-label="Modo del pipeline">
               <button
                 role="tab"
                 aria-selected={pipelineMode === 'activos'}
                 onClick={() => setPipelineMode('activos')}
-                className={pipelineMode === 'activos' ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
+                className={pipelineMode === 'activos' ? CHIP_ACTIVE : CHIP_INACTIVE}
               >
                 Activos
-                <span className={SEGMENT_BADGE}>{activosCount}</span>
+                <span className={CHIP_BADGE}>{activosCount}</span>
               </button>
               <button
                 role="tab"
                 aria-selected={pipelineMode === 'archivados'}
                 onClick={() => setPipelineMode('archivados')}
-                className={pipelineMode === 'archivados' ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
+                className={pipelineMode === 'archivados' ? CHIP_ACTIVE : CHIP_INACTIVE}
               >
                 Archivados
-                <span className={SEGMENT_BADGE}>{archivadosCount}</span>
+                <span className={CHIP_BADGE}>{archivadosCount}</span>
               </button>
             </div>
             {pipelineMode === 'activos' && (
-              <div className={SEGMENT_WRAPPER} role="group" aria-label="Vista de tabla">
+              <div className={CHIP_WRAPPER} role="group" aria-label="Vista de tabla">
                 <button
                   type="button"
+                  aria-pressed={groupByStage}
                   onClick={() => setGroupByStage(true)}
-                  className={groupByStage ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
+                  className={groupByStage ? CHIP_ACTIVE : CHIP_INACTIVE}
                 >
                   Agrupar por etapa
                 </button>
                 <button
                   type="button"
+                  aria-pressed={!groupByStage}
                   onClick={() => setGroupByStage(false)}
-                  className={!groupByStage ? SEGMENT_ACTIVE : SEGMENT_INACTIVE}
+                  className={!groupByStage ? CHIP_ACTIVE : CHIP_INACTIVE}
                 >
                   Vista plana
                 </button>
@@ -282,40 +284,43 @@ export function PipelineTableView() {
             aria-hidden
           />
 
-          {/* Zona C: Acciones — secundarias (ghost) + primaria aislada */}
+          {/* Zona C: Acciones — secundarias (link/ghost) + primaria aislada */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-3" role="group" aria-label="Acciones">
             {groupByStage && pipelineMode === 'activos' && (
               <>
                 <button
                   type="button"
                   onClick={collapseAllStages}
-                  className="btn btn-ghost text-sm text-neutral-600 hover:text-neutral-900 py-1.5 px-2.5 min-h-0 font-normal"
+                  className="text-sm text-neutral-600 hover:text-neutral-900 py-1.5 px-2.5 rounded-md hover:bg-neutral-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-offset-1"
                 >
                   Colapsar
                 </button>
                 <button
                   type="button"
                   onClick={expandAllStages}
-                  className="btn btn-ghost text-sm text-neutral-600 hover:text-neutral-900 py-1.5 px-2.5 min-h-0 font-normal"
+                  className="text-sm text-neutral-600 hover:text-neutral-900 py-1.5 px-2.5 rounded-md hover:bg-neutral-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-offset-1"
                 >
                   Expandir
                 </button>
-                <label className="btn btn-ghost text-sm text-neutral-600 hover:text-neutral-900 py-1.5 px-2.5 min-h-0 font-normal cursor-pointer inline-flex items-center gap-1.5">
-                  <input
-                    type="checkbox"
-                    checked={hideEmptyStages}
-                    onChange={(e) => setHideEmptyStages(e.target.checked)}
-                    className="sr-only"
-                    aria-label="Ocultar etapas vacías"
-                  />
-                  Ocultar vacías
-                </label>
+                <button
+                  type="button"
+                  role="button"
+                  aria-pressed={hideEmptyStages}
+                  onClick={() => setHideEmptyStages((prev) => !prev)}
+                  className={`text-sm py-1.5 px-2.5 rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-offset-1 ${
+                    hideEmptyStages
+                      ? 'border-neutral-300 bg-neutral-100 text-neutral-900'
+                      : 'border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50'
+                  }`}
+                >
+                  Ocultar vacías{hideEmptyStages ? ' ✓' : ''}
+                </button>
               </>
             )}
             {pipelineMode === 'activos' && (
               <button
                 onClick={() => setIsCreateModalOpen(true)}
-                className="btn btn-primary text-sm shrink-0 ml-0 sm:ml-1"
+                className="btn btn-primary text-sm shrink-0 ml-0 sm:ml-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1"
               >
                 + Nuevo lead
               </button>
