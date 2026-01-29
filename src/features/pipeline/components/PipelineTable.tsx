@@ -247,10 +247,11 @@ export function PipelineTable({
               {HEADER_ROW}
             </thead>
             <tbody className="divide-y divide-neutral-100">
-              {groupedSections.map(({ stage, leads: sectionLeads }) => {
+              {groupedSections.map(({ stage, leads: sectionLeads }, sectionIndex) => {
                 const isCollapsed = collapsedStages[stage.id] ?? sectionLeads.length === 0
                 const insertResultsSeparator = isClosedStage(stage.name) && !resultsSeparatorInserted
                 if (insertResultsSeparator) resultsSeparatorInserted = true
+                const isFirstSection = sectionIndex === 0
 
                 return (
                   <Fragment key={stage.id}>
@@ -259,6 +260,11 @@ export function PipelineTable({
                         <td colSpan={NUM_COLS} className="py-2 border-t border-neutral-200 text-center text-[11px] uppercase tracking-wide text-neutral-400">
                           Resultados
                         </td>
+                      </tr>
+                    )}
+                    {!isFirstSection && (
+                      <tr aria-hidden="true">
+                        <td colSpan={NUM_COLS} className="h-3 bg-transparent" />
                       </tr>
                     )}
                     <tr
@@ -271,15 +277,16 @@ export function PipelineTable({
                           toggleStage(stage.id)
                         }
                       }}
-                      className="cursor-pointer border-y border-neutral-200 bg-neutral-50 transition-colors hover:bg-neutral-100 focus:outline-none focus:ring-2 focus:ring-neutral-200 focus:ring-inset"
+                      className="cursor-pointer border-y border-neutral-200 bg-neutral-100 transition-colors hover:bg-neutral-200/60 focus:outline-none focus:ring-2 focus:ring-neutral-200 focus:ring-inset"
                       style={getStageAccentStyle(stage.name)}
                       aria-expanded={!isCollapsed}
                     >
                       <th
                         scope="row"
                         colSpan={NUM_COLS}
-                        className="sticky top-0 z-10 flex w-full items-center gap-2 border-0 bg-neutral-50 px-4 py-2 text-left text-sm font-semibold text-neutral-800"
+                        className="sticky top-0 z-10 relative flex w-full items-center gap-2 border-0 bg-neutral-100 pl-4 pr-4 py-2.5 text-left text-sm font-semibold text-neutral-800"
                       >
+                        <span className="absolute left-0 top-0 h-full w-1 bg-neutral-300 rounded-r" aria-hidden="true" />
                         <span
                           className="inline-flex p-0.5 -m-0.5 text-neutral-400"
                           style={{
@@ -309,6 +316,11 @@ export function PipelineTable({
                           onRowClick={onRowClick}
                         />
                       ))}
+                    {!isCollapsed && sectionLeads.length > 0 && (
+                      <tr aria-hidden="true">
+                        <td colSpan={NUM_COLS} className="h-2 bg-transparent" />
+                      </tr>
+                    )}
                   </Fragment>
                 )
               })}
