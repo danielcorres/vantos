@@ -1,24 +1,41 @@
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 import { RootLayout } from './RootLayout'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { AppShell } from './layout/AppShell'
 import { VantMark } from '../components/branding/VantMark'
 import { RoleGuard } from '../modules/auth/RoleGuard'
+import { PageSkeleton } from '../shared/components/PageSkeleton'
 import { LoginPage } from '../modules/auth/pages/LoginPage'
 import { OkrHomePage } from '../modules/okr/pages/OkrHomePage'
 import { OkrWeekPage } from '../modules/okr/pages/OkrWeekPage'
 import { OkrDailyLogPage } from '../modules/okr/pages/OkrDailyLogPage'
 import { OkrScoringPage } from '../modules/okr/pages/OkrScoringPage'
-import { PipelinePage } from '../pages/PipelinePage'
-import { FocusPage } from '../pages/FocusPage'
-import { LeadDetailPage } from '../pages/LeadDetailPage'
-import { PipelineSettingsPage } from '../pages/PipelineSettingsPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { OwnerDashboardPage } from '../pages/owner/OwnerDashboardPage'
 import { AssignmentsPage } from '../pages/owner/AssignmentsPage'
 import { ManagerDashboardPage } from '../pages/manager/ManagerDashboardPage'
 import { AdvisorWeekDetailPage } from '../pages/manager/AdvisorWeekDetailPage'
 import { WeeklyMinimumTargetsPage } from '../modules/okr/settings/WeeklyMinimumTargetsPage'
+
+const PipelinePage = lazy(() =>
+  import('../pages/PipelinePage').then((m) => ({ default: m.PipelinePage }))
+)
+const CalendarPage = lazy(() =>
+  import('../pages/CalendarPage').then((m) => ({ default: m.CalendarPage }))
+)
+const ProductivityPage = lazy(() =>
+  import('../pages/ProductivityPage').then((m) => ({ default: m.ProductivityPage }))
+)
+const FocusPage = lazy(() =>
+  import('../pages/FocusPage').then((m) => ({ default: m.FocusPage }))
+)
+const LeadDetailPage = lazy(() =>
+  import('../pages/LeadDetailPage').then((m) => ({ default: m.LeadDetailPage }))
+)
+const PipelineSettingsPage = lazy(() =>
+  import('../pages/PipelineSettingsPage').then((m) => ({ default: m.PipelineSettingsPage }))
+)
 
 function ErrorPage() {
   return (
@@ -89,7 +106,9 @@ export const router = createBrowserRouter([
         path: 'pipeline',
         element: (
           <RoleGuard allowedRoles={[...PIPELINE_ROLES]}>
-            <PipelinePage />
+            <Suspense fallback={<PageSkeleton />}>
+              <PipelinePage />
+            </Suspense>
           </RoleGuard>
         ),
       },
@@ -97,7 +116,29 @@ export const router = createBrowserRouter([
         path: 'pipeline/settings',
         element: (
           <RoleGuard allowedRoles={[...PIPELINE_SETTINGS_ROLES]}>
-            <PipelineSettingsPage />
+            <Suspense fallback={<PageSkeleton />}>
+              <PipelineSettingsPage />
+            </Suspense>
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'calendar',
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <Suspense fallback={<PageSkeleton />}>
+              <CalendarPage />
+            </Suspense>
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'productividad',
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <Suspense fallback={<PageSkeleton />}>
+              <ProductivityPage />
+            </Suspense>
           </RoleGuard>
         ),
       },
@@ -105,7 +146,9 @@ export const router = createBrowserRouter([
         path: 'focus',
         element: (
           <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
-            <FocusPage />
+            <Suspense fallback={<PageSkeleton />}>
+              <FocusPage />
+            </Suspense>
           </RoleGuard>
         ),
       },
@@ -113,7 +156,9 @@ export const router = createBrowserRouter([
         path: 'leads/:id',
         element: (
           <RoleGuard allowedRoles={[...PIPELINE_ROLES]}>
-            <LeadDetailPage />
+            <Suspense fallback={<PageSkeleton />}>
+              <LeadDetailPage />
+            </Suspense>
           </RoleGuard>
         ),
       },

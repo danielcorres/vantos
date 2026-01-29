@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import type { PipelineStage } from '../pipeline.api'
-import { todayLocalYmd, addDaysYmd } from '../../../shared/utils/dates'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 
 interface LeadCreateModalProps {
@@ -14,7 +13,6 @@ interface LeadCreateModalProps {
     source?: string
     notes?: string
     stage_id: string
-    next_follow_up_at?: string
   }) => Promise<void>
 }
 
@@ -25,6 +23,8 @@ const SOURCE_OPTIONS = [
   { value: 'Social media', label: 'Social media' },
 ] as const
 
+const DEFAULT_SOURCE = 'Referido'
+
 export function LeadCreateModal({
   stages,
   isOpen,
@@ -32,9 +32,8 @@ export function LeadCreateModal({
   onSubmit,
 }: LeadCreateModalProps) {
   const [fullName, setFullName] = useState('')
-  const [source, setSource] = useState('')
+  const [source, setSource] = useState(DEFAULT_SOURCE)
   const [stageId, setStageId] = useState(stages[0]?.id || '')
-  const [nextFollowUpAt, setNextFollowUpAt] = useState('')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -43,9 +42,7 @@ export function LeadCreateModal({
   useEffect(() => {
     if (isOpen && stages.length > 0) {
       setStageId(stages[0].id)
-      // Default: mañana
-      const tomorrow = addDaysYmd(todayLocalYmd(), 1)
-      setNextFollowUpAt(tomorrow)
+      setSource(DEFAULT_SOURCE)
     }
   }, [isOpen, stages])
 
@@ -55,10 +52,6 @@ export function LeadCreateModal({
       setError('El nombre es requerido')
       return
     }
-    if (!source) {
-      setError('La fuente es requerida')
-      return
-    }
 
     setLoading(true)
     setError(null)
@@ -66,14 +59,13 @@ export function LeadCreateModal({
     try {
       await onSubmit({
         full_name: fullName.trim(),
-        source: source,
+        source: source || undefined,
         notes: notes.trim() || undefined,
         stage_id: stageId,
-        next_follow_up_at: nextFollowUpAt || undefined,
       })
       handleClose()
-    } catch (err: any) {
-      setError(err.message || 'Error al crear el lead')
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Error al crear el lead')
     } finally {
       setLoading(false)
     }
@@ -81,7 +73,7 @@ export function LeadCreateModal({
 
   const handleClose = () => {
     setFullName('')
-    setSource('')
+    setSource(DEFAULT_SOURCE)
     setNotes('')
     setError(null)
     onClose()
@@ -135,17 +127,15 @@ export function LeadCreateModal({
           {/* Fuente */}
           <div>
             <label htmlFor="source" className="block text-xs font-medium text-muted mb-1">
-              Fuente *
+              Fuente
             </label>
             <select
               id="source"
               value={source}
               onChange={(e) => setSource(e.target.value)}
-              required
               disabled={loading}
               className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
             >
-              <option value="">Seleccionar fuente</option>
               {SOURCE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
@@ -172,21 +162,6 @@ export function LeadCreateModal({
                 </option>
               ))}
             </select>
-          </div>
-
-          {/* Próximo seguimiento */}
-          <div>
-            <label htmlFor="next_follow_up_at" className="block text-xs font-medium text-muted mb-1">
-              Próximo seguimiento
-            </label>
-            <input
-              id="next_follow_up_at"
-              type="date"
-              value={nextFollowUpAt}
-              onChange={(e) => setNextFollowUpAt(e.target.value)}
-              disabled={loading}
-              className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
-            />
           </div>
 
           {/* Nota rápida */}

@@ -1,10 +1,12 @@
-import { useState, useEffect, useRef, Fragment, forwardRef } from 'react'
+import { useState, useEffect, useRef, Fragment, forwardRef, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../pipeline.api'
 import type { ProximaLabel } from '../utils/proximaLabel'
 import { getStageAccentStyle, displayStageName, getStageTagClasses } from '../../../shared/utils/stageStyles'
-import { getSourceTag } from '../../../shared/utils/sourceTag'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
+import { calendarApi } from '../../calendar/api/calendar.api'
+import type { CalendarEvent } from '../../calendar/types/calendar.types'
+import { getTypePillClass, getTypeLabel, formatNextAppointmentShort } from '../../calendar/utils/pillStyles'
 
 type Stage = { id: string; name: string; position: number }
 
@@ -47,28 +49,6 @@ function isClosedStage(stageName: string | undefined): boolean {
   return stageName.toLowerCase().includes('cerrado')
 }
 
-function formatCreatedShort(dateString: string | null | undefined): string | null {
-  if (!dateString) return null
-  try {
-    const d = new Date(dateString)
-    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
-    return `${d.getDate()} ${months[d.getMonth()]}`
-  } catch {
-    return null
-  }
-}
-
-function daysAgo(dateString: string | null | undefined): number {
-  if (!dateString) return 0
-  try {
-    const now = Date.now()
-    const past = new Date(dateString).getTime()
-    return Math.max(0, Math.floor((now - past) / (24 * 60 * 60 * 1000)))
-  } catch {
-    return 0
-  }
-}
-
 export type GroupedSection = { stage: Stage; leads: Lead[] }
 
 type PipelineTableProps = {
@@ -84,26 +64,36 @@ type PipelineTableProps = {
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
 }
 
-/** Agrupado: 6 columnas base + 1 opcional Mover = 7. Vista plana: 7 columnas. */
-const NUM_COLS_GROUPED = 7
-const NUM_COLS_FLAT = 7
+/** Estructura: Lead, Etapa, Progreso, Contacto, Acción. */
+const NUM_COLS = 5
 
 const TH_BASE = 'px-4 py-1.5 text-[11px] uppercase tracking-wide text-neutral-500'
-/** Celdas de fila lead: borde inferior punteado tenue en todas las columnas */
 const TD_BASE = 'py-2 px-4 align-middle border-b border-dashed border-neutral-200/60'
 
-function buildHeaderRow(showStageColumn: boolean, showMoveColumn?: boolean) {
+function buildHeaderRow() {
   return (
     <tr>
       <th className={`${TH_BASE} text-left`}>Lead</th>
-      <th className={`${TH_BASE} text-left`}>Teléfono</th>
-      <th className={`${TH_BASE} text-left`}>Email</th>
-      <th className={`${TH_BASE} text-left`}>Fuente</th>
-      {showStageColumn && <th className={`${TH_BASE} text-left`}>Etapa</th>}
-      <th className={`${TH_BASE} text-left`}>Último contacto</th>
-      <th className={`${TH_BASE} text-right`}>Creado</th>
-      {showMoveColumn && <th className={`${TH_BASE} w-12 text-right`} aria-label="Mover de etapa" />}
+      <th className={`${TH_BASE} text-left`}>Etapa</th>
+      <th className={`${TH_BASE} text-left`}>Progreso</th>
+      <th className={`${TH_BASE} text-left`}>Contacto</th>
+      <th className={`${TH_BASE} text-right`}>Acción</th>
     </tr>
+  )
+}
+
+/** Progreso visual: ● etapa actual, ○ resto (orden por position). */
+function ProgressDots({ stages, currentStageId }: { stages: Stage[]; currentStageId: string | null }) {
+  const sorted = [...stages].sort((a, b) => a.position - b.position)
+  if (!sorted.length) return <span className="text-neutral-300">—</span>
+  return (
+    <span className="inline-flex items-center gap-0.5 text-neutral-400" aria-hidden>
+      {sorted.map((s) => (
+        <span key={s.id} className={s.id === currentStageId ? 'text-neutral-700' : ''} title={displayStageName(s.name)}>
+          {s.id === currentStageId ? '●' : '○'}
+        </span>
+      ))}
+    </span>
   )
 }
 
@@ -111,16 +101,15 @@ type RowRenderProps = {
   lead: Lead
   stageName: string | undefined
   stages: Stage[]
-  showStageColumn?: boolean
-  showMoveButton?: boolean
   isHighlight?: boolean
+  nextEvent: CalendarEvent | null
   getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
   onRowClick: (lead: Lead) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
 }
 
 const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(function PipelineTableRow(
-  { lead, stageName, stages, showStageColumn = false, showMoveButton = false, isHighlight, getProximaLabel: _getProximaLabel, onRowClick, onMoveStage },
+  { lead, stageName, stages, isHighlight, nextEvent, getProximaLabel: _getProximaLabel, onRowClick, onMoveStage },
   ref
 ) {
   const navigate = useNavigate()
@@ -129,10 +118,6 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
   const moveTriggerRef = useRef<HTMLButtonElement>(null)
 
   const closed = isClosedStage(stageName)
-  const createdShort = formatCreatedShort(lead.created_at)
-  const days = daysAgo(lead.created_at)
-  const lastContactShort = formatCreatedShort(lead.last_contact_at)
-  const sourceTagClass = getSourceTag(lead.source)
   const digits = phoneDigits(lead.phone ?? '')
   const waNumber = normalizeWhatsAppNumber(digits)
   const telHref = lead.phone?.trim() ? `tel:${lead.phone.replace(/\s/g, '')}` : null
@@ -180,210 +165,127 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
       className={`group select-none cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-inset ${closed ? 'opacity-70' : ''} ${isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''}`}
       style={getStageAccentStyle(stageName)}
     >
+      {/* Lead */}
       <td className={`${TD_BASE}`}>
-        <div className="flex min-w-0 items-center">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 leading-tight">
             {closed ? <span className="text-neutral-700">{lead.full_name}</span> : lead.full_name}
           </span>
+          {nextEvent && (
+            <span className="text-xs text-neutral-500 truncate flex items-center gap-1.5 min-w-0">
+              <span className="shrink-0">Próxima cita:</span>
+              <span className="truncate tabular-nums">{formatNextAppointmentShort(nextEvent.starts_at)}</span>
+              <span className="shrink-0">·</span>
+              <span className={`shrink-0 px-1.5 py-0.5 rounded text-[11px] font-medium ${getTypePillClass(nextEvent.type)}`}>
+                {getTypeLabel(nextEvent.type)}
+              </span>
+            </span>
+          )}
         </div>
       </td>
-      <td className={`${TD_BASE} max-w-[180px]`}>
+      {/* Etapa */}
+      <td className={`${TD_BASE} max-w-[120px]`}>
+        {stageName ? (
+          <span
+            className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full ${getStageTagClasses(stageName)}`}
+            title={displayStageName(stageName)}
+          >
+            {displayStageName(stageName)}
+          </span>
+        ) : (
+          <span className="text-sm text-neutral-400">—</span>
+        )}
+      </td>
+      {/* Progreso */}
+      <td className={`${TD_BASE}`}>
+        <ProgressDots stages={stages} currentStageId={lead.stage_id} />
+      </td>
+      {/* Contacto */}
+      <td className={`${TD_BASE} max-w-[200px]`}>
         <div className="flex min-w-0 items-center gap-2">
-          <span className="min-w-0 flex-1 truncate text-sm text-neutral-700">
+          <div className="min-w-0 flex-1 space-y-0.5">
             {lead.phone?.trim() ? (
               telHref ? (
-                <a
-                  href={telHref}
-                  className="truncate hover:text-neutral-900 hover:underline"
-                  onClick={stopProp}
-                  onKeyDown={stopProp}
-                >
+                <a href={telHref} className="block truncate text-sm text-neutral-700 hover:text-neutral-900 hover:underline" onClick={stopProp} onKeyDown={stopProp}>
                   {lead.phone}
                 </a>
               ) : (
-                lead.phone
+                <span className="block truncate text-sm text-neutral-700">{lead.phone}</span>
               )
             ) : (
-              <span className="text-neutral-400">—</span>
+              <span className="text-sm text-neutral-400">—</span>
             )}
-          </span>
-          <span
-            className="w-[52px] shrink-0 flex justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
-            onClick={stopProp}
-            onKeyDown={stopProp}
-          >
+            {lead.email?.trim() ? (
+              <a href={`mailto:${lead.email}`} className="block truncate text-xs text-neutral-500 hover:text-neutral-700 hover:underline" onClick={stopProp} onKeyDown={stopProp}>
+                {lead.email}
+              </a>
+            ) : null}
+          </div>
+          <span className="w-[52px] shrink-0 flex justify-end gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100" onClick={stopProp} onKeyDown={stopProp}>
             {waNumber ? (
-              <a
-                href={`https://wa.me/${waNumber}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex rounded-md p-1 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                title="WhatsApp"
-                onClick={stopProp}
-              >
+              <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noopener noreferrer" className="inline-flex rounded-md p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700" title="WhatsApp" onClick={stopProp}>
                 <svg className="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
               </a>
             ) : null}
             {telHref ? (
-              <a
-                href={telHref}
-                className="inline-flex rounded-md p-1 text-neutral-500 transition-colors hover:bg-neutral-100 hover:text-neutral-700"
-                title="Llamar"
-                onClick={stopProp}
-              >
+              <a href={telHref} className="inline-flex rounded-md p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700" title="Llamar" onClick={stopProp}>
                 <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" /></svg>
               </a>
             ) : null}
           </span>
         </div>
       </td>
-      <td className={`${TD_BASE} max-w-[180px]`}>
-        {lead.email?.trim() ? (
-          <a
-            href={`mailto:${lead.email}`}
-            className="block text-sm text-neutral-700 truncate hover:text-neutral-900 hover:underline"
-            onClick={stopProp}
-            onKeyDown={stopProp}
-          >
-            {lead.email}
-          </a>
-        ) : (
-          <span className="text-sm text-neutral-400">—</span>
-        )}
-      </td>
-      <td className={`${TD_BASE} max-w-[120px]`}>
-        {lead.source?.trim() ? (
-          <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full ${sourceTagClass}`}>
-            {lead.source}
-          </span>
-        ) : (
-          <span className="text-sm text-neutral-400">—</span>
-        )}
-      </td>
-      {showStageColumn && (
-        <td className={`${TD_BASE} max-w-[120px]`} onClick={stopProp} onKeyDown={stopProp}>
-          {stageName && stages.length > 0 ? (
-            onMoveStage ? (
-              <div className="relative inline-block min-w-0 max-w-full" ref={moveMenuRef}>
-                <button
-                  type="button"
-                  ref={moveTriggerRef}
-                  aria-haspopup="true"
-                  aria-expanded={moveMenuOpen}
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    setMoveMenuOpen((o) => !o)
-                  }}
-                  className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full cursor-pointer hover:ring-neutral-300 ${getStageTagClasses(stageName)}`}
-                  title={`${displayStageName(stageName)} — Mover de etapa`}
-                >
-                  {displayStageName(stageName)}
-                </button>
-                {moveMenuOpen && (
-                  <div
-                    className="absolute left-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
-                    role="menu"
-                  >
-                    {stages.map((s) => {
-                      const isCurrent = s.id === lead.stage_id
-                      return (
-                        <button
-                          key={s.id}
-                          type="button"
-                          role="menuitem"
-                          disabled={isCurrent}
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            if (!isCurrent && onMoveStage) void onMoveStage(lead.id, s.id)
-                            setMoveMenuOpen(false)
-                          }}
-                          className={`w-full px-3 py-1.5 text-left text-sm ${isCurrent ? 'bg-neutral-50 text-neutral-400 cursor-default' : 'hover:bg-neutral-50 text-neutral-800'}`}
-                        >
-                          {displayStageName(s.name)}{isCurrent ? ' ✓' : ''}
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <span
-                className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full ${getStageTagClasses(stageName)}`}
-                title={displayStageName(stageName)}
-              >
-                {displayStageName(stageName)}
-              </span>
-            )
-          ) : (
-            <span className="text-sm text-neutral-400">—</span>
-          )}
-        </td>
-      )}
-      <td className={`${TD_BASE} max-w-[100px]`}>
-        {lastContactShort ? (
-          <span className="text-sm text-neutral-600 tabular-nums">{lastContactShort}</span>
-        ) : (
-          <span className="text-sm text-neutral-400">—</span>
-        )}
-      </td>
-      <td className={`${TD_BASE} text-right`}>
-        {createdShort ? (
-          <div>
-            <div className="text-xs text-neutral-700 tabular-nums">{createdShort}</div>
-            <div className="text-[11px] text-neutral-500">
-              {days === 0 ? 'hoy' : days === 1 ? 'hace 1 día' : `hace ${days} días`}
-            </div>
-          </div>
-        ) : (
-          <span className="text-sm text-neutral-400">—</span>
-        )}
-      </td>
-      {showMoveButton && onMoveStage && stages.length > 0 && (
-        <td className={`${TD_BASE} text-right w-12`} onClick={stopProp} onKeyDown={stopProp}>
-          <div className="relative inline-flex justify-end" ref={showStageColumn ? null : moveMenuRef}>
+      {/* Acción: Mover etapa ▾ */}
+      <td className={`${TD_BASE} text-right`} onClick={stopProp} onKeyDown={stopProp}>
+        {onMoveStage && stages.length > 0 ? (
+          <div className="relative inline-flex justify-end opacity-100 sm:opacity-70 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity" ref={moveMenuRef}>
             <button
               type="button"
-              ref={showStageColumn ? null : moveTriggerRef}
-              aria-haspopup="true"
+              ref={moveTriggerRef}
+              aria-label="Mover etapa"
+              aria-haspopup="menu"
               aria-expanded={moveMenuOpen}
-              aria-label="Mover de etapa"
               onClick={(e) => {
                 e.stopPropagation()
                 setMoveMenuOpen((o) => !o)
               }}
-              className="inline-flex rounded-md p-1 text-neutral-500 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity hover:bg-neutral-100 hover:text-neutral-700"
+              className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300"
             >
-              <span className="text-sm font-medium" aria-hidden>⋯</span>
+              Mover etapa <span className="text-neutral-400" aria-hidden>▾</span>
             </button>
-            {moveMenuOpen && !showStageColumn && (
+            {moveMenuOpen && (
               <div
                 className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
                 role="menu"
               >
-                {stages.map((s) => {
-                  const isCurrent = s.id === lead.stage_id
-                  return (
-                    <button
-                      key={s.id}
-                      type="button"
-                      role="menuitem"
-                      disabled={isCurrent}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (!isCurrent && onMoveStage) void onMoveStage(lead.id, s.id)
-                        setMoveMenuOpen(false)
-                      }}
-                      className={`w-full px-3 py-1.5 text-left text-sm ${isCurrent ? 'bg-neutral-50 text-neutral-400 cursor-default' : 'hover:bg-neutral-50 text-neutral-800'}`}
-                    >
-                      {displayStageName(s.name)}{isCurrent ? ' ✓' : ''}
-                    </button>
-                  )
-                })}
+                {[...stages]
+                  .sort((a, b) => a.position - b.position)
+                  .map((s) => {
+                    const isCurrent = s.id === lead.stage_id
+                    return (
+                      <button
+                        key={s.id}
+                        type="button"
+                        role="menuitem"
+                        disabled={isCurrent}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!isCurrent) void onMoveStage(lead.id, s.id)
+                          setMoveMenuOpen(false)
+                        }}
+                        className={`w-full px-3 py-1.5 text-left text-sm ${isCurrent ? 'bg-neutral-50 text-neutral-400 cursor-default' : 'hover:bg-neutral-50 text-neutral-800'}`}
+                      >
+                        {displayStageName(s.name)}{isCurrent ? ' ✓' : ''}
+                      </button>
+                    )
+                  })}
               </div>
             )}
           </div>
-        </td>
-      )}
+        ) : (
+          <span className="text-sm text-neutral-400">—</span>
+        )}
+      </td>
     </tr>
   )
 })
@@ -409,9 +311,33 @@ export function PipelineTable({
   const prefersReducedMotion = useReducedMotion()
   const [internalCollapsed, setInternalCollapsed] = useState<Record<string, boolean>>({})
   const highlightRowRef = useRef<HTMLTableRowElement | null>(null)
+  const [nextEventByLeadId, setNextEventByLeadId] = useState<Record<string, CalendarEvent | null>>({})
 
-  const numCols = showGrouped ? NUM_COLS_GROUPED : NUM_COLS_FLAT
-  const showStageColumn = !groupByStage
+  const visibleLeadIds = useMemo(
+    () => (showGrouped ? groupedSections.flatMap((s) => s.leads.map((l) => l.id)) : leads.map((l) => l.id)),
+    [showGrouped, groupedSections, leads]
+  )
+
+  useEffect(() => {
+    if (visibleLeadIds.length === 0) return
+    let cancelled = false
+    const t = setTimeout(() => {
+      calendarApi
+        .getNextScheduledEventByLeadIds(visibleLeadIds)
+        .then((map) => {
+          if (!cancelled) setNextEventByLeadId(map)
+        })
+        .catch((err) => {
+          if (!cancelled) console.warn('[pipeline] getNextScheduledEventByLeadIds:', err)
+        })
+    }, 280)
+    return () => {
+      cancelled = true
+      clearTimeout(t)
+    }
+  }, [visibleLeadIds])
+
+  const numCols = NUM_COLS
 
   const isControlled = controlledCollapsed != null && onCollapsedStagesChange != null
   const collapsedStages = isControlled ? controlledCollapsed : internalCollapsed
@@ -449,7 +375,7 @@ export function PipelineTable({
         <div className="overflow-x-auto">
           <table className="table-fixed w-full text-sm border-separate border-spacing-0">
             <thead className="sticky top-0 z-10 border-b border-neutral-200 bg-neutral-50">
-              {buildHeaderRow(false, !!onMoveStage)}
+              {buildHeaderRow()}
             </thead>
             <tbody>
               {groupedSections.map(({ stage, leads: sectionLeads }, sectionIndex) => {
@@ -518,9 +444,8 @@ export function PipelineTable({
                           lead={lead}
                           stageName={stage.name}
                           stages={stages}
-                          showStageColumn={false}
-                          showMoveButton={!!onMoveStage}
                           isHighlight={lead.id === highlightLeadId}
+                          nextEvent={nextEventByLeadId[lead.id] ?? null}
                           getProximaLabel={getProximaLabel}
                           onRowClick={onRowClick}
                           onMoveStage={onMoveStage}
@@ -546,7 +471,7 @@ export function PipelineTable({
       <div className="overflow-x-auto">
         <table className="table-fixed w-full text-sm border-separate border-spacing-0">
           <thead className="sticky top-0 z-10 border-b border-neutral-200 bg-neutral-50">
-            {buildHeaderRow(showStageColumn)}
+            {buildHeaderRow()}
           </thead>
           <tbody>
             {leads.length === 0 ? (
@@ -565,9 +490,8 @@ export function PipelineTable({
                     lead={lead}
                     stageName={stageName}
                     stages={stages}
-                    showStageColumn={showStageColumn}
-                    showMoveButton={false}
                     isHighlight={lead.id === highlightLeadId}
+                    nextEvent={nextEventByLeadId[lead.id] ?? null}
                     getProximaLabel={getProximaLabel}
                     onRowClick={onRowClick}
                     onMoveStage={onMoveStage}

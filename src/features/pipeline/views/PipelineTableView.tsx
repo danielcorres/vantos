@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { pipelineApi, type Lead, type PipelineStage } from '../pipeline.api'
 import { generateIdempotencyKey } from '../pipeline.store'
+import type { StageSlug } from '../../productivity/types/productivity.types'
 import { LeadCreateModal } from '../components/LeadCreateModal'
 import { PipelineTable } from '../components/PipelineTable'
 import { getProximaLabel } from '../utils/proximaLabel'
@@ -27,7 +28,26 @@ function sortLeadsByPriority(leads: Lead[]): Lead[] {
   })
 }
 
-export function PipelineTableView() {
+export function PipelineTableView({
+  weeklyFilterLeadIds = null,
+  weeklyLoadError = null,
+  onClearWeekly,
+  onVisibleCountChange,
+  onLeadCreated,
+  onRegisterRefresh,
+}: {
+  weeklyFilterLeadIds?: Set<string> | null
+  weeklyStageLabel?: string | null
+  weeklyWeekRange?: string | null
+  weeklyLoadError?: string | null
+  onClearWeekly?: () => void
+  /** Cantidad visible tras filtros (weekly + búsqueda + fuente) para "Mostrando N" en banner. */
+  onVisibleCountChange?: (n: number) => void
+  /** Llamado tras crear lead (para mostrar mini-modal "¿Agendar primera cita?" en PipelinePage). */
+  onLeadCreated?: (lead: Lead, intentSlug: StageSlug | null) => void
+  /** Registra la función de refresh de la tabla para que PipelinePage la llame al guardar cita. */
+  onRegisterRefresh?: (fn: (() => void) | null) => void
+} = {}) {
   const navigate = useNavigate()
   const [stages, setStages] = useState<PipelineStage[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
@@ -45,9 +65,14 @@ export function PipelineTableView() {
   const [searchQuery, setSearchQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
 
+  const weeklyMode = weeklyFilterLeadIds != null && weeklyLoadError == null
+
   const filteredLeads = useMemo(() => {
     if (pipelineMode !== 'activos') return []
     let list = leads
+    if (weeklyMode && weeklyFilterLeadIds?.size) {
+      list = list.filter((l) => weeklyFilterLeadIds.has(l.id))
+    }
     const q = searchQuery.trim().toLowerCase()
     if (q) {
       list = list.filter(
@@ -63,7 +88,11 @@ export function PipelineTableView() {
       list = list.filter((l) => (l.source?.toLowerCase().trim() || '') === srcLower)
     }
     return list
-  }, [pipelineMode, leads, searchQuery, sourceFilter])
+  }, [pipelineMode, leads, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds])
+
+  useEffect(() => {
+    onVisibleCountChange?.(filteredLeads.length)
+  }, [filteredLeads.length, onVisibleCountChange])
 
   const sortedLeads = useMemo(
     () => sortLeadsByPriority(filteredLeads),
@@ -119,6 +148,13 @@ export function PipelineTableView() {
     }
   }
 
+  useEffect(() => {
+    onRegisterRefresh?.(loadData)
+    return () => {
+      onRegisterRefresh?.(null)
+    }
+  }, [loadData, onRegisterRefresh])
+
   const handleCreateLead = async (data: {
     full_name: string
     phone?: string
@@ -128,13 +164,21 @@ export function PipelineTableView() {
     stage_id: string
     next_follow_up_at?: string
   }) => {
-    const newLead = await pipelineApi.createLead(data)
+    const selectedStage = stages.find((s) => s.id === data.stage_id)
+    const contactosNuevosStage = stages.find((s) => s.slug === 'contactos_nuevos') ?? stages[0]
+    const stageIdToUse = contactosNuevosStage?.id ?? data.stage_id
+
+    const newLead = await pipelineApi.createLead({
+      ...data,
+      stage_id: stageIdToUse,
+    })
     setIsCreateModalOpen(false)
     setCollapsedStages((prev) => ({ ...prev, [newLead.stage_id]: false }))
     setHighlightLeadId(newLead.id)
     setTimeout(() => setHighlightLeadId(null), 3000)
     await loadData()
     setToast({ type: 'success', message: 'Lead creado' })
+    onLeadCreated?.(newLead, (selectedStage?.slug as StageSlug) ?? null)
   }
 
   const collapseAllStages = () => {
@@ -180,6 +224,25 @@ export function PipelineTableView() {
         <button onClick={() => loadData()} className="btn btn-primary text-sm">
           Reintentar
         </button>
+      </div>
+    )
+  }
+
+  if (weeklyMode && filteredLeads.length === 0) {
+    return (
+      <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 dark:bg-neutral-800/40 p-8 text-center">
+        <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-2">
+          No hubo entradas a esta etapa en la semana seleccionada.
+        </p>
+        {onClearWeekly && (
+          <button
+            type="button"
+            onClick={onClearWeekly}
+            className="text-sm text-neutral-600 hover:text-neutral-900 dark:hover:text-neutral-200 hover:bg-black/5 px-2 py-1 rounded transition-colors"
+          >
+            Quitar filtro
+          </button>
+        )}
       </div>
     )
   }

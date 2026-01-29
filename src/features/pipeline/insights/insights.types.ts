@@ -43,3 +43,18 @@ export type StuckLeadRow = {
   stage_changed_at: string
   created_at: string
 }
+
+/** Fila de la view pipeline_kpi_close_to_won: días desde última cita Cierre (completed) hasta ganado */
+export type CloseToWonRow = {
+  lead_id: string
+  owner_user_id: string
+  presentation_at: string
+  won_at: string
+  days_to_won: number
+}
+
+export type CloseToWonKpi = {
+  avgDays: number | null
+  count: number
+  rows: CloseToWonRow[]
+}

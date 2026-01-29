@@ -8,6 +8,11 @@ import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
 import { getStageTagClasses, displayStageName, getStageAccentStyle } from '../shared/utils/stageStyles'
+import { LeadAppointmentsList } from '../features/calendar/components/LeadAppointmentsList'
+import { calendarApi } from '../features/calendar/api/calendar.api'
+import type { CalendarEvent } from '../features/calendar/types/calendar.types'
+import { formatNextAppointmentShort } from '../features/calendar/utils/pillStyles'
+import { getTypeLabel } from '../features/calendar/utils/pillStyles'
 
 type LeadData = {
   id: string
@@ -43,6 +48,7 @@ const SOURCE_OPTIONS = [
 type Stage = {
   id: string
   name: string
+  slug?: string
   position: number
 }
 
@@ -117,6 +123,7 @@ export function LeadDetailPage() {
   const [lead, setLead] = useState<LeadData | null>(null)
   const [stages, setStages] = useState<Stage[]>([])
   const [stageHistory, setStageHistory] = useState<LeadStageHistoryRow[]>([])
+  const [nextScheduledEvent, setNextScheduledEvent] = useState<CalendarEvent | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -257,7 +264,7 @@ export function LeadDetailPage() {
           .single(),
         supabase
           .from('pipeline_stages')
-          .select('id,name,position')
+          .select('id,name,slug,position')
           .order('position', { ascending: true }),
         pipelineApi.getLeadStageHistory(id),
       ])
@@ -282,6 +289,17 @@ export function LeadDetailPage() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    if (!lead?.id) {
+      setNextScheduledEvent(null)
+      return
+    }
+    calendarApi
+      .getNextScheduledEventByLeadIds([lead.id])
+      .then((byLead) => setNextScheduledEvent(byLead[lead.id] ?? null))
+      .catch(() => setNextScheduledEvent(null))
+  }, [lead?.id])
 
   const discardChanges = useCallback(() => {
     if (!lead) return
@@ -965,11 +983,18 @@ export function LeadDetailPage() {
           )}
         </div>
 
-        {/* Columna derecha: Hechos del proceso (arriba) + Pipeline (abajo) */}
-        <div className="lg:col-span-4 flex flex-col gap-4 lg:sticky lg:top-4 self-start order-2">
+        {/* Columna derecha: Citas (arriba) → Hechos del proceso → Pipeline; layout limpio en móvil */}
+        <div className="lg:col-span-4 flex flex-col gap-3 lg:sticky lg:top-4 self-start order-2">
+          {/* Citas (módulo Calendario) — primero para flujo orientado a citas */}
+          <LeadAppointmentsList
+            leadId={lead.id}
+            leadLabel={lead.full_name ?? undefined}
+            currentStageSlug={stages.find((s) => s.id === lead.stage_id)?.slug as 'citas_agendadas' | 'citas_cierre' | undefined}
+          />
+
           {/* Hechos del proceso (para métricas): fechas editables para métricas. */}
           <div
-            className="rounded-lg border border-border bg-bg/30 p-4"
+            className="rounded-lg border border-border bg-bg/30 p-3.5"
             style={{
               borderLeftWidth: 3,
               borderLeftStyle: 'solid',
@@ -977,9 +1002,9 @@ export function LeadDetailPage() {
               transition: prefersReducedMotion ? 'none' : 'all 200ms ease-out',
             }}
           >
-            <h3 className="text-sm font-medium text-muted mb-0.5">Hechos del proceso (para métricas)</h3>
-            <p className="text-xs text-muted mb-3">Se usan para métricas y tiempos.</p>
-            <div className="space-y-3">
+            <h3 className="text-xs font-medium text-muted mb-0.5">Hechos del proceso (para métricas)</h3>
+            <p className="text-xs text-muted mb-2">Se usan para métricas y tiempos.</p>
+            <div className="space-y-2.5">
               <div
                 className="rounded pl-2 -ml-2"
                 style={citaRealizadaAccentStyle ? { borderLeft: `2px solid ${citaRealizadaAccentStyle.borderLeftColor}` } : undefined}
@@ -1034,16 +1059,22 @@ export function LeadDetailPage() {
             </div>
           </div>
 
-          {/* Pipeline — etapa + tiempos */}
+          {/* Pipeline — etapa + tiempos (hint desde calendario, no next_follow_up_at) */}
           <div
-            className="rounded-lg border border-border bg-bg/30 p-4"
+            className="rounded-lg border border-border bg-bg/30 p-3.5"
             style={{
               transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
             }}
           >
-            <h3 className="text-sm font-medium text-muted mb-2">
+            <h3 className="text-xs font-medium text-muted mb-1.5">
               Pipeline
             </h3>
+          {/* Hint desde calendario (no next_follow_up_at) */}
+          {nextScheduledEvent && (
+            <p className="text-xs text-muted mb-2">
+              Próxima cita: {formatNextAppointmentShort(nextScheduledEvent.starts_at)} · {getTypeLabel(nextScheduledEvent.type)}
+            </p>
+          )}
           {moving && (
             <p className="text-xs text-muted mb-2">Guardando…</p>
           )}
@@ -1152,6 +1183,28 @@ export function LeadDetailPage() {
               {actividadExpanded ? '▼' : '▶'}
             </span>
           </button>
+          {!actividadExpanded && stageHistory.length > 0 && (
+            <div className="mt-1 pt-2 border-t border-border space-y-1">
+              {stageHistory.slice(-3).reverse().map((h) => {
+                const fromName = h.from_stage_id ? (stageNameById.get(h.from_stage_id) ?? '—') : 'Inicio'
+                const toName = stageNameById.get(h.to_stage_id) ?? '—'
+                const when = h.occurred_at ?? h.moved_at
+                return (
+                  <div key={h.id} className="text-sm flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span className="tabular-nums text-muted">{formatDateMX(when)}</span>
+                    <span>De {fromName} → {toName}</span>
+                  </div>
+                )
+              })}
+              <button
+                type="button"
+                onClick={() => setActividadExpanded(true)}
+                className="text-xs font-medium text-primary hover:underline mt-1"
+              >
+                Ver todo
+              </button>
+            </div>
+          )}
           {actividadExpanded && (
             <div id="actividad-content" className="mt-1 pt-3 border-t border-border">
               {stageHistory.length > 0 ? (
