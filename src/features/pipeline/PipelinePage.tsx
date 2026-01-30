@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState, useRef, useMemo, lazy, Suspense } from 'react'
+import { useEffect, useReducer, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { pipelineApi, type Lead } from './pipeline.api'
 import {
@@ -73,6 +73,7 @@ export function PipelinePage() {
   const [pipelineToast, setPipelineToast] = useState<string | null>(null)
   const [state, dispatch] = useReducer(pipelineReducer, initialState)
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [createStageId, setCreateStageId] = useState<string | undefined>(undefined)
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
   const kanbanRef = useRef<HTMLDivElement>(null)
 
@@ -165,57 +166,67 @@ export function PipelinePage() {
     setIsModalOpen(false)
   }
 
-  const handleDragStart = (e: React.DragEvent, lead: Lead) => {
+  const handleCreateLeadFromStage = useCallback((stageId: string) => {
+    setCreateStageId(stageId)
+    setIsModalOpen(true)
+  }, [])
+
+  const handleDragStart = useCallback((e: React.DragEvent, lead: Lead) => {
     setDraggedLead(lead)
     e.dataTransfer.effectAllowed = 'move'
     e.dataTransfer.setData('text/plain', lead.id)
-  }
+  }, [])
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
-  }
+  }, [])
 
-  const handleDrop = async (e: React.DragEvent, toStageId: string) => {
-    e.preventDefault()
-    if (!draggedLead) return
-    const fromStageId = draggedLead.stage_id
-    if (fromStageId === toStageId) {
-      setDraggedLead(null)
-      return
-    }
-    dispatch({
-      type: 'MOVE_OPTIMISTIC',
-      payload: { leadId: draggedLead.id, toStageId },
-    })
-    const idempotencyKey = generateIdempotencyKey(
-      draggedLead.id,
-      fromStageId,
-      toStageId
-    )
-    try {
-      await pipelineApi.moveLeadStage(draggedLead.id, toStageId, idempotencyKey)
-      await loadData()
-    } catch (err: unknown) {
+  const handleDrop = useCallback(
+    async (e: React.DragEvent, toStageId: string) => {
+      e.preventDefault()
+      if (!draggedLead) return
+      const fromStageId = draggedLead.stage_id
+      if (fromStageId === toStageId) {
+        setDraggedLead(null)
+        return
+      }
       dispatch({
-        type: 'MOVE_ROLLBACK',
-        payload: { leadId: draggedLead.id, fromStageId },
+        type: 'MOVE_OPTIMISTIC',
+        payload: { leadId: draggedLead.id, toStageId },
       })
-      alert(err instanceof Error ? err.message : 'Error al mover el lead')
-    } finally {
-      setDraggedLead(null)
-    }
-  }
+      const idempotencyKey = generateIdempotencyKey(
+        draggedLead.id,
+        fromStageId,
+        toStageId
+      )
+      try {
+        await pipelineApi.moveLeadStage(draggedLead.id, toStageId, idempotencyKey)
+        await loadData()
+      } catch (err: unknown) {
+        dispatch({
+          type: 'MOVE_ROLLBACK',
+          payload: { leadId: draggedLead.id, fromStageId },
+        })
+        alert(err instanceof Error ? err.message : 'Error al mover el lead')
+      } finally {
+        setDraggedLead(null)
+      }
+    },
+    [draggedLead, dispatch]
+  )
 
   /**
    * Mobile Kanban no usa drag&drop. Reutilizamos la misma lógica de movimiento
    * (optimistic + idempotency + reload) que el drop del tablero.
    */
-  const handleMoveStage = async (leadId: string, toStageId: string) => {
+  const handleMoveStage = useCallback(async (leadId: string, toStageId: string) => {
     const lead = state.leads.find((l) => l.id === leadId)
     if (!lead) return
     const fromStageId = lead.stage_id
     if (fromStageId === toStageId) return
+
+    const scrollY = window.scrollY
 
     dispatch({
       type: 'MOVE_OPTIMISTIC',
@@ -231,8 +242,14 @@ export function PipelinePage() {
         payload: { leadId, fromStageId },
       })
       alert(err instanceof Error ? err.message : 'Error al mover el lead')
+    } finally {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: scrollY, left: window.scrollX, behavior: 'auto' })
+        })
+      })
     }
-  }
+  }, [state.leads, dispatch])
 
   const handleViewInKanban = (leadId?: string) => {
     setActiveTab('kanban')
@@ -480,6 +497,7 @@ export function PipelinePage() {
             onDragOver={handleDragOver}
             onDrop={handleDrop}
             onMoveStage={handleMoveStage}
+            onCreateLead={handleCreateLeadFromStage}
           />
         </div>
       )}
@@ -503,8 +521,12 @@ export function PipelinePage() {
         <LeadCreateModal
           stages={state.stages}
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false)
+            setCreateStageId(undefined)
+          }}
           onSubmit={handleCreateLead}
+          defaultStageId={createStageId}
         />
       )}
 

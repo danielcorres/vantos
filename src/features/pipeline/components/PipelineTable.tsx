@@ -4,6 +4,7 @@ import type { ProximaLabel } from '../utils/proximaLabel'
 import { displayStageName, getStageAccentStyle } from '../../../shared/utils/stageStyles'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 
+import { EmptyState } from '../../../components/pipeline/EmptyState'
 import { LeadCardMobile } from '../../../components/pipeline/LeadCardMobile'
 import { LeadRowDesktop } from '../../../components/pipeline/LeadRowDesktop'
 import type { PipelineStageLite } from '../../../components/pipeline/LeadProgressDots'
@@ -131,9 +132,7 @@ export function PipelineTable({
                 {!isCollapsed ? (
                   <div className="mt-2 space-y-2">
                     {sectionLeads.length === 0 ? (
-                      <div className="rounded-xl border border-neutral-200 bg-white px-3 py-3 text-sm text-neutral-500 text-center">
-                        No hay leads en esta etapa.
-                      </div>
+                      <EmptyState title="No hay leads en esta etapa." variant="dashed" />
                     ) : (
                       sectionLeads.map((lead) => {
                         const isHighlight = highlightLeadId === lead.id
@@ -231,8 +230,8 @@ export function PipelineTable({
                       {!isCollapsed ? (
                         sectionLeads.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="px-4 py-8 text-center text-sm text-neutral-500">
-                              No hay leads en esta etapa.
+                            <td colSpan={6} className="px-4 py-6">
+                              <EmptyState title="No hay leads en esta etapa." variant="plain" />
                             </td>
                           </tr>
                         ) : (

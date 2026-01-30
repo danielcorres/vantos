@@ -14,6 +14,7 @@ interface LeadCreateModalProps {
     notes?: string
     stage_id: string
   }) => Promise<void>
+  defaultStageId?: string
 }
 
 const SOURCE_OPTIONS = [
@@ -30,6 +31,7 @@ export function LeadCreateModal({
   isOpen,
   onClose,
   onSubmit,
+  defaultStageId,
 }: LeadCreateModalProps) {
   const [fullName, setFullName] = useState('')
   const [source, setSource] = useState(DEFAULT_SOURCE)
@@ -41,10 +43,11 @@ export function LeadCreateModal({
 
   useEffect(() => {
     if (isOpen && stages.length > 0) {
-      setStageId(stages.find((s) => s.slug === 'contactos_nuevos')?.id ?? stages[0].id)
+      const validDefault = defaultStageId && stages.some((s) => s.id === defaultStageId)
+      setStageId(validDefault ? defaultStageId : (stages.find((s) => s.slug === 'contactos_nuevos')?.id ?? stages[0].id))
       setSource(DEFAULT_SOURCE)
     }
-  }, [isOpen, stages])
+  }, [isOpen, stages, defaultStageId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

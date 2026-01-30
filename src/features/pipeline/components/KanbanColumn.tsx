@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react'
+import React, { useState, useMemo } from 'react'
 import type { PipelineStage, Lead } from '../pipeline.api'
+import { EmptyState } from '../../../components/pipeline/EmptyState'
 import { LeadCard } from './LeadCard'
 import {
   aggregateColumnCounts,
@@ -15,7 +16,7 @@ interface KanbanColumnProps {
   onDrop: (e: React.DragEvent, stageId: string) => void
 }
 
-export function KanbanColumn({
+function KanbanColumnInner({
   stage,
   stages,
   leads,
@@ -87,8 +88,8 @@ export function KanbanColumn({
       </div>
       <div className="flex-1 overflow-y-auto min-h-[200px] p-3">
         {sortedLeads.length === 0 ? (
-          <div className="flex items-center justify-center rounded-lg border border-dashed border-neutral-200 py-8 text-xs text-neutral-500">
-            Sin leads
+          <div className="py-6">
+            <EmptyState title="Sin leads" variant="dashed" />
           </div>
         ) : (
           <div className="space-y-2">
@@ -107,3 +108,5 @@ export function KanbanColumn({
     </div>
   )
 }
+
+export const KanbanColumn = React.memo(KanbanColumnInner)
