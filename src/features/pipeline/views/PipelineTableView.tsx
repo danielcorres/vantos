@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { pipelineApi, type Lead, type PipelineStage } from '../pipeline.api'
 import { generateIdempotencyKey } from '../pipeline.store'
-import { getVisiblePipelineStages } from '../constants'
 import { LeadCreateModal } from '../components/LeadCreateModal'
 import { PipelineTable } from '../components/PipelineTable'
 import { getProximaLabel } from '../utils/proximaLabel'
@@ -59,18 +58,11 @@ export function PipelineTableView({
   const [searchQuery, setSearchQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
 
-  const visibleStages = useMemo(() => getVisiblePipelineStages(stages), [stages])
-  const visibleStageIds = useMemo(() => new Set(visibleStages.map((s) => s.id)), [visibleStages])
-  const leadsInVisibleStages = useMemo(
-    () => leads.filter((l) => visibleStageIds.has(l.stage_id)),
-    [leads, visibleStageIds]
-  )
-
   const weeklyMode = weeklyFilterLeadIds != null && weeklyLoadError == null
 
   const filteredLeads = useMemo(() => {
     if (pipelineMode !== 'activos') return []
-    let list = leadsInVisibleStages
+    let list = leads
     if (weeklyMode && weeklyFilterLeadIds?.size) {
       list = list.filter((l) => weeklyFilterLeadIds.has(l.id))
     }
@@ -89,7 +81,7 @@ export function PipelineTableView({
       list = list.filter((l) => (l.source?.toLowerCase().trim() || '') === srcLower)
     }
     return list
-  }, [pipelineMode, leadsInVisibleStages, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds])
+  }, [pipelineMode, leads, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds])
 
   useEffect(() => {
     onVisibleCountChange?.(filteredLeads.length)
@@ -102,11 +94,11 @@ export function PipelineTableView({
 
   const groupedSections = useMemo(() => {
     if (pipelineMode !== 'activos') return []
-    return visibleStages.map((stage) => ({
+    return stages.map((stage) => ({
       stage: { id: stage.id, name: stage.name, position: stage.position },
       leads: sortedLeads.filter((l) => l.stage_id === stage.id),
     }))
-  }, [pipelineMode, visibleStages, sortedLeads])
+  }, [pipelineMode, stages, sortedLeads])
 
   const sectionsToRender = useMemo(() => {
     if (!groupByStage || pipelineMode !== 'activos') return []
@@ -139,9 +131,8 @@ export function PipelineTableView({
         pipelineApi.getLeads('archivados'),
       ])
       setStages(stagesData)
-      const visibleIds = new Set(getVisiblePipelineStages(stagesData).map((s) => s.id))
-      setActivosCount(activosData.filter((l) => visibleIds.has(l.stage_id)).length)
-      setArchivadosCount(archivadosData.filter((l) => visibleIds.has(l.stage_id)).length)
+      setActivosCount(activosData.length)
+      setArchivadosCount(archivadosData.length)
       setLeads(pipelineMode === 'activos' ? activosData : archivadosData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar datos')
@@ -234,7 +225,7 @@ export function PipelineTableView({
     )
   }
 
-  if (pipelineMode === 'activos' && leadsInVisibleStages.length === 0) {
+  if (pipelineMode === 'activos' && leads.length === 0) {
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-end gap-2">
@@ -399,14 +390,14 @@ export function PipelineTableView({
               </tr>
             </thead>
             <tbody>
-              {leadsInVisibleStages.length === 0 ? (
+              {leads.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="py-8 text-center text-muted">
                     No hay leads archivados.
                   </td>
                 </tr>
               ) : (
-                leadsInVisibleStages.map((lead) => {
+                leads.map((lead) => {
                   const stageName = stages.find((s) => s.id === lead.stage_id)?.name
                   const isArchived = lead.archived_at != null
                   return (

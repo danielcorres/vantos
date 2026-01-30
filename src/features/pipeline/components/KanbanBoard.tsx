@@ -1,5 +1,4 @@
 import type { PipelineStage, Lead } from '../pipeline.api'
-import { PIPELINE_HIDDEN_STAGE_SLUGS } from '../constants'
 import { KanbanColumn } from './KanbanColumn'
 
 interface KanbanBoardProps {
@@ -17,7 +16,6 @@ export function KanbanBoard({
   onDragOver,
   onDrop,
 }: KanbanBoardProps) {
-  const visibleStages = stages.filter((s) => s.slug != null && !PIPELINE_HIDDEN_STAGE_SLUGS.has(s.slug))
   const leadsByStage = new Map<string, Lead[]>()
   leads.forEach((lead) => {
     if (!leadsByStage.has(lead.stage_id)) {
@@ -29,7 +27,7 @@ export function KanbanBoard({
   return (
     <div className="-mx-4 px-4 pb-4 overflow-x-auto">
       <div className="flex gap-3 items-start min-w-max">
-        {visibleStages.map((stage) => (
+        {stages.map((stage) => (
           <KanbanColumn
             key={stage.id}
             stage={stage}

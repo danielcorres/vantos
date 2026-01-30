@@ -6,7 +6,6 @@ import {
   generateIdempotencyKey,
   type PipelineState,
 } from './pipeline.store'
-import { PIPELINE_HIDDEN_STAGE_SLUGS, getVisiblePipelineStages } from './constants'
 import { KanbanBoard } from './components/KanbanBoard'
 import { LeadCreateModal } from './components/LeadCreateModal'
 import { PipelineTableView } from './views/PipelineTableView'
@@ -19,9 +18,11 @@ import type { StageSlug } from '../productivity/types/productivity.types'
 import { STAGE_SLUGS_ORDER } from '../productivity/types/productivity.types'
 import { Toast } from '../../shared/components/Toast'
 
-const WEEKLY_STAGE_LABELS: Record<string, string> = {
+const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
   contactos_nuevos: 'Contactos Nuevos',
+  citas_agendadas: 'Citas Agendadas',
   casos_abiertos: 'Casos Abiertos',
+  citas_cierre: 'Citas de Cierre',
   solicitudes_ingresadas: 'Solicitudes Ingresadas',
   casos_ganados: 'Casos Ganados',
 }
@@ -78,19 +79,10 @@ export function PipelinePage() {
   const weekStartYmd = searchParams.get('weekStart')
   const weekStartValid = weekStartYmd != null && isValidWeekStartYmd(weekStartYmd)
   const stageSlugParam = searchParams.get('stage')
-  const pipelineVisibleSlugs = useMemo(
-    () => (STAGE_SLUGS_ORDER as readonly string[]).filter((s) => !PIPELINE_HIDDEN_STAGE_SLUGS.has(s)),
-    []
-  )
   const stageSlugValid =
-    stageSlugParam != null &&
-    (STAGE_SLUGS_ORDER as readonly string[]).includes(stageSlugParam) &&
-    !PIPELINE_HIDDEN_STAGE_SLUGS.has(stageSlugParam)
-  const stageSlug = stageSlugValid ? (stageSlugParam as StageSlug) : (pipelineVisibleSlugs[0] as StageSlug)
+    stageSlugParam != null && (STAGE_SLUGS_ORDER as readonly string[]).includes(stageSlugParam)
+  const stageSlug = stageSlugValid ? (stageSlugParam as StageSlug) : (STAGE_SLUGS_ORDER[0] as StageSlug)
   const weeklyMode = Boolean(weekStartValid && stageSlugValid)
-
-  const visibleStages = useMemo(() => getVisiblePipelineStages(state.stages), [state.stages])
-  const visibleStageIds = useMemo(() => new Set(visibleStages.map((s) => s.id)), [visibleStages])
 
   const [weeklyLeadIds, setWeeklyLeadIds] = useState<Set<string> | null>(null)
   const [weeklyLoadError, setWeeklyLoadError] = useState<string | null>(null)
@@ -102,21 +94,6 @@ export function PipelinePage() {
   useEffect(() => {
     setStoredViewMode(activeTab)
   }, [activeTab])
-
-  // Si la URL trae stage de cita (inválido para pipeline), normalizar a etapa visible
-  useEffect(() => {
-    if (!weekStartValid || !weekStartYmd || !stageSlugParam) return
-    if (PIPELINE_HIDDEN_STAGE_SLUGS.has(stageSlugParam)) {
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev)
-          next.set('stage', pipelineVisibleSlugs[0] ?? 'contactos_nuevos')
-          return next
-        },
-        { replace: true }
-      )
-    }
-  }, [weekStartValid, weekStartYmd, stageSlugParam, pipelineVisibleSlugs, setSearchParams])
 
   useEffect(() => {
     if (!weekStartValid || !stageSlugValid || !weekStartYmd) {
@@ -146,11 +123,10 @@ export function PipelinePage() {
   }, [searchParams, state.leads.length, setSearchParams])
 
   const displayedLeads = useMemo(() => {
-    const inVisibleStages = state.leads.filter((l) => visibleStageIds.has(l.stage_id))
-    if (!weeklyMode) return inVisibleStages
+    if (!weeklyMode) return state.leads
     if (weeklyLeadIds === null) return []
-    return inVisibleStages.filter((l) => weeklyLeadIds.has(l.id))
-  }, [weeklyMode, weeklyLeadIds, state.leads, visibleStageIds])
+    return state.leads.filter((l) => weeklyLeadIds.has(l.id))
+  }, [weeklyMode, weeklyLeadIds, state.leads])
 
   const [tableVisibleCount, setTableVisibleCount] = useState<number | null>(null)
 
@@ -319,9 +295,9 @@ export function PipelinePage() {
             className="px-2 py-1 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200"
           >
             <option value="">— Elige etapa —</option>
-            {pipelineVisibleSlugs.map((slug) => (
+            {(STAGE_SLUGS_ORDER as readonly string[]).map((slug) => (
               <option key={slug} value={slug}>
-                {WEEKLY_STAGE_LABELS[slug] ?? slug}
+                {WEEKLY_STAGE_LABELS[slug as StageSlug]}
               </option>
             ))}
           </select>
@@ -363,9 +339,9 @@ export function PipelinePage() {
                   }}
                   className="ml-2 px-2 py-1 text-sm rounded border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-800 text-neutral-800 dark:text-neutral-200"
                 >
-                  {pipelineVisibleSlugs.map((slug) => (
+                  {(STAGE_SLUGS_ORDER as readonly string[]).map((slug) => (
                     <option key={slug} value={slug}>
-                      {WEEKLY_STAGE_LABELS[slug] ?? slug}
+                      {WEEKLY_STAGE_LABELS[slug as StageSlug]}
                     </option>
                   ))}
                 </select>
@@ -445,7 +421,7 @@ export function PipelinePage() {
       {activeTab === 'table' && (
         <PipelineTableView
           weeklyFilterLeadIds={weeklyMode ? weeklyLeadIds : null}
-          weeklyStageLabel={weeklyMode && stageSlug ? WEEKLY_STAGE_LABELS[stageSlug] ?? stageSlug : null}
+          weeklyStageLabel={weeklyMode && stageSlug ? WEEKLY_STAGE_LABELS[stageSlug] : null}
           weeklyWeekRange={weeklyMode && weekStartYmd ? formatWeekRangeLabel(weekStartYmd) : null}
           weeklyLoadError={weeklyMode ? weeklyLoadError : null}
           onClearWeekly={clearWeeklyMode}
@@ -471,7 +447,7 @@ export function PipelinePage() {
       {activeTab === 'kanban' && (!weeklyMode || displayedLeads.length > 0) && (
         <div ref={kanbanRef}>
           <KanbanBoard
-            stages={visibleStages}
+            stages={state.stages}
             leads={displayedLeads}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
