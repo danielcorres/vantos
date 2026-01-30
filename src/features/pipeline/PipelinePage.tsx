@@ -207,6 +207,33 @@ export function PipelinePage() {
     }
   }
 
+  /**
+   * Mobile Kanban no usa drag&drop. Reutilizamos la misma lógica de movimiento
+   * (optimistic + idempotency + reload) que el drop del tablero.
+   */
+  const handleMoveStage = async (leadId: string, toStageId: string) => {
+    const lead = state.leads.find((l) => l.id === leadId)
+    if (!lead) return
+    const fromStageId = lead.stage_id
+    if (fromStageId === toStageId) return
+
+    dispatch({
+      type: 'MOVE_OPTIMISTIC',
+      payload: { leadId, toStageId },
+    })
+    const idempotencyKey = generateIdempotencyKey(leadId, fromStageId, toStageId)
+    try {
+      await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
+      await loadData()
+    } catch (err: unknown) {
+      dispatch({
+        type: 'MOVE_ROLLBACK',
+        payload: { leadId, fromStageId },
+      })
+      alert(err instanceof Error ? err.message : 'Error al mover el lead')
+    }
+  }
+
   const handleViewInKanban = (leadId?: string) => {
     setActiveTab('kanban')
     if (leadId && kanbanRef.current) {
@@ -452,6 +479,7 @@ export function PipelinePage() {
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
+            onMoveStage={handleMoveStage}
           />
         </div>
       )}

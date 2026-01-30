@@ -1,0 +1,47 @@
+src/pages
+├── Activity.css
+├── Activity.tsx
+├── AuthCallback.css
+├── AuthCallback.tsx
+├── CalendarPage.tsx
+├── FocusPage.tsx
+├── LeadDetailPage.tsx
+├── Leaderboard.tsx
+├── Login.css
+├── Login.tsx
+├── manager
+│   ├── AdvisorWeekDetailPage.tsx
+│   └── ManagerDashboardPage.tsx
+├── owner
+│   ├── AssignmentsPage.tsx
+│   ├── OwnerDashboardPage.tsx
+│   └── utils
+│       └── ownerDashboardHelpers.ts
+├── PipelinePage.tsx
+├── PipelineSettingsPage.tsx
+├── ProductivityPage.tsx
+├── ProfilePage.tsx
+└── SettingsPoints.tsx
+src/components
+├── auth
+│   └── LoginBranding.tsx
+├── branding
+│   ├── useSystemTheme.ts
+│   ├── VantLogo.tsx
+│   └── VantMark.tsx
+├── FullScreenLoader.tsx
+├── Layout.css
+├── Layout.tsx
+└── ProtectedRoute.tsx
+src/lib
+├── access.ts
+├── auth.ts
+├── profile.ts
+├── rlsNotes.md
+├── supabase.ts
+├── supabaseClient.ts
+├── supabaseErrorHandler.ts
+├── systemOwner.ts
+└── useSession.ts
+
+8 directories, 37 files
