@@ -86,21 +86,43 @@ export function KanbanBoard({
           label="Pipeline"
         />
 
+        {/* Animación sutil al cambiar de etapa (sin librerías). */}
+        <style>{`
+          @keyframes vantFadeSlideIn {
+            from { opacity: 0; transform: translateX(6px); }
+            to { opacity: 1; transform: translateX(0); }
+          }
+        `}</style>
+
         <div className="px-3 py-3 space-y-2">
           {mobileLeads.length === 0 ? (
-            <div className="rounded-xl border border-neutral-200 bg-white p-4 text-sm text-neutral-600">
-              No hay leads en esta etapa.
+            <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-4 text-center">
+              <p className="text-sm font-medium text-neutral-700">No hay leads en esta etapa</p>
+              <p className="mt-1 text-xs text-neutral-500">Puedes crear uno directamente aquí.</p>
+              <button
+                type="button"
+                className="mt-3 inline-flex h-9 items-center justify-center rounded-lg border border-neutral-300 bg-white px-3 text-sm font-medium text-neutral-800 hover:bg-neutral-50 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+                // TODO: conecta a tu flujo existente de “+ Nuevo lead” en esta etapa (sin calendario).
+                onClick={() => {}}
+              >
+                + Nuevo lead
+              </button>
             </div>
           ) : (
-            mobileLeads.map((lead) => (
-              <LeadCardMobile
-                key={lead.id}
-                lead={lead}
-                stages={stagesLite}
-                stageName={mobileStageName}
-                onMoveStage={onMoveStage}
-              />
-            ))
+            <div
+              key={mobileStageId}
+              className="space-y-2 motion-safe:animate-[vantFadeSlideIn_150ms_ease-out] motion-reduce:animate-none"
+            >
+              {mobileLeads.map((lead) => (
+                <LeadCardMobile
+                  key={lead.id}
+                  lead={lead}
+                  stages={stagesLite}
+                  stageName={mobileStageName}
+                  onMoveStage={onMoveStage}
+                />
+              ))}
+            </div>
           )}
         </div>
       </div>
