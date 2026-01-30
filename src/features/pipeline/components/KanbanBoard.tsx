@@ -134,6 +134,7 @@ export function KanbanBoard({
             <KanbanColumn
               key={stage.id}
               stage={stage}
+              stages={stages}
               leads={leadsByStage.get(stage.id) || []}
               onDragStart={onDragStart}
               onDragOver={onDragOver}

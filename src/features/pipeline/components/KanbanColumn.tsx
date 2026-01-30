@@ -8,6 +8,7 @@ import {
 
 interface KanbanColumnProps {
   stage: PipelineStage
+  stages: PipelineStage[]
   leads: Lead[]
   onDragStart: (e: React.DragEvent, lead: Lead) => void
   onDragOver: (e: React.DragEvent) => void
@@ -16,6 +17,7 @@ interface KanbanColumnProps {
 
 export function KanbanColumn({
   stage,
+  stages,
   leads,
   onDragStart,
   onDragOver,
@@ -91,7 +93,13 @@ export function KanbanColumn({
         ) : (
           <div className="space-y-2">
             {sortedLeads.map((lead) => (
-              <LeadCard key={lead.id} lead={lead} onDragStart={onDragStart} />
+              <LeadCard
+                key={lead.id}
+                lead={lead}
+                stages={stages}
+                stageName={stage.name}
+                onDragStart={onDragStart}
+              />
             ))}
           </div>
         )}

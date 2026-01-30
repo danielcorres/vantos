@@ -51,7 +51,7 @@ export function PipelineTable({
   onCollapsedStagesChange,
   highlightLeadId,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  getProximaLabel,
+  getProximaLabel: _getProximaLabel,
   onRowClick,
   onMoveStage,
   onToast,
