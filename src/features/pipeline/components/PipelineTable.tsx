@@ -1,25 +1,83 @@
 import { useState, useEffect, useRef, Fragment, forwardRef, useMemo } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../pipeline.api'
 import type { ProximaLabel } from '../utils/proximaLabel'
-import { getStageAccentStyle, displayStageName, getStageTagClasses } from '../../../shared/utils/stageStyles'
+import { getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 import { calendarApi } from '../../calendar/api/calendar.api'
 import type { CalendarEvent } from '../../calendar/types/calendar.types'
-import { getTypePillClass, getTypeLabel, formatNextAppointmentShort } from '../../calendar/utils/pillStyles'
+import { IconUser, IconPhone, IconMail, IconCopy } from '../../../app/layout/icons'
 
 type Stage = { id: string; name: string; position: number }
 
-function phoneDigits(phone: string): string {
-  return (phone || '').replace(/\D/g, '')
-}
+const MENU_HEIGHT_ESTIMATE = 260
+const MENU_MIN_WIDTH = 220
+const STAGE_MOVE_MENU_Z = 80
 
-/** Número para wa.me en MX: 10 dígitos -> "52"+digits; 12–13 con 52 -> as-is; <10 -> "" */
-function normalizeWhatsAppNumber(digits: string): string {
-  if (digits.length < 10) return ''
-  if (digits.length === 10) return '52' + digits
-  if (digits.startsWith('52') && digits.length >= 12 && digits.length <= 13) return digits
-  return ''
+/** Menú "Mover etapa" renderizado en portal al body para evitar recorte por overflow. */
+function StageMoveMenu({
+  open,
+  onClose,
+  anchorRect,
+  stages,
+  lead,
+  onMoveStage,
+  menuRef,
+}: {
+  open: boolean
+  onClose: () => void
+  anchorRect: DOMRect | null
+  stages: Stage[]
+  lead: Lead
+  onMoveStage: (leadId: string, toStageId: string) => Promise<void>
+  menuRef: React.RefObject<HTMLDivElement | null>
+}) {
+  if (!open || !anchorRect) return null
+  const spaceBelow = typeof window !== 'undefined' ? window.innerHeight - anchorRect.bottom : 0
+  const openUpward = spaceBelow < MENU_HEIGHT_ESTIMATE
+  const left = typeof window !== 'undefined'
+    ? Math.max(8, Math.min(anchorRect.left, window.innerWidth - MENU_MIN_WIDTH - 8))
+    : anchorRect.left
+  const style: React.CSSProperties = {
+    position: 'fixed',
+    left,
+    minWidth: MENU_MIN_WIDTH,
+    zIndex: STAGE_MOVE_MENU_Z,
+    ...(openUpward
+      ? { bottom: typeof window !== 'undefined' ? window.innerHeight - anchorRect.top + 4 : anchorRect.top - 4 }
+      : { top: anchorRect.bottom + 4 }),
+  }
+  const sortedStages = [...stages].sort((a, b) => a.position - b.position)
+  const content = (
+    <div
+      ref={menuRef}
+      role="menu"
+      className="rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
+      style={style}
+    >
+      {sortedStages.map((s) => {
+        const isCurrent = s.id === lead.stage_id
+        return (
+          <button
+            key={s.id}
+            type="button"
+            role="menuitem"
+            disabled={isCurrent}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (!isCurrent) void onMoveStage(lead.id, s.id)
+              onClose()
+            }}
+            className={`w-full px-3 py-1.5 text-left text-sm ${isCurrent ? 'bg-neutral-50 text-neutral-400 cursor-default' : 'hover:bg-neutral-50 text-neutral-800'}`}
+          >
+            {displayStageName(s.name)}{isCurrent ? ' ✓' : ''}
+          </button>
+        )
+      })}
+    </div>
+  )
+  return createPortal(content, document.body)
 }
 
 /** Estado de próxima acción para el dot: overdue | today | soon | ok | none */
@@ -49,6 +107,32 @@ function isClosedStage(stageName: string | undefined): boolean {
   return stageName.toLowerCase().includes('cerrado')
 }
 
+/** Clasificación de fuente (case-insensitive) para pill. */
+function getSourcePillLabel(source: string | null | undefined): string {
+  const s = (source ?? '').trim().toLowerCase()
+  if (s.includes('refer')) return 'Referido'
+  if (s.includes('mercado') || s.includes('natural')) return 'Mercado natural'
+  if (s.includes('frio') || s.includes('frío') || s.includes('cold') || s.includes('social')) return 'Frío'
+  return s ? 'Otros' : '—'
+}
+
+function getSourcePillClass(source: string | null | undefined): string {
+  const label = getSourcePillLabel(source)
+  const base = 'text-xs rounded-full border border-black/5 px-2 py-0.5 font-medium'
+  switch (label) {
+    case 'Referido':
+      return `${base} bg-emerald-100 text-emerald-800 border-emerald-200/60`
+    case 'Mercado natural':
+      return `${base} bg-sky-100 text-sky-800 border-sky-200/60`
+    case 'Frío':
+      return `${base} bg-neutral-200/80 text-neutral-700 border-neutral-300/60`
+    case 'Otros':
+      return `${base} bg-neutral-100 text-neutral-600 border-neutral-200/60`
+    default:
+      return `${base} bg-neutral-100/80 text-neutral-500`
+  }
+}
+
 export type GroupedSection = { stage: Stage; leads: Lead[] }
 
 type PipelineTableProps = {
@@ -62,10 +146,11 @@ type PipelineTableProps = {
   getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
   onRowClick: (lead: Lead) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
+  onToast?: (message: string) => void
 }
 
-/** Estructura: Lead, Etapa, Progreso, Contacto, Acción. */
-const NUM_COLS = 5
+/** Estructura: Nombre, Teléfono, Email, Progreso, Fuente, Acción. */
+const NUM_COLS = 6
 
 const TH_BASE = 'px-4 py-1.5 text-[11px] uppercase tracking-wide text-neutral-500'
 const TD_BASE = 'py-2 px-4 align-middle border-b border-dashed border-neutral-200/60'
@@ -73,10 +158,11 @@ const TD_BASE = 'py-2 px-4 align-middle border-b border-dashed border-neutral-20
 function buildHeaderRow() {
   return (
     <tr>
-      <th className={`${TH_BASE} text-left`}>Lead</th>
-      <th className={`${TH_BASE} text-left`}>Etapa</th>
+      <th className={`${TH_BASE} text-left`}>Nombre</th>
+      <th className={`${TH_BASE} text-left hidden md:table-cell`}>Teléfono</th>
+      <th className={`${TH_BASE} text-left hidden md:table-cell`}>Email</th>
       <th className={`${TH_BASE} text-left`}>Progreso</th>
-      <th className={`${TH_BASE} text-left`}>Contacto</th>
+      <th className={`${TH_BASE} text-left hidden md:table-cell`}>Fuente</th>
       <th className={`${TH_BASE} text-right`}>Acción</th>
     </tr>
   )
@@ -106,21 +192,22 @@ type RowRenderProps = {
   getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
   onRowClick: (lead: Lead) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
+  onToast?: (message: string) => void
 }
 
 const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(function PipelineTableRow(
-  { lead, stageName, stages, isHighlight, nextEvent, getProximaLabel: _getProximaLabel, onRowClick, onMoveStage },
+  { lead, stageName, stages, isHighlight, nextEvent: _nextEvent, getProximaLabel: _getProximaLabel, onRowClick, onMoveStage, onToast },
   ref
 ) {
   const navigate = useNavigate()
   const [moveMenuOpen, setMoveMenuOpen] = useState(false)
+  const [moveMenuAnchorRect, setMoveMenuAnchorRect] = useState<DOMRect | null>(null)
   const moveMenuRef = useRef<HTMLDivElement>(null)
   const moveTriggerRef = useRef<HTMLButtonElement>(null)
 
   const closed = isClosedStage(stageName)
-  const digits = phoneDigits(lead.phone ?? '')
-  const waNumber = normalizeWhatsAppNumber(digits)
-  const telHref = lead.phone?.trim() ? `tel:${lead.phone.replace(/\s/g, '')}` : null
+  const phone = lead.phone?.trim() ?? ''
+  const email = lead.email?.trim() ?? ''
 
   const handleRowClick = () => {
     navigate(`/leads/${lead.id}`)
@@ -135,6 +222,12 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
   }
 
   const stopProp = (e: React.MouseEvent | React.KeyboardEvent) => e.stopPropagation()
+
+  const handleCopy = (text: string, label: string) => {
+    void navigator.clipboard.writeText(text).then(() => {
+      onToast?.(label === 'phone' ? 'Teléfono copiado' : 'Email copiado')
+    })
+  }
 
   // Cerrar menú Mover: Escape y click fuera
   useEffect(() => {
@@ -165,80 +258,89 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
       className={`group select-none cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-inset ${closed ? 'opacity-70' : ''} ${isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''}`}
       style={getStageAccentStyle(stageName)}
     >
-      {/* Lead */}
-      <td className={`${TD_BASE}`}>
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-neutral-900 leading-tight">
-            {closed ? <span className="text-neutral-700">{lead.full_name}</span> : lead.full_name}
-          </span>
-          {nextEvent && (
-            <span className="text-xs text-neutral-500 truncate flex items-center gap-1.5 min-w-0">
-              <span className="shrink-0">Próxima cita:</span>
-              <span className="truncate tabular-nums">{formatNextAppointmentShort(nextEvent.starts_at)}</span>
-              <span className="shrink-0">·</span>
-              <span className={`shrink-0 px-1.5 py-0.5 rounded text-[11px] font-medium ${getTypePillClass(nextEvent.type)}`}>
-                {getTypeLabel(nextEvent.type)}
-              </span>
+      {/* Nombre — en móvil incluye teléfono, email y fuente apilados */}
+      <td className={TD_BASE}>
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <div className="flex items-center gap-2 min-w-0">
+            <IconUser className="w-4 h-4 shrink-0 text-neutral-400" />
+            <span className="min-w-0 truncate text-sm font-medium text-neutral-900">
+              {closed ? <span className="text-neutral-700">{lead.full_name}</span> : lead.full_name}
             </span>
+          </div>
+          {/* Móvil: teléfono, email, fuente (ocultos en desktop donde hay columnas propias) */}
+          <div className="flex flex-col gap-1 md:hidden">
+            {phone ? (
+              <div className="flex items-center gap-1.5 min-w-0" onClick={stopProp} onKeyDown={stopProp}>
+                <IconPhone className="w-3.5 h-3.5 shrink-0 text-neutral-400" />
+                <span className="truncate text-xs text-neutral-700 min-w-0">{phone}</span>
+                <button type="button" onClick={(e) => { e.stopPropagation(); handleCopy(phone, 'phone') }} className="shrink-0 p-0.5 rounded text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700" aria-label="Copiar teléfono">
+                  <IconCopy className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : null}
+            {email ? (
+              <div className="flex items-center gap-1.5 min-w-0" onClick={stopProp} onKeyDown={stopProp}>
+                <IconMail className="w-3.5 h-3.5 shrink-0 text-neutral-400" />
+                <span className="truncate text-xs text-neutral-700 min-w-0">{email}</span>
+                <button type="button" onClick={(e) => { e.stopPropagation(); handleCopy(email, 'email') }} className="shrink-0 p-0.5 rounded text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700" aria-label="Copiar email">
+                  <IconCopy className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : null}
+            {getSourcePillLabel(lead.source) !== '—' && (
+              <span className={getSourcePillClass(lead.source)}>{getSourcePillLabel(lead.source)}</span>
+            )}
+          </div>
+        </div>
+      </td>
+      {/* Teléfono — solo desktop */}
+      <td className={`${TD_BASE} hidden md:table-cell max-w-[160px]`} onClick={stopProp} onKeyDown={stopProp}>
+        <div className="flex items-center gap-2 min-w-0">
+          <IconPhone className="w-4 h-4 shrink-0 text-neutral-400" />
+          {phone ? (
+            <>
+              <span className="truncate text-sm text-neutral-800 min-w-0">{phone}</span>
+              <button type="button" onClick={() => handleCopy(phone, 'phone')} className="shrink-0 p-1 rounded text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Copiar teléfono">
+                <IconCopy className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <span className="text-sm text-neutral-400">—</span>
           )}
         </div>
       </td>
-      {/* Etapa */}
-      <td className={`${TD_BASE} max-w-[120px]`}>
-        {stageName ? (
-          <span
-            className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ring-1 ring-inset ring-black/5 truncate max-w-full ${getStageTagClasses(stageName)}`}
-            title={displayStageName(stageName)}
-          >
-            {displayStageName(stageName)}
-          </span>
+      {/* Email — solo desktop */}
+      <td className={`${TD_BASE} hidden md:table-cell max-w-[200px]`} onClick={stopProp} onKeyDown={stopProp}>
+        <div className="flex items-center gap-2 min-w-0">
+          <IconMail className="w-4 h-4 shrink-0 text-neutral-400" />
+          {email ? (
+            <>
+              <span className="truncate text-sm text-neutral-800 min-w-0">{email}</span>
+              <button type="button" onClick={() => handleCopy(email, 'email')} className="shrink-0 p-1 rounded text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity" aria-label="Copiar email">
+                <IconCopy className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <span className="text-sm text-neutral-400">—</span>
+          )}
+        </div>
+      </td>
+      {/* Progreso */}
+      <td className={TD_BASE}>
+        <ProgressDots stages={stages} currentStageId={lead.stage_id} />
+      </td>
+      {/* Fuente — solo desktop */}
+      <td className={`${TD_BASE} hidden md:table-cell`} onClick={stopProp} onKeyDown={stopProp}>
+        {getSourcePillLabel(lead.source) !== '—' ? (
+          <span className={getSourcePillClass(lead.source)}>{getSourcePillLabel(lead.source)}</span>
         ) : (
           <span className="text-sm text-neutral-400">—</span>
         )}
       </td>
-      {/* Progreso */}
-      <td className={`${TD_BASE}`}>
-        <ProgressDots stages={stages} currentStageId={lead.stage_id} />
-      </td>
-      {/* Contacto */}
-      <td className={`${TD_BASE} max-w-[200px]`}>
-        <div className="flex min-w-0 items-center gap-2">
-          <div className="min-w-0 flex-1 space-y-0.5">
-            {lead.phone?.trim() ? (
-              telHref ? (
-                <a href={telHref} className="block truncate text-sm text-neutral-700 hover:text-neutral-900 hover:underline" onClick={stopProp} onKeyDown={stopProp}>
-                  {lead.phone}
-                </a>
-              ) : (
-                <span className="block truncate text-sm text-neutral-700">{lead.phone}</span>
-              )
-            ) : (
-              <span className="text-sm text-neutral-400">—</span>
-            )}
-            {lead.email?.trim() ? (
-              <a href={`mailto:${lead.email}`} className="block truncate text-xs text-neutral-500 hover:text-neutral-700 hover:underline" onClick={stopProp} onKeyDown={stopProp}>
-                {lead.email}
-              </a>
-            ) : null}
-          </div>
-          <span className="w-[52px] shrink-0 flex justify-end gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100" onClick={stopProp} onKeyDown={stopProp}>
-            {waNumber ? (
-              <a href={`https://wa.me/${waNumber}`} target="_blank" rel="noopener noreferrer" className="inline-flex rounded-md p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700" title="WhatsApp" onClick={stopProp}>
-                <svg className="size-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
-              </a>
-            ) : null}
-            {telHref ? (
-              <a href={telHref} className="inline-flex rounded-md p-1 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700" title="Llamar" onClick={stopProp}>
-                <svg className="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z" /></svg>
-              </a>
-            ) : null}
-          </span>
-        </div>
-      </td>
-      {/* Acción: Mover etapa ▾ */}
+      {/* Acción: Mover etapa ▾ — menú en portal para no recortarse */}
       <td className={`${TD_BASE} text-right`} onClick={stopProp} onKeyDown={stopProp}>
         {onMoveStage && stages.length > 0 ? (
-          <div className="relative inline-flex justify-end opacity-100 sm:opacity-70 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity" ref={moveMenuRef}>
+          <div className="relative inline-flex justify-end opacity-100 sm:opacity-70 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
             <button
               type="button"
               ref={moveTriggerRef}
@@ -247,40 +349,26 @@ const PipelineTableRow = forwardRef<HTMLTableRowElement, RowRenderProps>(functio
               aria-expanded={moveMenuOpen}
               onClick={(e) => {
                 e.stopPropagation()
+                const rect = moveTriggerRef.current?.getBoundingClientRect() ?? null
+                setMoveMenuAnchorRect(rect)
                 setMoveMenuOpen((o) => !o)
               }}
               className="inline-flex items-center gap-1 rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 hover:border-neutral-300"
             >
               Mover etapa <span className="text-neutral-400" aria-hidden>▾</span>
             </button>
-            {moveMenuOpen && (
-              <div
-                className="absolute right-0 top-full z-50 mt-1 min-w-[160px] rounded-md border border-neutral-200 bg-white py-1 shadow-lg"
-                role="menu"
-              >
-                {[...stages]
-                  .sort((a, b) => a.position - b.position)
-                  .map((s) => {
-                    const isCurrent = s.id === lead.stage_id
-                    return (
-                      <button
-                        key={s.id}
-                        type="button"
-                        role="menuitem"
-                        disabled={isCurrent}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          if (!isCurrent) void onMoveStage(lead.id, s.id)
-                          setMoveMenuOpen(false)
-                        }}
-                        className={`w-full px-3 py-1.5 text-left text-sm ${isCurrent ? 'bg-neutral-50 text-neutral-400 cursor-default' : 'hover:bg-neutral-50 text-neutral-800'}`}
-                      >
-                        {displayStageName(s.name)}{isCurrent ? ' ✓' : ''}
-                      </button>
-                    )
-                  })}
-              </div>
-            )}
+            <StageMoveMenu
+              open={moveMenuOpen}
+              onClose={() => {
+                setMoveMenuOpen(false)
+                setMoveMenuAnchorRect(null)
+              }}
+              anchorRect={moveMenuAnchorRect}
+              stages={stages}
+              lead={lead}
+              onMoveStage={onMoveStage}
+              menuRef={moveMenuRef}
+            />
           </div>
         ) : (
           <span className="text-sm text-neutral-400">—</span>
@@ -306,6 +394,7 @@ export function PipelineTable({
   getProximaLabel,
   onRowClick,
   onMoveStage,
+  onToast,
 }: PipelineTableProps) {
   const showGrouped = groupByStage && groupedSections.length > 0
   const prefersReducedMotion = useReducedMotion()
@@ -449,6 +538,7 @@ export function PipelineTable({
                           getProximaLabel={getProximaLabel}
                           onRowClick={onRowClick}
                           onMoveStage={onMoveStage}
+                          onToast={onToast}
                         />
                       ))}
                     {!isCollapsed && sectionLeads.length > 0 && (
@@ -495,6 +585,7 @@ export function PipelineTable({
                     getProximaLabel={getProximaLabel}
                     onRowClick={onRowClick}
                     onMoveStage={onMoveStage}
+                    onToast={onToast}
                   />
                 )
               })

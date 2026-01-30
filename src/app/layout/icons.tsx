@@ -357,6 +357,32 @@ export function IconList({ className = 'w-5 h-5', size = 20 }: IconProps) {
   )
 }
 
+export function IconPhone({ className = 'w-5 h-5', size = 20 }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className} width={size} height={size}>
+      <path fillRule="evenodd" d="M2 3.5A1.5 1.5 0 013.5 2h1.148a1.5 1.5 0 01.986.836l.74 4.435a1 1 0 01-.83 1.145H4.5a1 1 0 00-1 1v7a1 1 0 001 1h10a1 1 0 001-1v-7a1 1 0 00-1-1h-.529a1 1 0 01-.83-1.145l.74-4.435A1 1 0 0115.847 4H18a1 1 0 011 1v12a1 1 0 01-1 1H2a1 1 0 01-1-1V3.5z" clipRule="evenodd" />
+    </svg>
+  )
+}
+
+export function IconMail({ className = 'w-5 h-5', size = 20 }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className} width={size} height={size}>
+      <path d="M3 4a2 2 0 00-2 2v1.161l8.441 4.221a1.5 1.5 0 001.118 0L19 7.162V6a2 2 0 00-2-2H3z" />
+      <path d="M19 8.839l-7.77 3.885a2.75 2.75 0 01-2.46 0L1 8.839V14a2 2 0 002 2h14a2 2 0 002-2V8.839z" />
+    </svg>
+  )
+}
+
+export function IconCopy({ className = 'w-5 h-5', size = 20 }: IconProps) {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className} width={size} height={size}>
+      <path d="M7 3.5A1.5 1.5 0 018.5 2h3.879a1.5 1.5 0 011.06.44l3.122 3.12A1.5 1.5 0 0117 6.622V12.5a1.5 1.5 0 01-1.5 1.5h-1v-3.379a3 3 0 00-.879-2.121L10.5 5.379A3 3 0 008.379 4.5H7v-1z" />
+      <path d="M4.5 6A1.5 1.5 0 003 7.5v9A1.5 1.5 0 004.5 18h7a1.5 1.5 0 001.5-1.5v-5.879a1.5 1.5 0 00-.44-1.06L9.44 6.439A1.5 1.5 0 008.378 6H4.5z" />
+    </svg>
+  )
+}
+
 /** Flecha derecha / enlace externo (Ver en Pipeline) */
 export function IconArrowRight({ className = 'w-5 h-5', size = 20 }: IconProps) {
   return (

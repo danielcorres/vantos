@@ -466,6 +466,7 @@ export function PipelineTableView({
               getProximaLabel={getProximaLabel}
               onRowClick={(l) => navigate(`/leads/${l.id}`)}
               onMoveStage={handleMoveStage}
+              onToast={(msg) => setToast({ type: 'success', message: msg })}
             />
         </div>
       )}
