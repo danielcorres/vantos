@@ -359,9 +359,10 @@ export function IconList({ className = 'w-5 h-5', size = 20 }: IconProps) {
 
 export function IconPhone({ className = 'w-5 h-5', size = 20 }: IconProps) {
   return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className} width={size} height={size}>
-      <path fillRule="evenodd" d="M2 3.5A1.5 1.5 0 013.5 2h1.148a1.5 1.5 0 01.986.836l.74 4.435a1 1 0 01-.83 1.145H4.5a1 1 0 00-1 1v7a1 1 0 001 1h10a1 1 0 001-1v-7a1 1 0 00-1-1h-.529a1 1 0 01-.83-1.145l.74-4.435A1 1 0 0115.847 4H18a1 1 0 011 1v12a1 1 0 01-1 1H2a1 1 0 01-1-1V3.5z" clipRule="evenodd" />
-    </svg>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className={className} width={size} height={size} aria-hidden="true">
+  <path d="M7 2.75A2.75 2.75 0 0 0 4.25 5.5v9A2.75 2.75 0 0 0 7 17.25h6A2.75 2.75 0 0 0 15.75 14.5v-9A2.75 2.75 0 0 0 13 2.75H7Zm6.25 11.75A1.25 1.25 0 0 1 12 15.75H8A1.25 1.25 0 0 1 6.75 14.5v-9A1.25 1.25 0 0 1 8 4.25h4a.75.75 0 0 1-.55.25H8.55a.55.55 0 1 0 0 1.1h2.9a.55.55 0 1 0 0-1.1H12a.75.75 0 0 1 1.25.5v9Z"/>
+</svg>
+
   )
 }
 
