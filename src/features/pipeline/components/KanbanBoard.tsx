@@ -14,6 +14,7 @@ interface KanbanBoardProps {
   onDrop: (e: React.DragEvent, stageId: string) => void
   onMoveStage: (leadId: string, toStageId: string) => Promise<void>
   onCreateLead?: (stageId: string) => void
+  onToast?: (message: string) => void
 }
 
 export function KanbanBoard({
@@ -24,6 +25,7 @@ export function KanbanBoard({
   onDrop,
   onMoveStage,
   onCreateLead,
+  onToast,
 }: KanbanBoardProps) {
   const stageItems = React.useMemo(
     () => stages.map((s) => ({ id: s.id, name: s.name, position: s.position })),
@@ -122,6 +124,7 @@ export function KanbanBoard({
                   stages={stagesLite}
                   stageName={mobileStageName}
                   onMoveStage={onMoveStage}
+                  onToast={onToast}
                 />
               ))}
             </div>
@@ -141,6 +144,8 @@ export function KanbanBoard({
               onDragStart={onDragStart}
               onDragOver={onDragOver}
               onDrop={onDrop}
+              onMoveStage={onMoveStage}
+              onToast={onToast}
             />
           ))}
         </div>

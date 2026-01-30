@@ -227,6 +227,7 @@ export function PipelinePage() {
     if (fromStageId === toStageId) return
 
     const scrollY = window.scrollY
+    const stageName = state.stages.find((s) => s.id === toStageId)?.name
 
     dispatch({
       type: 'MOVE_OPTIMISTIC',
@@ -236,12 +237,13 @@ export function PipelinePage() {
     try {
       await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
       await loadData()
+      setPipelineToast(stageName ? `Movido a ${stageName}` : 'Etapa actualizada')
     } catch (err: unknown) {
       dispatch({
         type: 'MOVE_ROLLBACK',
         payload: { leadId, fromStageId },
       })
-      alert(err instanceof Error ? err.message : 'Error al mover el lead')
+      setPipelineToast(err instanceof Error ? err.message : 'Error al mover')
     } finally {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -249,7 +251,7 @@ export function PipelinePage() {
         })
       })
     }
-  }, [state.leads, dispatch])
+  }, [state.leads, state.stages, dispatch])
 
   const handleViewInKanban = (leadId?: string) => {
     setActiveTab('kanban')
@@ -470,6 +472,7 @@ export function PipelinePage() {
           weeklyLoadError={weeklyMode ? weeklyLoadError : null}
           onClearWeekly={clearWeeklyMode}
           onVisibleCountChange={setTableVisibleCount}
+          onToast={setPipelineToast}
         />
       )}
 
@@ -498,6 +501,7 @@ export function PipelinePage() {
             onDrop={handleDrop}
             onMoveStage={handleMoveStage}
             onCreateLead={handleCreateLeadFromStage}
+            onToast={setPipelineToast}
           />
         </div>
       )}

@@ -32,6 +32,7 @@ export function PipelineTableView({
   weeklyLoadError = null,
   onClearWeekly,
   onVisibleCountChange,
+  onToast,
 }: {
   weeklyFilterLeadIds?: Set<string> | null
   weeklyStageLabel?: string | null
@@ -40,6 +41,8 @@ export function PipelineTableView({
   onClearWeekly?: () => void
   /** Cantidad visible tras filtros (weekly + búsqueda + fuente) para "Mostrando N" en banner. */
   onVisibleCountChange?: (n: number) => void
+  /** Toast global del Pipeline (ej. desde PipelinePage). Si no se pasa, se usa toast local. */
+  onToast?: (message: string) => void
 } = {}) {
   const navigate = useNavigate()
   const [stages, setStages] = useState<PipelineStage[]>([])
@@ -466,7 +469,7 @@ export function PipelineTableView({
               getProximaLabel={getProximaLabel}
               onRowClick={(l) => navigate(`/leads/${l.id}`)}
               onMoveStage={handleMoveStage}
-              onToast={(msg) => setToast({ type: 'success', message: msg })}
+              onToast={onToast ?? ((msg) => setToast({ type: 'success', message: msg }))}
             />
         </div>
       )}
