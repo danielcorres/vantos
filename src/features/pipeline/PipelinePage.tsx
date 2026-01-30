@@ -184,13 +184,7 @@ export function PipelinePage() {
     notes?: string
     stage_id: string
   }) => {
-    const contactosNuevosStage = state.stages.find((s) => s.slug === 'contactos_nuevos') ?? state.stages[0]
-    const stageIdToUse = contactosNuevosStage?.id ?? data.stage_id
-
-    const newLead = await pipelineApi.createLead({
-      ...data,
-      stage_id: stageIdToUse,
-    })
+    const newLead = await pipelineApi.createLead(data)
     dispatch({ type: 'CREATE_LEAD', payload: newLead })
     setIsModalOpen(false)
   }
@@ -503,7 +497,7 @@ export function PipelinePage() {
 
       {activeTab === 'kanban' && (
         <LeadCreateModal
-          stages={visibleStages}
+          stages={state.stages}
           isOpen={isModalOpen}
           onClose={() => setIsModalOpen(false)}
           onSubmit={handleCreateLead}

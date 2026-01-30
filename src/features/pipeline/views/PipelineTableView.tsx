@@ -159,13 +159,7 @@ export function PipelineTableView({
     stage_id: string
     next_follow_up_at?: string
   }) => {
-    const contactosNuevosStage = stages.find((s) => s.slug === 'contactos_nuevos') ?? stages[0]
-    const stageIdToUse = contactosNuevosStage?.id ?? data.stage_id
-
-    const newLead = await pipelineApi.createLead({
-      ...data,
-      stage_id: stageIdToUse,
-    })
+    const newLead = await pipelineApi.createLead(data)
     setIsCreateModalOpen(false)
     setCollapsedStages((prev) => ({ ...prev, [newLead.stage_id]: false }))
     setHighlightLeadId(newLead.id)
@@ -472,7 +466,7 @@ export function PipelineTableView({
         <div className="space-y-3">
             <PipelineTable
               leads={sortedLeads}
-              stages={visibleStages.map((s) => ({ id: s.id, name: s.name, position: s.position }))}
+              stages={stages.map((s) => ({ id: s.id, name: s.name, position: s.position }))}
               groupedSections={groupByStage ? sectionsToRender : undefined}
               groupByStage={groupByStage}
               collapsedStages={collapsedStages}
@@ -486,7 +480,7 @@ export function PipelineTableView({
       )}
 
       <LeadCreateModal
-        stages={visibleStages}
+        stages={stages}
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateLead}

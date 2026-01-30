@@ -33,7 +33,7 @@ export function LeadCreateModal({
 }: LeadCreateModalProps) {
   const [fullName, setFullName] = useState('')
   const [source, setSource] = useState(DEFAULT_SOURCE)
-  const [stageId, setStageId] = useState(stages[0]?.id || '')
+  const [stageId, setStageId] = useState(stages[0]?.id ?? '')
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -41,7 +41,7 @@ export function LeadCreateModal({
 
   useEffect(() => {
     if (isOpen && stages.length > 0) {
-      setStageId(stages[0].id)
+      setStageId(stages.find((s) => s.slug === 'contactos_nuevos')?.id ?? stages[0].id)
       setSource(DEFAULT_SOURCE)
     }
   }, [isOpen, stages])
