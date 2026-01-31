@@ -29,20 +29,20 @@ export function LeadCardContent({
 
   return (
     <>
-      {/* Nombre con icono pill (igual que tabla/card móvil) */}
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 shrink-0">
-          <IconUser className="w-4 h-4" />
+      {/* Nombre con icono pill — más compacto en móvil */}
+      <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+        <span className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 shrink-0">
+          <IconUser className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </span>
-        <div className="min-w-0 font-medium text-neutral-900 truncate text-sm">{lead.full_name}</div>
+        <div className="min-w-0 font-medium text-neutral-900 truncate text-xs sm:text-sm">{lead.full_name}</div>
       </div>
 
-      {/* Tel / email (reusando LeadContactLine) */}
+      {/* Tel / email — menos espacio en móvil */}
       {(phone || email) && (
-        <div className="mt-2 space-y-1" onClick={(e) => e.stopPropagation()}>
+        <div className="mt-1.5 sm:mt-2 space-y-0.5 sm:space-y-1" onClick={(e) => e.stopPropagation()}>
           {phone ? (
             <LeadContactLine
-              icon={<IconPhone className="w-4 h-4 text-neutral-500" />}
+              icon={<IconPhone className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-500" />}
               value={phone}
               ariaLabel="Copiar teléfono"
               onCopy={onToast ? handleCopy : undefined}
@@ -53,7 +53,7 @@ export function LeadCardContent({
           ) : null}
           {email ? (
             <LeadContactLine
-              icon={<IconMail className="w-4 h-4 text-neutral-500" />}
+              icon={<IconMail className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-neutral-500" />}
               value={email}
               ariaLabel="Copiar email"
               onCopy={onToast ? handleCopy : undefined}
@@ -65,9 +65,11 @@ export function LeadCardContent({
         </div>
       )}
 
-      {/* Fuente + Progreso */}
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <LeadSourceTag source={lead.source} />
+      {/* Fuente (oculta en móvil) + Progreso siempre visible */}
+      <div className="mt-2 sm:mt-3 flex items-center justify-between gap-2">
+        <span className="hidden sm:inline-flex">
+          <LeadSourceTag source={lead.source} />
+        </span>
         <LeadProgressDots stages={stages} currentStageId={lead.stage_id} />
       </div>
     </>

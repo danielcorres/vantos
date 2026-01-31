@@ -3,16 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { pipelineApi, type LeadStageHistoryRow } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
-import { todayLocalYmd, formatDateMX, diffDaysFloor, ymdToLocalNoonISO } from '../shared/utils/dates'
+import { formatDateMX, diffDaysFloor } from '../shared/utils/dates'
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
-import { getStageTagClasses, displayStageName, getStageAccentStyle } from '../shared/utils/stageStyles'
-import { LeadAppointmentsList } from '../features/calendar/components/LeadAppointmentsList'
-import { calendarApi } from '../features/calendar/api/calendar.api'
-import type { CalendarEvent } from '../features/calendar/types/calendar.types'
-import { formatNextAppointmentShort } from '../features/calendar/utils/pillStyles'
-import { getTypeLabel } from '../features/calendar/utils/pillStyles'
+import { getStageTagClasses, displayStageName } from '../shared/utils/stageStyles'
 
 type LeadData = {
   id: string
@@ -25,14 +20,9 @@ type LeadData = {
   stage_changed_at: string | null
   created_at: string
   updated_at: string
-  last_contact_at: string | null
-  next_follow_up_at: string | null
   archived_at: string | null
   archived_by: string | null
   archive_reason: string | null
-  cita_realizada_at: string | null
-  propuesta_presentada_at: string | null
-  cerrado_at: string | null
   referral_name: string | null
 }
 
@@ -105,16 +95,6 @@ function getSourceTagClasses(source: string | null): string {
   }
 }
 
-/** Etapas que son hitos: requieren fecha real (occurred_at) al mover */
-function isMilestoneStage(stageName: string): boolean {
-  const n = stageName.trim()
-  return (
-    n === 'Cita realizada' ||
-    n === 'Propuesta presentada' ||
-    n === 'Propuesta' ||
-    n === 'Cerrado/Ganado'
-  )
-}
 
 export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -123,7 +103,6 @@ export function LeadDetailPage() {
   const [lead, setLead] = useState<LeadData | null>(null)
   const [stages, setStages] = useState<Stage[]>([])
   const [stageHistory, setStageHistory] = useState<LeadStageHistoryRow[]>([])
-  const [nextScheduledEvent, setNextScheduledEvent] = useState<CalendarEvent | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [notFound, setNotFound] = useState(false)
@@ -135,9 +114,6 @@ export function LeadDetailPage() {
   const [source, setSource] = useState('')
   const [notes, setNotes] = useState('')
   const [referralName, setReferralName] = useState('')
-  const [citaRealizadaAtYmd, setCitaRealizadaAtYmd] = useState('')
-  const [propuestaPresentadaAtYmd, setPropuestaPresentadaAtYmd] = useState('')
-  const [cerradoAtYmd, setCerradoAtYmd] = useState('')
 
   // Stage change state
   const [selectedStageId, setSelectedStageId] = useState<string>('')
@@ -148,9 +124,6 @@ export function LeadDetailPage() {
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
   const [isEditingDatos, setIsEditingDatos] = useState(false)
   const [actividadExpanded, setActividadExpanded] = useState(false)
-  // Modal fecha real (solo para etapas hito)
-  const [pendingStageMove, setPendingStageMove] = useState<{ toStageId: string } | null>(null)
-  const [occurredAtForModal, setOccurredAtForModal] = useState<string>(() => todayLocalYmd())
   // Archivar: modal + motivo
   const [showArchiveModal, setShowArchiveModal] = useState(false)
   const [archiveReasonInput, setArchiveReasonInput] = useState('')
@@ -163,7 +136,6 @@ export function LeadDetailPage() {
 
   const originalSnapshot = useMemo(() => {
     if (!lead) return null
-    const ymd = (ts: string | null | undefined) => (ts ? ts.split('T')[0] : '')
     return {
       full_name: lead.full_name || '',
       phone: lead.phone || '',
@@ -171,9 +143,6 @@ export function LeadDetailPage() {
       source: lead.source || '',
       notes: lead.notes || '',
       referral_name: lead.referral_name || '',
-      cita_realizada_at: ymd(lead.cita_realizada_at),
-      propuesta_presentada_at: ymd(lead.propuesta_presentada_at),
-      cerrado_at: ymd(lead.cerrado_at),
     }
   }, [lead])
   const currentSnapshot = useMemo(
@@ -184,11 +153,8 @@ export function LeadDetailPage() {
       source,
       notes,
       referral_name: referralName,
-      cita_realizada_at: citaRealizadaAtYmd,
-      propuesta_presentada_at: propuestaPresentadaAtYmd,
-      cerrado_at: cerradoAtYmd,
     }),
-    [fullName, phone, email, source, notes, referralName, citaRealizadaAtYmd, propuestaPresentadaAtYmd, cerradoAtYmd]
+    [fullName, phone, email, source, notes, referralName]
   )
   // useDirtyState se ejecuta SIEMPRE (Rules of Hooks); la condición solo aplica al valor derivado
   const isDirty = useDirtyState(originalSnapshot, currentSnapshot)
@@ -200,27 +166,18 @@ export function LeadDetailPage() {
     return m
   }, [stages])
 
-  // Fechas clave vienen de leads; enteredCurrentStageAt para "días en etapa" desde historial
-  const { citaRealizadaAt, propuestaAt, cierreAt, enteredCurrentStageAt } = useMemo(() => {
-    const out = {
-      citaRealizadaAt: (lead?.cita_realizada_at as string | null) ?? null,
-      propuestaAt: (lead?.propuesta_presentada_at as string | null) ?? null,
-      cierreAt: (lead?.cerrado_at as string | null) ?? null,
-      enteredCurrentStageAt: null as string | null,
-    }
-    if (!lead) return out
+  // Fecha de entrada a la etapa actual para "días en etapa" desde historial
+  const enteredCurrentStageAt = useMemo(() => {
+    if (!lead) return null
     if (stageHistory.length) {
       const currentEntries = stageHistory.filter((h) => h.to_stage_id === lead.stage_id)
       if (currentEntries.length) {
         const last = currentEntries[currentEntries.length - 1]
-        out.enteredCurrentStageAt = last.occurred_at ?? last.moved_at
-      } else {
-        out.enteredCurrentStageAt = lead.stage_changed_at ?? lead.created_at
+        return last.occurred_at ?? last.moved_at
       }
-    } else {
-      out.enteredCurrentStageAt = lead.stage_changed_at ?? lead.created_at
+      return lead.stage_changed_at ?? lead.created_at
     }
-    return out
+    return lead.stage_changed_at ?? lead.created_at
   }, [lead, stageHistory])
 
   useEffect(() => {
@@ -232,16 +189,12 @@ export function LeadDetailPage() {
   // Initialize form when lead loads; do not overwrite selectedStageId while moving
   useEffect(() => {
     if (lead) {
-      const ymd = (ts: string | null | undefined) => (ts ? ts.split('T')[0] : '')
       setFullName(lead.full_name || '')
       setPhone(lead.phone || '')
       setEmail(lead.email || '')
       setSource(lead.source || '')
       setNotes(lead.notes || '')
       setReferralName(lead.referral_name || '')
-      setCitaRealizadaAtYmd(ymd(lead.cita_realizada_at))
-      setPropuestaPresentadaAtYmd(ymd(lead.propuesta_presentada_at))
-      setCerradoAtYmd(ymd(lead.cerrado_at))
       if (!moving) setSelectedStageId(lead.stage_id)
     }
   }, [lead, moving])
@@ -258,7 +211,7 @@ export function LeadDetailPage() {
         supabase
           .from('leads')
           .select(
-            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason,cita_realizada_at,propuesta_presentada_at,cerrado_at,referral_name'
+            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name'
           )
           .eq('id', id)
           .single(),
@@ -290,29 +243,14 @@ export function LeadDetailPage() {
     }
   }
 
-  useEffect(() => {
-    if (!lead?.id) {
-      setNextScheduledEvent(null)
-      return
-    }
-    calendarApi
-      .getNextScheduledEventByLeadIds([lead.id])
-      .then((byLead) => setNextScheduledEvent(byLead[lead.id] ?? null))
-      .catch(() => setNextScheduledEvent(null))
-  }, [lead?.id])
-
   const discardChanges = useCallback(() => {
     if (!lead) return
-    const ymd = (ts: string | null | undefined) => (ts ? ts.split('T')[0] : '')
     setFullName(lead.full_name || '')
     setPhone(lead.phone || '')
     setEmail(lead.email || '')
     setSource(lead.source || '')
     setNotes(lead.notes || '')
     setReferralName(lead.referral_name || '')
-    setCitaRealizadaAtYmd(ymd(lead.cita_realizada_at))
-    setPropuestaPresentadaAtYmd(ymd(lead.propuesta_presentada_at))
-    setCerradoAtYmd(ymd(lead.cerrado_at))
   }, [lead])
 
   const handleDiscard = useCallback(() => {
@@ -369,9 +307,6 @@ export function LeadDetailPage() {
         source: source.trim() || null,
         notes: notes.trim() || null,
         referral_name: referralName.trim() || null,
-        cita_realizada_at: citaRealizadaAtYmd ? ymdToLocalNoonISO(citaRealizadaAtYmd) : null,
-        propuesta_presentada_at: propuestaPresentadaAtYmd ? ymdToLocalNoonISO(propuestaPresentadaAtYmd) : null,
-        cerrado_at: cerradoAtYmd ? ymdToLocalNoonISO(cerradoAtYmd) : null,
       })
 
       await loadData()
@@ -388,7 +323,7 @@ export function LeadDetailPage() {
     }
   }
 
-  const handleMoveStage = async (targetStageId?: string, occurredAt?: string | null) => {
+  const handleMoveStage = async (targetStageId?: string) => {
     const stageId = targetStageId ?? selectedStageId
     if (!id || !lead || !stageId) return
     if (stageId === lead.stage_id) return
@@ -396,13 +331,12 @@ export function LeadDetailPage() {
     setMoving(true)
     setError(null)
     setToast(null)
-    setPendingStageMove(null)
 
     try {
       const idempotencyKey = generateIdempotencyKey(id, lead.stage_id, stageId)
-      await pipelineApi.moveLeadStage(id, stageId, idempotencyKey, occurredAt ?? undefined)
+      await pipelineApi.moveLeadStage(id, stageId, idempotencyKey)
       await loadData()
-      setToast({ kind: 'success', text: 'Guardado' })
+      setToast({ kind: 'success', text: 'Etapa actualizada' })
       setTimeout(() => setToast(null), TOAST_CLEAR_MS)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al mover etapa'
@@ -418,24 +352,7 @@ export function LeadDetailPage() {
   const handleStageSelectChange = (toStageId: string) => {
     if (!lead || toStageId === lead.stage_id) return
     setSelectedStageId(toStageId)
-    const stage = stages.find((s) => s.id === toStageId)
-    if (stage && isMilestoneStage(stage.name)) {
-      setPendingStageMove({ toStageId })
-      setOccurredAtForModal(todayLocalYmd())
-    } else {
-      handleMoveStage(toStageId)
-    }
-  }
-
-  const handleConfirmOccurredAt = () => {
-    if (!id || !lead || !pendingStageMove) return
-    const occurredAtISO = ymdToLocalNoonISO(occurredAtForModal)
-    handleMoveStage(pendingStageMove.toStageId, occurredAtISO)
-  }
-
-  const handleCancelOccurredAt = () => {
-    setPendingStageMove(null)
-    if (lead) setSelectedStageId(lead.stage_id)
+    handleMoveStage(toStageId)
   }
 
   const handleArchive = async () => {
@@ -558,13 +475,6 @@ export function LeadDetailPage() {
   }
 
   const waNumber = normalizeWhatsAppNumber(phoneDigits(lead.phone || ''))
-  const isStageClosed = currentStage?.name && /cerrado\s+(ganado|perdido)/i.test(currentStage.name)
-  const stageNameNorm = currentStage?.name?.trim().toLowerCase() ?? ''
-  const highlightCitaRealizada = /cita\s+realizada/.test(stageNameNorm)
-  const highlightPropuesta = /propuesta/.test(stageNameNorm)
-  const cerradoAccentStyle = isStageClosed && currentStage ? getStageAccentStyle(currentStage.name) : undefined
-  const citaRealizadaAccentStyle = highlightCitaRealizada && currentStage ? getStageAccentStyle(currentStage.name) : undefined
-  const propuestaAccentStyle = highlightPropuesta && currentStage ? getStageAccentStyle(currentStage.name) : undefined
 
   return (
     <div style={{ paddingBottom: dirty ? UNSAVED_BAR_HEIGHT : 0 }}>
@@ -751,53 +661,6 @@ export function LeadDetailPage() {
         isSaving={saving}
       />
 
-      {/* Modal: confirmar fecha real al mover a etapa hito */}
-      {pendingStageMove && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="occurred-at-modal-title"
-        >
-          <div className="bg-bg border border-border rounded-lg shadow-lg max-w-sm w-full p-4">
-            <h3 id="occurred-at-modal-title" className="text-base font-semibold mb-2">
-              Confirmar fecha real
-            </h3>
-            <p className="text-sm text-muted mb-3">¿Cuándo ocurrió este evento?</p>
-            <div className="flex gap-2 mb-3">
-              <button
-                type="button"
-                onClick={() => setOccurredAtForModal(todayLocalYmd())}
-                className="btn btn-ghost border border-border text-xs py-1.5 px-2 rounded-md"
-              >
-                Hoy
-              </button>
-            </div>
-            <div className="mb-4">
-              <label htmlFor="occurred_at_date" className="block text-xs font-medium text-muted mb-1">
-                Fecha
-              </label>
-              <input
-                id="occurred_at_date"
-                type="date"
-                value={occurredAtForModal}
-                max={todayLocalYmd()}
-                onChange={(e) => setOccurredAtForModal(e.target.value)}
-                className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
-              />
-            </div>
-            <div className="flex gap-2 justify-end">
-              <button type="button" onClick={handleCancelOccurredAt} className="btn btn-ghost text-sm">
-                Cancelar
-              </button>
-              <button type="button" onClick={handleConfirmOccurredAt} className="btn btn-primary text-sm">
-                Confirmar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Modal: archivar lead */}
       {showArchiveModal && (
         <div
@@ -983,79 +846,9 @@ export function LeadDetailPage() {
           )}
         </div>
 
-        {/* Columna derecha: Citas (arriba) → Hechos del proceso → Pipeline; layout limpio en móvil */}
+        {/* Columna derecha: Pipeline */}
         <div className="lg:col-span-4 flex flex-col gap-3 lg:sticky lg:top-4 self-start order-2">
-          {/* Citas: solo lectura; se gestionan desde Calendario */}
-          <LeadAppointmentsList leadId={lead.id} leadLabel={lead.full_name ?? undefined} />
-
-          {/* Hechos del proceso (para métricas): fechas editables para métricas. */}
-          <div
-            className="rounded-lg border border-border bg-bg/30 p-3.5"
-            style={{
-              borderLeftWidth: 3,
-              borderLeftStyle: 'solid',
-              borderLeftColor: 'var(--primary)',
-              transition: prefersReducedMotion ? 'none' : 'all 200ms ease-out',
-            }}
-          >
-            <h3 className="text-xs font-medium text-muted mb-0.5">Hechos del proceso (para métricas)</h3>
-            <p className="text-xs text-muted mb-2">Se usan para métricas y tiempos.</p>
-            <div className="space-y-2.5">
-              <div
-                className="rounded pl-2 -ml-2"
-                style={citaRealizadaAccentStyle ? { borderLeft: `2px solid ${citaRealizadaAccentStyle.borderLeftColor}` } : undefined}
-              >
-                <label htmlFor="cita_realizada_at" className="block text-xs font-medium text-muted mb-0.5">
-                  Cita realizada
-                </label>
-                <input
-                  id="cita_realizada_at"
-                  type="date"
-                  value={citaRealizadaAtYmd}
-                  onChange={(e) => setCitaRealizadaAtYmd(e.target.value)}
-                  disabled={saving || !!lead.archived_at}
-                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
-                />
-              </div>
-              <div
-                className="rounded pl-2 -ml-2"
-                style={propuestaAccentStyle ? { borderLeft: `2px solid ${propuestaAccentStyle.borderLeftColor}` } : undefined}
-              >
-                <label htmlFor="propuesta_presentada_at" className="block text-xs font-medium text-muted mb-0.5">
-                  Propuesta presentada
-                </label>
-                <input
-                  id="propuesta_presentada_at"
-                  type="date"
-                  value={propuestaPresentadaAtYmd}
-                  onChange={(e) => setPropuestaPresentadaAtYmd(e.target.value)}
-                  disabled={saving || !!lead.archived_at}
-                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
-                />
-              </div>
-              {/* Cierre: solo visible si la etapa es cerrada (ganado/perdido), para no obligar a llenar en leads abiertos. */}
-              {isStageClosed && (
-                <div
-                  className="rounded pl-2 -ml-2"
-                  style={cerradoAccentStyle ? { borderLeft: `2px solid ${cerradoAccentStyle.borderLeftColor}` } : undefined}
-                >
-                  <label htmlFor="cerrado_at" className="block text-xs font-medium text-muted mb-0.5">
-                    Cierre
-                  </label>
-                  <input
-                    id="cerrado_at"
-                    type="date"
-                    value={cerradoAtYmd}
-                    onChange={(e) => setCerradoAtYmd(e.target.value)}
-                    disabled={saving || !!lead.archived_at}
-                    className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Pipeline — etapa + tiempos (hint desde calendario, no next_follow_up_at) */}
+          {/* Pipeline — etapa + tiempos */}
           <div
             className="rounded-lg border border-border bg-bg/30 p-3.5"
             style={{
@@ -1065,98 +858,66 @@ export function LeadDetailPage() {
             <h3 className="text-xs font-medium text-muted mb-1.5">
               Pipeline
             </h3>
-          {/* Hint desde calendario (no next_follow_up_at) */}
-          {nextScheduledEvent && (
-            <p className="text-xs text-muted mb-2">
-              Próxima cita: {formatNextAppointmentShort(nextScheduledEvent.starts_at)} · {getTypeLabel(nextScheduledEvent.type)}
-            </p>
-          )}
-          {moving && (
-            <p className="text-xs text-muted mb-2">Guardando…</p>
-          )}
-          <div>
-            <label
-              htmlFor="stage_select"
-              style={{
-                display: 'block',
-                marginBottom: '4px',
-                fontSize: '12px',
-                fontWeight: '500',
-                color: 'var(--muted)',
-              }}
-            >
-              Etapa actual
-            </label>
-            {lead.archived_at ? (
-              <p className="text-sm text-muted py-2">Restaura para editar</p>
-            ) : (
-              <select
-                id="stage_select"
-                value={selectedStageId}
-                onChange={(e) => {
-                  const v = e.target.value
-                  if (v && v !== lead.stage_id) handleStageSelectChange(v)
-                  else setSelectedStageId(v)
-                }}
-                disabled={moving || stages.length === 0}
-                style={{
-                  width: '100%',
-                  fontFamily: 'inherit',
-                  border: '1px solid var(--border)',
-                  borderRadius: '8px',
-                  padding: '8px 12px',
-                }}
-              >
-                {stages.map((stage) => (
-                  <option key={stage.id} value={stage.id}>
-                    {displayStageName(stage.name)}
-                  </option>
-                ))}
-              </select>
+            {moving && (
+              <p className="text-xs text-muted mb-2">Guardando…</p>
             )}
-          </div>
-          {/* Tiempos */}
-          <div className="mt-3 pt-3 border-t border-black/10">
-            <p className="text-xs font-medium text-muted mb-2">Tiempos</p>
-            <div className="text-xs text-muted space-y-1">
-              <div className="flex justify-between gap-2">
-                <span>Días desde Cita realizada</span>
-                <span className="text-text tabular-nums">
-                  {citaRealizadaAt ? Math.floor(diffDaysFloor(citaRealizadaAt, new Date())) : '—'}
-                </span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span>Días desde Propuesta presentada</span>
-                <span className="text-text tabular-nums">
-                  {propuestaAt ? Math.floor(diffDaysFloor(propuestaAt, new Date())) : '—'}
-                </span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span>Días en etapa actual</span>
-                <span className="text-text tabular-nums">
-                  {enteredCurrentStageAt ? Math.floor(diffDaysFloor(enteredCurrentStageAt, new Date())) : '—'}
-                </span>
-              </div>
-              <div className="flex justify-between gap-2">
-                <span>Tiempo total del lead</span>
-                <span className="text-text tabular-nums">
-                  {cierreAt
-                    ? Math.floor(diffDaysFloor(lead.created_at, cierreAt))
-                    : lead.created_at
-                      ? Math.floor(diffDaysFloor(lead.created_at, new Date()))
+            <div>
+              <label
+                htmlFor="stage_select"
+                className="block text-xs font-medium text-muted mb-1"
+              >
+                Etapa actual
+              </label>
+              {lead.archived_at ? (
+                <p className="text-sm text-muted py-2">Restaura para editar</p>
+              ) : (
+                <select
+                  id="stage_select"
+                  value={selectedStageId}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    if (v && v !== lead.stage_id) handleStageSelectChange(v)
+                    else setSelectedStageId(v)
+                  }}
+                  disabled={moving || stages.length === 0}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm"
+                >
+                  {stages.map((stage) => (
+                    <option key={stage.id} value={stage.id}>
+                      {displayStageName(stage.name)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {/* Tiempos */}
+            <div className="mt-3 pt-3 border-t border-black/10">
+              <p className="text-xs font-medium text-muted mb-2">Tiempos</p>
+              <div className="text-xs text-muted space-y-1">
+                <div className="flex justify-between gap-2">
+                  <span>Días en etapa actual</span>
+                  <span className="text-text tabular-nums">
+                    {enteredCurrentStageAt ? Math.floor(diffDaysFloor(enteredCurrentStageAt, new Date())) : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span>Tiempo total del lead</span>
+                  <span className="text-text tabular-nums">
+                    {lead.created_at
+                      ? `${Math.floor(diffDaysFloor(lead.created_at, new Date()))} días`
                       : '—'}
-                </span>
+                  </span>
+                </div>
               </div>
             </div>
-          </div>
-          <div className="my-3 h-px bg-black/5" />
-          <div className="text-xs text-muted flex flex-col gap-1">
-            <div>Creado: {formatDateTime(lead.created_at)}</div>
-            <div>Actualizado: {formatDateTime(lead.updated_at)}</div>
-            {lead.stage_changed_at && (
-              <div>Cambio de etapa: {formatDateTime(lead.stage_changed_at)}</div>
-            )}
-          </div>
+            <div className="my-3 h-px bg-black/5" />
+            <div className="text-xs text-muted flex flex-col gap-1">
+              <div>Creado: {formatDateTime(lead.created_at)}</div>
+              <div>Actualizado: {formatDateTime(lead.updated_at)}</div>
+              {lead.stage_changed_at && (
+                <div>Último cambio de etapa: {formatDateTime(lead.stage_changed_at)}</div>
+              )}
+            </div>
           </div>
         </div>
 

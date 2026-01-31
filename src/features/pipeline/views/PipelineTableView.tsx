@@ -20,7 +20,7 @@ const SEGMENT_BADGE_INACTIVE = 'rounded-full text-[10px] px-1.5 py-0.5 bg-neutra
 const BTN_NEUTRAL =
   'h-9 rounded-xl border border-neutral-200 bg-white px-3 text-sm text-neutral-700 hover:bg-neutral-50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-1'
 const BTN_PRIMARY =
-  'h-9 rounded-xl bg-neutral-900 text-white px-3 text-sm font-medium hover:bg-neutral-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-1 flex-shrink-0'
+  'h-9 rounded-xl bg-neutral-900 text-white px-4 text-sm font-semibold gap-2 hover:bg-neutral-800 active:scale-[0.98] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-1 flex-shrink-0 inline-flex items-center justify-center'
 
 // Orden dentro de cada etapa: next_follow_up_at asc (más próximo arriba), nulls last.
 function sortLeadsByPriority(leads: Lead[]): Lead[] {
@@ -246,12 +246,18 @@ export function PipelineTableView({
               Archivados <span className={SEGMENT_BADGE_INACTIVE}>{archivadosCount}</span>
             </button>
           </div>
-          <button onClick={() => setIsCreateModalOpen(true)} className={BTN_PRIMARY}>+ Nuevo lead</button>
+          <button onClick={() => setIsCreateModalOpen(true)} className={BTN_PRIMARY}>
+            <span className="md:hidden">Nuevo</span>
+            <span className="hidden md:inline">+ Nuevo lead</span>
+          </button>
         </div>
         <div className="card text-center p-12">
           <p className="mb-4 text-base">Aún no hay leads en el pipeline.</p>
           <p className="text-muted mb-6">Crea tu primer lead para comenzar.</p>
-          <button onClick={() => setIsCreateModalOpen(true)} className={BTN_PRIMARY}>+ Nuevo lead</button>
+          <button onClick={() => setIsCreateModalOpen(true)} className={BTN_PRIMARY}>
+            <span className="md:hidden">Nuevo</span>
+            <span className="hidden md:inline">+ Nuevo lead</span>
+          </button>
         </div>
         <LeadCreateModal stages={stages} isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onSubmit={handleCreateLead} />
       </div>
@@ -286,7 +292,7 @@ export function PipelineTableView({
                 <option value="Social media">Social media</option>
               </select>
               {sourceFilter.trim() !== '' && (
-                <span className="inline-flex items-center gap-1.5 h-9 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-700 flex-shrink-0">
+                <span className="hidden md:inline-flex items-center gap-1.5 h-9 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-700 flex-shrink-0">
                   Fuente: <span className="font-medium">{sourceFilter.trim()}</span>
                   <button
                     type="button"
@@ -300,14 +306,15 @@ export function PipelineTableView({
               )}
               {pipelineMode === 'activos' && (
                 <button onClick={() => setIsCreateModalOpen(true)} className={BTN_PRIMARY}>
-                  + Nuevo lead
+                  <span className="md:hidden">Nuevo</span>
+                  <span className="hidden md:inline">+ Nuevo lead</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Row 2: Activos/Archivados + Agrupar/Vista plana + Colapsar/Expandir (overflow-x en móvil) */}
-          <div className="overflow-x-auto -mx-1 px-1 md:overflow-visible md:mx-0 md:px-0">
+          {/* Row 2: solo desktop — Activos/Archivados + Agrupar/Vista plana + Colapsar/Expandir. Oculto en móvil. */}
+          <div className="hidden md:block overflow-x-auto md:overflow-visible -mx-1 px-1 md:mx-0 md:px-0">
             <div className="flex items-center gap-2 md:gap-3 min-w-max" role="group" aria-label="Estado y vista">
               <div className={`${SEGMENT_WRAPPER} flex-shrink-0`} role="tablist" aria-label="Modo del pipeline">
                 <button
