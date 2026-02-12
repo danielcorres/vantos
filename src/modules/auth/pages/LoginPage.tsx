@@ -37,9 +37,10 @@ export function LoginPage() {
   const [signupSuccess, setSignupSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const [forgotPasswordSent, setForgotPasswordSent] = useState(false)
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
   const [forgotCooldownRemaining, setForgotCooldownRemaining] = useState(0)
+  const [forgotCooldownActive, setForgotCooldownActive] = useState(false)
+  const [forgotNotice, setForgotNotice] = useState<string | null>(null)
   const forgotEmailRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
 
@@ -64,14 +65,18 @@ export function LoginPage() {
     }
   }, [mode])
 
-  // Cooldown: decrementar cada segundo
+  // Cooldown: un solo interval mientras esté activo; cleanup al desactivar
   useEffect(() => {
-    if (forgotCooldownRemaining <= 0) return
+    if (!forgotCooldownActive) return
     const id = setInterval(() => {
-      setForgotCooldownRemaining((prev) => Math.max(0, prev - 1))
+      setForgotCooldownRemaining((prev) => {
+        const next = Math.max(0, prev - 1)
+        if (next === 0) setForgotCooldownActive(false)
+        return next
+      })
     }, 1000)
     return () => clearInterval(id)
-  }, [forgotCooldownRemaining])
+  }, [forgotCooldownActive])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -144,7 +149,9 @@ export function LoginPage() {
   const handleBackToLoginFromForgot = () => {
     setPassword('')
     setError(null)
-    setForgotPasswordSent(false)
+    setForgotCooldownRemaining(0)
+    setForgotCooldownActive(false)
+    setForgotNotice(null)
     setMode('login')
   }
 
@@ -155,14 +162,15 @@ export function LoginPage() {
       return
     }
     setError(null)
+    setForgotNotice(null)
     setForgotPasswordLoading(true)
-    setForgotPasswordSent(false)
     try {
       await supabase.auth.resetPasswordForEmail(trimmedEmail, {
         redirectTo: `${window.location.origin}/auth/reset`,
       })
-      setForgotPasswordSent(true)
+      setForgotNotice('Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña.')
       setForgotCooldownRemaining(FORGOT_COOLDOWN_SECONDS)
+      setForgotCooldownActive(true)
     } catch {
       // No revelar si el correo existe
     } finally {
@@ -226,7 +234,9 @@ export function LoginPage() {
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       e.preventDefault()
-                      handleForgotPassword()
+                      if (!forgotPasswordLoading && forgotCooldownRemaining <= 0) {
+                        handleForgotPassword()
+                      }
                     }
                   }}
                   placeholder="tu@email.com"
@@ -243,9 +253,9 @@ export function LoginPage() {
               >
                 {forgotPasswordLoading ? 'Enviando...' : isForgotCooldown ? `Puedes reenviar en ${forgotCooldownRemaining}s` : 'Enviar enlace'}
               </button>
-              {forgotPasswordSent && (
-                <div className="p-3 bg-slate-800/60 border border-slate-700/60 rounded-md text-sm text-slate-200">
-                  Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña.
+              {forgotNotice && (
+                <div className="p-3 bg-slate-800/50 border border-slate-600/50 rounded-md text-sm text-slate-300">
+                  {forgotNotice}
                 </div>
               )}
               <button
@@ -380,7 +390,9 @@ export function LoginPage() {
                   type="button"
                   onClick={() => {
                     setError(null)
-                    setForgotPasswordSent(false)
+                    setForgotCooldownRemaining(0)
+                    setForgotCooldownActive(false)
+                    setForgotNotice(null)
                     setPassword('')
                     setMode('forgot')
                   }}
