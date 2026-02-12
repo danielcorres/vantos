@@ -8,6 +8,8 @@ import { LoginBranding } from '../../../components/auth/LoginBranding'
 
 const EMAIL_STORAGE_KEY = 'vant_last_email'
 
+type Mode = 'login' | 'register' | 'forgot'
+
 function isSafeNext(next: string | null): next is string {
   if (!next || typeof next !== 'string') return false
   if (!next.startsWith('/')) return false
@@ -28,7 +30,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [capsLockOn, setCapsLockOn] = useState(false)
-  const [isSignUp, setIsSignUp] = useState(false)
+  const [mode, setMode] = useState<Mode>('login')
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [signupSuccess, setSignupSuccess] = useState(false)
@@ -58,7 +60,7 @@ export function LoginPage() {
     setLoading(true)
 
     try {
-      if (isSignUp) {
+      if (mode === 'register') {
         // Validar nombre y apellido en sign up
         if (!firstName.trim() || !lastName.trim()) {
           setError('Nombre y apellido son requeridos')
@@ -112,7 +114,7 @@ export function LoginPage() {
   }
 
   const handleBackToSignIn = () => {
-    setIsSignUp(false)
+    setMode('login')
     setSignupSuccess(false)
     setFirstName('')
     setLastName('')
@@ -146,9 +148,17 @@ export function LoginPage() {
       <div className="w-full max-w-md flex flex-col items-center">
         <LoginBranding mode="dark" className="mb-6" />
         <div className="w-full p-8 rounded-2xl bg-slate-900/60 backdrop-blur shadow-lg ring-1 ring-white/15 text-slate-100">
-          <h1 className="text-2xl font-bold text-center mb-2 text-slate-100">Bienvenido a Vant</h1>
+          <h1 className="text-2xl font-bold text-center mb-2 text-slate-100">
+            {mode === 'forgot' ? 'Restablecer contraseña' : 'Bienvenido a Vant'}
+          </h1>
           <p className="text-sm text-slate-400 text-center mb-6">
-            {signupSuccess ? 'Confirma tu correo' : isSignUp ? 'Crea tu cuenta' : 'Inicia sesión para continuar'}
+            {signupSuccess
+              ? 'Confirma tu correo'
+              : mode === 'forgot'
+                ? 'Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.'
+                : mode === 'register'
+                  ? 'Crea tu cuenta'
+                  : 'Inicia sesión para continuar'}
           </p>
 
           {signupSuccess ? (
@@ -167,6 +177,53 @@ export function LoginPage() {
                 Volver a iniciar sesión
               </button>
             </div>
+          ) : mode === 'forgot' ? (
+            <div className="space-y-4">
+              {error && (
+                <div className="p-3 bg-red-950/60 border border-red-800/60 rounded-md text-sm text-red-200">
+                  {error}
+                </div>
+              )}
+              <div>
+                <label htmlFor="forgot-email" className="block text-sm font-medium text-slate-300 mb-1.5">
+                  Correo electrónico
+                </label>
+                <input
+                  id="forgot-email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="tu@email.com"
+                  disabled={forgotPasswordLoading}
+                  className="w-full bg-slate-900 text-slate-100 ring-1 ring-white/10 rounded-md px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                  autoComplete="email"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={forgotPasswordLoading}
+                className="w-full py-2.5 rounded-lg text-sm font-semibold bg-slate-800 text-slate-100 ring-1 ring-white/10 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {forgotPasswordLoading ? 'Enviando...' : 'Enviar enlace'}
+              </button>
+              {forgotPasswordSent && (
+                <div className="p-3 bg-slate-800/60 border border-slate-700/60 rounded-md text-sm text-slate-200">
+                  Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña.
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null)
+                  setForgotPasswordSent(false)
+                  setMode('login')
+                }}
+                className="w-full text-sm text-slate-400 hover:text-slate-200 hover:underline transition-colors"
+              >
+                Volver a iniciar sesión
+              </button>
+            </div>
           ) : (
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
@@ -175,7 +232,7 @@ export function LoginPage() {
                 </div>
               )}
 
-              {isSignUp && (
+              {mode === 'register' && (
                 <>
                   <div>
                     <label htmlFor="firstName" className="block text-sm font-medium text-slate-300 mb-1.5">
@@ -259,7 +316,7 @@ export function LoginPage() {
                   required
                   disabled={loading}
                   className="w-full bg-slate-900 text-slate-100 ring-1 ring-white/10 rounded-md px-3 py-2 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
-                  autoComplete={isSignUp ? 'new-password' : 'current-password'}
+                  autoComplete={mode === 'register' ? 'new-password' : 'current-password'}
                 />
                 <button
                   type="button"
@@ -283,31 +340,28 @@ export function LoginPage() {
               disabled={loading}
               className="w-full py-2.5 rounded-lg text-sm font-semibold bg-slate-800 text-slate-100 ring-1 ring-white/10 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? 'Cargando...' : isSignUp ? 'Crear acceso' : 'Iniciar sesión'}
+              {loading ? 'Cargando...' : mode === 'register' ? 'Crear acceso' : 'Iniciar sesión'}
             </button>
 
-              {!isSignUp && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handleForgotPassword}
-                    disabled={loading || forgotPasswordLoading}
-                    className="w-full text-sm text-slate-400 hover:text-slate-200 hover:underline disabled:opacity-50 transition-colors"
-                  >
-                    ¿Olvidaste tu contraseña?
-                  </button>
-                  {forgotPasswordSent && (
-                    <div className="p-3 bg-slate-800/60 border border-slate-700/60 rounded-md text-sm text-slate-200">
-                      Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña.
-                    </div>
-                  )}
-                </>
+              {mode === 'login' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setError(null)
+                    setForgotPasswordSent(false)
+                    setMode('forgot')
+                  }}
+                  disabled={loading}
+                  className="w-full text-sm text-slate-400 hover:text-slate-200 hover:underline disabled:opacity-50 transition-colors"
+                >
+                  ¿Olvidaste tu contraseña?
+                </button>
               )}
 
               <button
                 type="button"
                 onClick={() => {
-                  setIsSignUp(!isSignUp)
+                  setMode(mode === 'register' ? 'login' : 'register')
                   setSignupSuccess(false)
                   setFirstName('')
                   setLastName('')
@@ -316,7 +370,7 @@ export function LoginPage() {
                 disabled={loading}
                 className="w-full text-sm text-slate-400 hover:text-slate-200 hover:underline disabled:opacity-50 transition-colors"
               >
-                {isSignUp ? 'Ya tengo acceso' : 'Crear acceso nuevo'}
+                {mode === 'register' ? 'Ya tengo acceso' : 'Crear acceso nuevo'}
               </button>
             </form>
           )}
