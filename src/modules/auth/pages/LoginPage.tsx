@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabaseClient'
 import { isNetworkError } from '../../../lib/supabaseErrorHandler'
@@ -7,6 +7,7 @@ import { getHomePathForRole } from '../getHomePathForRole'
 import { LoginBranding } from '../../../components/auth/LoginBranding'
 
 const EMAIL_STORAGE_KEY = 'vant_last_email'
+const FORGOT_COOLDOWN_SECONDS = 45
 
 type Mode = 'login' | 'register' | 'forgot'
 
@@ -38,6 +39,8 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [forgotPasswordSent, setForgotPasswordSent] = useState(false)
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
+  const [forgotCooldownRemaining, setForgotCooldownRemaining] = useState(0)
+  const forgotEmailRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
 
   // Si ya está autenticado en /login, redirigir a next o getHomePathForRole(role)
@@ -53,6 +56,22 @@ export function LoginPage() {
       localStorage.setItem(EMAIL_STORAGE_KEY, email)
     }
   }, [email])
+
+  // Autofocus input de email al entrar en modo forgot
+  useEffect(() => {
+    if (mode === 'forgot') {
+      forgotEmailRef.current?.focus()
+    }
+  }, [mode])
+
+  // Cooldown: decrementar cada segundo
+  useEffect(() => {
+    if (forgotCooldownRemaining <= 0) return
+    const id = setInterval(() => {
+      setForgotCooldownRemaining((prev) => Math.max(0, prev - 1))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [forgotCooldownRemaining])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -122,6 +141,13 @@ export function LoginPage() {
     setError(null)
   }
 
+  const handleBackToLoginFromForgot = () => {
+    setPassword('')
+    setError(null)
+    setForgotPasswordSent(false)
+    setMode('login')
+  }
+
   const handleForgotPassword = async () => {
     const trimmedEmail = email.trim()
     if (!trimmedEmail) {
@@ -136,12 +162,15 @@ export function LoginPage() {
         redirectTo: `${window.location.origin}/auth/reset`,
       })
       setForgotPasswordSent(true)
+      setForgotCooldownRemaining(FORGOT_COOLDOWN_SECONDS)
     } catch {
       // No revelar si el correo existe
     } finally {
       setForgotPasswordLoading(false)
     }
   }
+
+  const isForgotCooldown = forgotCooldownRemaining > 0
 
   return (
     <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
@@ -189,10 +218,17 @@ export function LoginPage() {
                   Correo electrónico
                 </label>
                 <input
+                  ref={forgotEmailRef}
                   id="forgot-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      handleForgotPassword()
+                    }
+                  }}
                   placeholder="tu@email.com"
                   disabled={forgotPasswordLoading}
                   className="w-full bg-slate-900 text-slate-100 ring-1 ring-white/10 rounded-md px-3 py-2 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -202,10 +238,10 @@ export function LoginPage() {
               <button
                 type="button"
                 onClick={handleForgotPassword}
-                disabled={forgotPasswordLoading}
+                disabled={forgotPasswordLoading || isForgotCooldown}
                 className="w-full py-2.5 rounded-lg text-sm font-semibold bg-slate-800 text-slate-100 ring-1 ring-white/10 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
-                {forgotPasswordLoading ? 'Enviando...' : 'Enviar enlace'}
+                {forgotPasswordLoading ? 'Enviando...' : isForgotCooldown ? `Puedes reenviar en ${forgotCooldownRemaining}s` : 'Enviar enlace'}
               </button>
               {forgotPasswordSent && (
                 <div className="p-3 bg-slate-800/60 border border-slate-700/60 rounded-md text-sm text-slate-200">
@@ -214,11 +250,7 @@ export function LoginPage() {
               )}
               <button
                 type="button"
-                onClick={() => {
-                  setError(null)
-                  setForgotPasswordSent(false)
-                  setMode('login')
-                }}
+                onClick={handleBackToLoginFromForgot}
                 className="w-full text-sm text-slate-400 hover:text-slate-200 hover:underline transition-colors"
               >
                 Volver a iniciar sesión
@@ -349,6 +381,7 @@ export function LoginPage() {
                   onClick={() => {
                     setError(null)
                     setForgotPasswordSent(false)
+                    setPassword('')
                     setMode('forgot')
                   }}
                   disabled={loading}
