@@ -187,13 +187,19 @@ export function PipelinePage() {
       e.preventDefault()
       if (!draggedLead) return
       const fromStageId = draggedLead.stage_id
+      const prevStageChangedAt = draggedLead.stage_changed_at ?? null
       if (fromStageId === toStageId) {
         setDraggedLead(null)
         return
       }
       dispatch({
         type: 'MOVE_OPTIMISTIC',
-        payload: { leadId: draggedLead.id, toStageId },
+        payload: {
+          leadId: draggedLead.id,
+          fromStageId,
+          toStageId,
+          prevStageChangedAt,
+        },
       })
       const idempotencyKey = generateIdempotencyKey(
         draggedLead.id,
@@ -206,7 +212,11 @@ export function PipelinePage() {
       } catch (err: unknown) {
         dispatch({
           type: 'MOVE_ROLLBACK',
-          payload: { leadId: draggedLead.id, fromStageId },
+          payload: {
+            leadId: draggedLead.id,
+            fromStageId,
+            prevStageChangedAt,
+          },
         })
         alert(err instanceof Error ? err.message : 'Error al mover el lead')
       } finally {
@@ -224,6 +234,7 @@ export function PipelinePage() {
     const lead = state.leads.find((l) => l.id === leadId)
     if (!lead) return
     const fromStageId = lead.stage_id
+    const prevStageChangedAt = lead.stage_changed_at ?? null
     if (fromStageId === toStageId) return
 
     const scrollY = window.scrollY
@@ -231,7 +242,12 @@ export function PipelinePage() {
 
     dispatch({
       type: 'MOVE_OPTIMISTIC',
-      payload: { leadId, toStageId },
+      payload: {
+        leadId,
+        fromStageId,
+        toStageId,
+        prevStageChangedAt,
+      },
     })
     const idempotencyKey = generateIdempotencyKey(leadId, fromStageId, toStageId)
     try {
@@ -241,7 +257,11 @@ export function PipelinePage() {
     } catch (err: unknown) {
       dispatch({
         type: 'MOVE_ROLLBACK',
-        payload: { leadId, fromStageId },
+        payload: {
+          leadId,
+          fromStageId,
+          prevStageChangedAt,
+        },
       })
       setPipelineToast(err instanceof Error ? err.message : 'Error al mover')
     } finally {

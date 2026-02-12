@@ -218,6 +218,7 @@ export function LeadDetailPage() {
         supabase
           .from('pipeline_stages')
           .select('id,name,slug,position')
+          .eq('is_active', true)
           .order('position', { ascending: true }),
         pipelineApi.getLeadStageHistory(id),
       ])

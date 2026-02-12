@@ -12,8 +12,23 @@ export type PipelineAction =
   | { type: 'LOAD_SUCCESS'; payload: { stages: PipelineStage[]; leads: Lead[] } }
   | { type: 'LOAD_ERROR'; payload: string }
   | { type: 'CREATE_LEAD'; payload: Lead }
-  | { type: 'MOVE_OPTIMISTIC'; payload: { leadId: string; toStageId: string } }
-  | { type: 'MOVE_ROLLBACK'; payload: { leadId: string; fromStageId: string } }
+  | {
+      type: 'MOVE_OPTIMISTIC'
+      payload: {
+        leadId: string
+        fromStageId: string
+        toStageId: string
+        prevStageChangedAt: string | null
+      }
+    }
+  | {
+      type: 'MOVE_ROLLBACK'
+      payload: {
+        leadId: string
+        fromStageId: string
+        prevStageChangedAt: string | null
+      }
+    }
   | { type: 'DELETE_LEAD'; payload: string }
 
 export function pipelineReducer(
@@ -60,18 +75,28 @@ export function pipelineReducer(
         ),
       }
 
-    case 'MOVE_ROLLBACK':
+    case 'MOVE_ROLLBACK': {
       return {
         ...state,
-        leads: state.leads.map((lead) =>
-          lead.id === action.payload.leadId
-            ? {
-                ...lead,
-                stage_id: action.payload.fromStageId,
-              }
-            : lead
-        ),
+        leads: state.leads.map((lead) => {
+          if (lead.id !== action.payload.leadId) return lead
+          const fromPayload = action.payload.prevStageChangedAt
+          const validFromPayload =
+            typeof fromPayload === 'string' && fromPayload.trim() !== ''
+          const validCurrent = lead.stage_changed_at?.trim() !== ''
+          const stage_changed_at = validFromPayload
+            ? (fromPayload as string)
+            : validCurrent
+              ? lead.stage_changed_at
+              : lead.created_at
+          return {
+            ...lead,
+            stage_id: action.payload.fromStageId,
+            stage_changed_at,
+          }
+        }),
       }
+    }
 
     case 'DELETE_LEAD':
       return {
