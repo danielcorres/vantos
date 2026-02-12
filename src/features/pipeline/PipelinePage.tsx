@@ -70,7 +70,9 @@ export function PipelinePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<ViewMode>(getStoredViewMode)
-  const [pipelineToast, setPipelineToast] = useState<string | null>(null)
+  const [pipelineToast, setPipelineToast] = useState<
+    string | { type: 'error' | 'success' | 'info'; message: string } | null
+  >(null)
   const [state, dispatch] = useReducer(pipelineReducer, initialState)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [createStageId, setCreateStageId] = useState<string | undefined>(undefined)
@@ -218,7 +220,10 @@ export function PipelinePage() {
             prevStageChangedAt,
           },
         })
-        alert(err instanceof Error ? err.message : 'Error al mover el lead')
+        setPipelineToast({
+          type: 'error',
+          message: 'No se pudo mover la etapa. Intenta nuevamente.',
+        })
       } finally {
         setDraggedLead(null)
       }
@@ -556,8 +561,8 @@ export function PipelinePage() {
 
       {pipelineToast && (
         <Toast
-          message={pipelineToast}
-          type="success"
+          message={typeof pipelineToast === 'string' ? pipelineToast : pipelineToast.message}
+          type={typeof pipelineToast === 'string' ? 'success' : pipelineToast.type}
           onClose={() => setPipelineToast(null)}
           durationMs={2200}
         />
