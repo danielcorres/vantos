@@ -34,6 +34,8 @@ export function LoginPage() {
   const [signupSuccess, setSignupSuccess] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false)
+  const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
   const navigate = useNavigate()
 
   // Si ya está autenticado en /login, redirigir a next o getHomePathForRole(role)
@@ -116,6 +118,27 @@ export function LoginPage() {
     setLastName('')
     setPassword('')
     setError(null)
+  }
+
+  const handleForgotPassword = async () => {
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail) {
+      setError('Ingresa tu correo para restablecer la contraseña.')
+      return
+    }
+    setError(null)
+    setForgotPasswordLoading(true)
+    setForgotPasswordSent(false)
+    try {
+      await supabase.auth.resetPasswordForEmail(trimmedEmail, {
+        redirectTo: `${window.location.origin}/auth/reset`,
+      })
+      setForgotPasswordSent(true)
+    } catch {
+      // No revelar si el correo existe
+    } finally {
+      setForgotPasswordLoading(false)
+    }
   }
 
   return (
@@ -262,6 +285,24 @@ export function LoginPage() {
             >
               {loading ? 'Cargando...' : isSignUp ? 'Crear acceso' : 'Iniciar sesión'}
             </button>
+
+              {!isSignUp && (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    disabled={loading || forgotPasswordLoading}
+                    className="w-full text-sm text-slate-400 hover:text-slate-200 hover:underline disabled:opacity-50 transition-colors"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                  {forgotPasswordSent && (
+                    <div className="p-3 bg-slate-800/60 border border-slate-700/60 rounded-md text-sm text-slate-200">
+                      Si existe una cuenta con ese correo, recibirás un enlace para restablecer tu contraseña.
+                    </div>
+                  )}
+                </>
+              )}
 
               <button
                 type="button"
