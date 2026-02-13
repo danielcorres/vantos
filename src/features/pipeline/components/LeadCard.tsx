@@ -3,6 +3,7 @@ import type { Lead, PipelineStage } from '../pipeline.api'
 import { MoveStageButton } from '../../../components/pipeline/MoveStageButton'
 import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
 import { isLikelyNeverMoved } from '../../../shared/utils/leadUtils'
+import { getLeadMainTag, getTagClass } from '../../../shared/utils/leadTags'
 import type { PipelineStageLite } from '../../../components/pipeline/LeadProgressDots'
 
 interface LeadCardProps {
@@ -17,9 +18,10 @@ interface LeadCardProps {
 const stagesToLite = (stages: PipelineStage[]): PipelineStageLite[] =>
   stages.map((s) => ({ id: s.id, name: s.name, position: s.position }))
 
-export function LeadCard({ lead, stages, stageName: _stageName, onDragStart, onMoveStage }: LeadCardProps) {
+export function LeadCard({ lead, stages, stageName, onDragStart, onMoveStage }: LeadCardProps) {
   const navigate = useNavigate()
   const stagesLite = stagesToLite(stages)
+  const mainTag = getLeadMainTag(lead, stageName)
 
   return (
     <div
@@ -56,8 +58,9 @@ export function LeadCard({ lead, stages, stageName: _stageName, onDragStart, onM
           </div>
         ) : null}
       </div>
-      {/* Debajo: tag fuente + badge Nuevo */}
+      {/* Debajo: mainTag + fuente + badge Nuevo (Kanban: no conditionTag) */}
       <div className="mt-2 flex flex-wrap items-center gap-2">
+        <span className={getTagClass(mainTag)}>{mainTag.label}</span>
         <LeadSourceTag source={lead.source} className="shrink-0" />
         {isLikelyNeverMoved(lead) && (
           <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">

@@ -2,6 +2,12 @@ import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
+import {
+  getLeadMainTag,
+  getLeadConditionTag,
+  getTagClass,
+  getRowBorderClassFromCondition,
+} from '../../shared/utils/leadTags'
 import type { PipelineStageLite } from './LeadProgressDots'
 import { LeadCardContent } from './LeadCardContent'
 import { LeadSourceTag } from './LeadSourceTag'
@@ -37,6 +43,9 @@ export function LeadCardMobile({
 
   const isCompact = variant === 'kanban' || variant === 'table'
   const paddingClass = isCompact ? 'px-3 py-2' : 'px-2.5 py-2'
+  const mainTag = getLeadMainTag(lead, stageName)
+  const conditionTag = variant === 'table' ? getLeadConditionTag(lead) : null
+  const conditionBorderClass = variant === 'table' ? getRowBorderClassFromCondition(lead) : ''
 
   const moveButtonBlock = onMoveStage && stages.length > 0 && (
     <div
@@ -66,7 +75,7 @@ export function LeadCardMobile({
           handleClick()
         }
       }}
-      className={`rounded-xl border border-neutral-200 bg-white shadow-sm active:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 ${paddingClass} ${
+      className={`rounded-xl border border-neutral-200 bg-white shadow-sm active:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 ${paddingClass} ${conditionBorderClass} ${
         isHighlight ? 'ring-2 ring-primary/40 bg-primary/5' : ''
       }`}
       style={getStageAccentStyle(stageName)}
@@ -79,6 +88,7 @@ export function LeadCardMobile({
             </span>
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <span className={getTagClass(mainTag)}>{mainTag.label}</span>
             <LeadSourceTag source={lead.source} className="shrink-0" />
             {isLikelyNeverMoved(lead) && (
               <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
@@ -96,6 +106,12 @@ export function LeadCardMobile({
             <span className="min-w-0 truncate font-medium text-neutral-900 text-sm">
               {lead.full_name}
             </span>
+          </div>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+            <span className={getTagClass(mainTag)}>{mainTag.label}</span>
+            {conditionTag && (
+              <span className={getTagClass(conditionTag)}>{conditionTag.label}</span>
+            )}
           </div>
           {moveButtonBlock}
         </>

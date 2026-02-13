@@ -2,6 +2,12 @@ import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
+import {
+  getLeadMainTag,
+  getLeadConditionTag,
+  getTagClass,
+  getRowBorderClassFromCondition,
+} from '../../shared/utils/leadTags'
 import { IconMail, IconPhone, IconUser } from '../../app/layout/icons'
 import { LeadContactLine } from './LeadContactLine'
 import { LeadProgressDots, type PipelineStageLite } from './LeadProgressDots'
@@ -39,6 +45,10 @@ export function LeadRowDesktop({
     onRowClick?.(lead)
   }
 
+  const mainTag = getLeadMainTag(lead, stageName)
+  const conditionTag = getLeadConditionTag(lead)
+  const rowBorderClass = getRowBorderClassFromCondition(lead)
+
   return (
     <tr
       role="button"
@@ -50,7 +60,7 @@ export function LeadRowDesktop({
           handleRowClick()
         }
       }}
-      className={`group select-none cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset focus-visible:outline-none ${
+      className={`group select-none cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset focus-visible:outline-none ${rowBorderClass} ${
         isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''
       }`}
       style={getStageAccentStyle(stageName)}
@@ -68,6 +78,12 @@ export function LeadRowDesktop({
                 <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
                   Nuevo
                 </span>
+              )}
+            </div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span className={getTagClass(mainTag)}>{mainTag.label}</span>
+              {conditionTag && (
+                <span className={getTagClass(conditionTag)}>{conditionTag.label}</span>
               )}
             </div>
           </div>

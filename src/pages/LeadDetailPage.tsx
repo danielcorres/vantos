@@ -24,6 +24,7 @@ type LeadData = {
   archived_by: string | null
   archive_reason: string | null
   referral_name: string | null
+  lead_condition: string | null
 }
 
 const TOAST_CLEAR_MS = 2800
@@ -211,7 +212,7 @@ export function LeadDetailPage() {
         supabase
           .from('leads')
           .select(
-            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name'
+            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition'
           )
           .eq('id', id)
           .single(),
@@ -888,6 +889,52 @@ export function LeadDetailPage() {
                       {displayStageName(stage.name)}
                     </option>
                   ))}
+                </select>
+              )}
+            </div>
+            {/* Condición (opcional) — solo explica por qué no avanza */}
+            <div className="mt-3">
+              <label htmlFor="lead_condition" className="block text-xs font-medium text-muted mb-1">
+                Condición (opcional)
+              </label>
+              <p className="text-[10px] text-muted mb-1">
+                No cambia la etapa; solo explica por qué no avanza.
+              </p>
+              {lead.archived_at ? (
+                <p className="text-sm text-muted py-1">—</p>
+              ) : (
+                <select
+                  id="lead_condition"
+                  value={lead.lead_condition ?? ''}
+                  onChange={async (e) => {
+                    const value = e.target.value
+                    const next = value === '' ? null : value
+                    if (!id) return
+                    setSaving(true)
+                    setError(null)
+                    try {
+                      await pipelineApi.updateLead(id, { lead_condition: next })
+                      await loadData()
+                      setToast({ kind: 'success', text: 'Condición actualizada' })
+                      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
+                    } catch (err) {
+                      const msg = err instanceof Error ? err.message : 'Error al guardar'
+                      setError(msg)
+                      setToast({ kind: 'error', text: msg })
+                      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
+                    } finally {
+                      setSaving(false)
+                    }
+                  }}
+                  disabled={saving}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm"
+                >
+                  <option value="">Ninguna</option>
+                  <option value="waiting_client">Esperando cliente</option>
+                  <option value="docs_pending">Pendiente docs</option>
+                  <option value="paused">En pausa</option>
+                  <option value="budget">Sin presupuesto</option>
+                  <option value="unreachable">No localizable</option>
                 </select>
               )}
             </div>

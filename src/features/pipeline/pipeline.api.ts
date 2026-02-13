@@ -44,6 +44,12 @@ export type Lead = {
   propuesta_presentada_at: string | null
   cerrado_at: string | null
   referral_name: string | null
+  lead_condition: string | null
+  last_contact_outcome: string | null
+  quote_status: string | null
+  close_outcome: string | null
+  requirements_status: string | null
+  application_status: string | null
 }
 
 export type CreateLeadInput = {
@@ -138,6 +144,7 @@ export const pipelineApi = {
     propuesta_presentada_at?: string | null
     cerrado_at?: string | null
     referral_name?: string | null
+    lead_condition?: string | null
   }): Promise<Lead> {
     const { data, error } = await supabase
       .from('leads')

@@ -65,6 +65,28 @@ export const insightsApi = {
   },
 
   /**
+   * Conteos por condición del lead (activos no archivados).
+   */
+  async getConditionCounts(): Promise<{ withCondition: number; negative: number }> {
+    const [withRes, negRes] = await Promise.all([
+      supabase
+        .from('leads')
+        .select('id', { count: 'exact', head: true })
+        .is('archived_at', null)
+        .not('lead_condition', 'is', null),
+      supabase
+        .from('leads')
+        .select('id', { count: 'exact', head: true })
+        .is('archived_at', null)
+        .in('lead_condition', ['budget', 'unreachable']),
+    ])
+    return {
+      withCondition: withRes.count ?? 0,
+      negative: negRes.count ?? 0,
+    }
+  },
+
+  /**
    * KPI: días desde última cita Cierre (completed) hasta ganado.
    * Filtro opcional por rango de won_at (ISO).
    */

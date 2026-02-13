@@ -3,10 +3,11 @@ import type { PipelineKpisToday, CloseToWonKpi } from '../insights.types'
 interface KpiCardsProps {
   kpis: PipelineKpisToday | null
   closeToWon: CloseToWonKpi | null
+  conditionCounts: { withCondition: number; negative: number } | null
   loading: boolean
 }
 
-export function KpiCards({ kpis, closeToWon, loading }: KpiCardsProps) {
+export function KpiCards({ kpis, closeToWon, conditionCounts, loading }: KpiCardsProps) {
   if (loading) {
     return (
       <div className="row" style={{ gap: '16px', marginBottom: '24px', flexWrap: 'wrap' }}>
@@ -16,6 +17,14 @@ export function KpiCards({ kpis, closeToWon, loading }: KpiCardsProps) {
         </div>
         <div className="card" style={{ flex: 1, minWidth: '140px' }}>
           <div className="muted" style={{ marginBottom: '8px' }}>Leads creados hoy</div>
+          <div style={{ height: '32px', background: 'var(--bg)', borderRadius: '8px' }} />
+        </div>
+        <div className="card" style={{ flex: 1, minWidth: '140px' }}>
+          <div className="muted" style={{ marginBottom: '8px' }}>Con condición</div>
+          <div style={{ height: '32px', background: 'var(--bg)', borderRadius: '8px' }} />
+        </div>
+        <div className="card" style={{ flex: 1, minWidth: '140px' }}>
+          <div className="muted" style={{ marginBottom: '8px' }}>Negativos</div>
           <div style={{ height: '32px', background: 'var(--bg)', borderRadius: '8px' }} />
         </div>
         <div className="card" style={{ flex: 1, minWidth: '140px' }}>
@@ -41,6 +50,20 @@ export function KpiCards({ kpis, closeToWon, loading }: KpiCardsProps) {
       <div className="card" style={{ flex: 1, minWidth: '140px' }}>
         <div className="muted" style={{ marginBottom: '8px' }}>Leads creados hoy</div>
         <div className="kpi">{kpis?.leads_created_today ?? 0}</div>
+      </div>
+      <div className="card" style={{ flex: 1, minWidth: '140px' }}>
+        <div className="muted" style={{ marginBottom: '8px' }}>Con condición</div>
+        <div className="kpi">{conditionCounts?.withCondition ?? 0}</div>
+        <div className="muted" style={{ fontSize: '11px', marginTop: '4px' }}>
+          lead_condition no nulo
+        </div>
+      </div>
+      <div className="card" style={{ flex: 1, minWidth: '140px' }}>
+        <div className="muted" style={{ marginBottom: '8px' }}>Negativos</div>
+        <div className="kpi">{conditionCounts?.negative ?? 0}</div>
+        <div className="muted" style={{ fontSize: '11px', marginTop: '4px' }}>
+          Sin presupuesto / No localizable
+        </div>
       </div>
       <div className="card" style={{ flex: 1, minWidth: '140px' }}>
         <div className="muted" style={{ marginBottom: '8px' }}>Días de cierre a ganado</div>

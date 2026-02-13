@@ -20,6 +20,7 @@ interface PipelineInsightsPageProps {
 export function PipelineInsightsPage({ onViewInKanban }: PipelineInsightsPageProps) {
   const [kpis, setKpis] = useState<PipelineKpisToday | null>(null)
   const [closeToWon, setCloseToWon] = useState<CloseToWonKpi | null>(null)
+  const [conditionCounts, setConditionCounts] = useState<{ withCondition: number; negative: number } | null>(null)
   const [funnel, setFunnel] = useState<PipelineFunnelRow[]>([])
   const [duration, setDuration] = useState<PipelineDurationRow[]>([])
   const [transitions, setTransitions] = useState<PipelineTransitionRow[]>([])
@@ -30,15 +31,17 @@ export function PipelineInsightsPage({ onViewInKanban }: PipelineInsightsPagePro
     setLoading(true)
     setError(null)
     try {
-      const [kpisData, closeToWonData, funnelData, durationData, transitionsData] = await Promise.all([
+      const [kpisData, closeToWonData, conditionData, funnelData, durationData, transitionsData] = await Promise.all([
         insightsApi.getKpisToday(),
         insightsApi.getCloseToWonKpi().catch(() => ({ avgDays: null, count: 0, rows: [] })),
+        insightsApi.getConditionCounts().catch(() => ({ withCondition: 0, negative: 0 })),
         insightsApi.getFunnelCurrent(),
         insightsApi.getDurationStats30d(),
         insightsApi.getTransitions30d(),
       ])
       setKpis(kpisData)
       setCloseToWon(closeToWonData)
+      setConditionCounts(conditionData)
       setFunnel(funnelData)
       setDuration(durationData)
       setTransitions(transitionsData)
@@ -72,7 +75,7 @@ export function PipelineInsightsPage({ onViewInKanban }: PipelineInsightsPagePro
         </div>
       )}
 
-      <KpiCards kpis={kpis} closeToWon={closeToWon} loading={loading} />
+      <KpiCards kpis={kpis} closeToWon={closeToWon} conditionCounts={conditionCounts} loading={loading} />
       <FunnelList funnel={funnel} loading={loading} />
       <DurationTable duration={duration} loading={loading} />
       <StuckLeadsPanel onViewInKanban={handleViewInKanban} />
