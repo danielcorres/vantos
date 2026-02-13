@@ -1,4 +1,6 @@
 import type { Lead } from '../../features/pipeline/pipeline.api'
+import { timeAgo } from '../../shared/utils/timeAgo'
+import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
 import { IconMail, IconPhone, IconUser } from '../../app/layout/icons'
 import { LeadContactLine } from './LeadContactLine'
 import { LeadProgressDots, type PipelineStageLite } from './LeadProgressDots'
@@ -34,7 +36,19 @@ export function LeadCardContent({
         <span className="flex h-7 w-7 sm:h-8 sm:w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 shrink-0">
           <IconUser className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </span>
-        <div className="min-w-0 font-medium text-neutral-900 truncate text-xs sm:text-sm">{lead.full_name}</div>
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="truncate font-medium text-neutral-900 text-xs sm:text-sm">{lead.full_name}</span>
+            {isLikelyNeverMoved(lead) && (
+              <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1 py-0.5 rounded">
+                Nuevo
+              </span>
+            )}
+          </div>
+          <div className="text-[10px] sm:text-xs text-neutral-500 mt-0.5">
+            Lead: {timeAgo(lead.created_at)} · Etapa: {timeAgo(lead.stage_changed_at ?? lead.created_at)}
+          </div>
+        </div>
       </div>
 
       {/* Tel / email — menos espacio en móvil */}

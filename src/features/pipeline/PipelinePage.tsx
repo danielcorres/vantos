@@ -45,6 +45,8 @@ function formatWeekRangeLabel(weekStartYmd: string): string {
 const STORAGE_KEY_VIEW = 'pipeline:viewMode'
 type ViewMode = 'table' | 'kanban' | 'insights'
 
+type PipelineToast = { type: 'error' | 'success' | 'info'; message: string } | null
+
 function getStoredViewMode(): ViewMode {
   try {
     const v = localStorage.getItem(STORAGE_KEY_VIEW)
@@ -70,9 +72,7 @@ export function PipelinePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<ViewMode>(getStoredViewMode)
-  const [pipelineToast, setPipelineToast] = useState<
-    string | { type: 'error' | 'success' | 'info'; message: string } | null
-  >(null)
+  const [pipelineToast, setPipelineToast] = useState<PipelineToast>(null)
   const [state, dispatch] = useReducer(pipelineReducer, initialState)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [createStageId, setCreateStageId] = useState<string | undefined>(undefined)
@@ -258,7 +258,10 @@ export function PipelinePage() {
     try {
       await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
       await loadData()
-      setPipelineToast(stageName ? `Movido a ${stageName}` : 'Etapa actualizada')
+      setPipelineToast({
+        type: 'success',
+        message: stageName ? `Movido a ${stageName}` : 'Etapa actualizada',
+      })
     } catch (err: unknown) {
       dispatch({
         type: 'MOVE_ROLLBACK',
@@ -268,7 +271,10 @@ export function PipelinePage() {
           prevStageChangedAt,
         },
       })
-      setPipelineToast(err instanceof Error ? err.message : 'Error al mover')
+      setPipelineToast({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Error al mover',
+      })
     } finally {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -434,7 +440,9 @@ export function PipelinePage() {
           <button
             type="button"
             onClick={() => {
-              void navigator.clipboard.writeText(window.location.href).then(() => setPipelineToast('Link copiado'))
+              void navigator.clipboard.writeText(window.location.href).then(() =>
+                setPipelineToast({ type: 'success', message: 'Link copiado' })
+              )
             }}
             className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-black/5 dark:hover:bg-white/10 px-2 py-1 rounded transition-colors"
             title="Copiar link"
@@ -497,7 +505,7 @@ export function PipelinePage() {
           weeklyLoadError={weeklyMode ? weeklyLoadError : null}
           onClearWeekly={clearWeeklyMode}
           onVisibleCountChange={setTableVisibleCount}
-          onToast={setPipelineToast}
+          onToast={(msg) => setPipelineToast({ type: 'success', message: msg })}
         />
       )}
 
@@ -526,7 +534,7 @@ export function PipelinePage() {
             onDrop={handleDrop}
             onMoveStage={handleMoveStage}
             onCreateLead={handleCreateLeadFromStage}
-            onToast={setPipelineToast}
+            onToast={(msg) => setPipelineToast({ type: 'success', message: msg })}
           />
         </div>
       )}
@@ -561,8 +569,8 @@ export function PipelinePage() {
 
       {pipelineToast && (
         <Toast
-          message={typeof pipelineToast === 'string' ? pipelineToast : pipelineToast.message}
-          type={typeof pipelineToast === 'string' ? 'success' : pipelineToast.type}
+          message={pipelineToast.message}
+          type={pipelineToast.type}
           onClose={() => setPipelineToast(null)}
           durationMs={2200}
         />

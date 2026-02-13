@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
+import { timeAgo } from '../../shared/utils/timeAgo'
+import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
 import { IconMail, IconPhone, IconUser } from '../../app/layout/icons'
 import { LeadContactLine } from './LeadContactLine'
 import { LeadProgressDots, type PipelineStageLite } from './LeadProgressDots'
@@ -60,7 +62,19 @@ export function LeadRowDesktop({
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 shrink-0">
             <IconUser className="w-4 h-4" />
           </span>
-          <span className="min-w-0 truncate font-medium text-neutral-900">{lead.full_name}</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="truncate font-medium text-neutral-900">{lead.full_name}</span>
+              {isLikelyNeverMoved(lead) && (
+                <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                  Nuevo
+                </span>
+              )}
+            </div>
+            <div className="text-xs text-neutral-500 mt-0.5">
+              Lead: {timeAgo(lead.created_at)} · Etapa: {timeAgo(lead.stage_changed_at ?? lead.created_at)}
+            </div>
+          </div>
         </div>
       </td>
 
