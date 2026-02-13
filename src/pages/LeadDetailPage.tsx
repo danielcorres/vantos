@@ -963,7 +963,13 @@ export function LeadDetailPage() {
                 value: string
               ) => {
                 if (!id) return
-                const normalized = value === '' ? 'none' : value
+                const isSolicitudesField = field === 'requirements_status' || field === 'application_status'
+                const normalized =
+                  isSolicitudesField && (value === '' || value === 'none')
+                    ? null
+                    : value === ''
+                      ? 'none'
+                      : value
                 setSaving(true)
                 setError(null)
                 try {

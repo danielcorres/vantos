@@ -82,8 +82,10 @@ export function getLeadMainTag(
   }
 
   if (stage === STAGE_SOLICITUDES) {
-    const ra = norm(lead.requirements_status)
-    const app = norm(lead.application_status)
+    const raRaw = norm(lead.requirements_status)
+    const appRaw = norm(lead.application_status)
+    const ra = raRaw === 'none' ? '' : raRaw
+    const app = appRaw === 'none' ? '' : appRaw
     if (ra === 'ra') return { label: 'En RA', tone: 'orange', kind: 'main' }
     if (app === 'signed') return { label: 'Firmado', tone: 'emerald', kind: 'main' }
     if (app === 'submitted') return { label: 'Falta firma', tone: 'amber', kind: 'main' }
