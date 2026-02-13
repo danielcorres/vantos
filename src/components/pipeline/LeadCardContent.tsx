@@ -1,5 +1,4 @@
 import type { Lead } from '../../features/pipeline/pipeline.api'
-import { timeAgo } from '../../shared/utils/timeAgo'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
 import { IconMail, IconPhone, IconUser } from '../../app/layout/icons'
 import { LeadContactLine } from './LeadContactLine'
@@ -44,9 +43,6 @@ export function LeadCardContent({
                 Nuevo
               </span>
             )}
-          </div>
-          <div className="text-[10px] sm:text-xs text-neutral-500 mt-0.5">
-            Lead: {timeAgo(lead.created_at)} · Etapa: {timeAgo(lead.stage_changed_at ?? lead.created_at)}
           </div>
         </div>
       </div>

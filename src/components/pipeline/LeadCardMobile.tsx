@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
-import { timeAgo } from '../../shared/utils/timeAgo'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
 import type { PipelineStageLite } from './LeadProgressDots'
 import { LeadCardContent } from './LeadCardContent'
@@ -97,9 +96,6 @@ export function LeadCardMobile({
             <span className="min-w-0 truncate font-medium text-neutral-900 text-sm">
               {lead.full_name}
             </span>
-          </div>
-          <div className="text-xs text-neutral-500 mt-0.5">
-            Etapa: {timeAgo(lead.stage_changed_at ?? lead.created_at)}
           </div>
           {moveButtonBlock}
         </>

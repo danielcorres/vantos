@@ -1,7 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
-import { timeAgo } from '../../shared/utils/timeAgo'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
 import { IconMail, IconPhone, IconUser } from '../../app/layout/icons'
 import { LeadContactLine } from './LeadContactLine'
@@ -70,9 +69,6 @@ export function LeadRowDesktop({
                   Nuevo
                 </span>
               )}
-            </div>
-            <div className="text-xs text-neutral-500 mt-0.5">
-              Lead: {timeAgo(lead.created_at)} · Etapa: {timeAgo(lead.stage_changed_at ?? lead.created_at)}
             </div>
           </div>
         </div>
