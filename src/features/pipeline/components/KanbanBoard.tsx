@@ -125,6 +125,7 @@ export function KanbanBoard({
                   stageName={mobileStageName}
                   onMoveStage={onMoveStage}
                   onToast={onToast}
+                  variant="kanban"
                 />
               ))}
             </div>

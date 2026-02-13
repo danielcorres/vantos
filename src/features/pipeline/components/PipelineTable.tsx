@@ -146,6 +146,7 @@ export function PipelineTable({
                             onRowClick={onRowClick}
                             onMoveStage={onMoveStage}
                             onToast={onToast}
+                            variant="table"
                           />
                         )
                       })
@@ -165,6 +166,7 @@ export function PipelineTable({
               onRowClick={onRowClick}
               onMoveStage={onMoveStage}
               onToast={onToast}
+              variant="table"
             />
           ))}
     </div>
