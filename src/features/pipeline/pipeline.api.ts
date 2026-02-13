@@ -1,5 +1,8 @@
 import { supabase } from '../../lib/supabaseClient'
 
+const LEAD_SELECT_COLUMNS =
+  'id,owner_user_id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason,referral_name,cita_realizada_at,propuesta_presentada_at,cerrado_at,lead_condition,last_contact_outcome,quote_status,close_outcome,requirements_status,application_status'
+
 function normalizeLead(row: Record<string, unknown>): Lead {
   return {
     ...row,
@@ -93,7 +96,7 @@ export const pipelineApi = {
     if (mode === 'activos') {
       const { data, error } = await supabase
         .from('leads')
-        .select('*')
+        .select(LEAD_SELECT_COLUMNS)
         .order('created_at', { ascending: false })
         .is('archived_at', null)
       if (error) throw error
@@ -102,7 +105,7 @@ export const pipelineApi = {
 
     const { data, error } = await supabase
       .from('leads')
-      .select('*')
+      .select(LEAD_SELECT_COLUMNS)
       .order('created_at', { ascending: false })
       .not('archived_at', 'is', null)
     if (error) throw error
@@ -121,7 +124,7 @@ export const pipelineApi = {
         stage_id: input.stage_id,
         next_follow_up_at: input.next_follow_up_at || null,
       })
-      .select()
+      .select(LEAD_SELECT_COLUMNS)
       .single()
 
     if (error) throw error
@@ -145,12 +148,17 @@ export const pipelineApi = {
     cerrado_at?: string | null
     referral_name?: string | null
     lead_condition?: string | null
+    last_contact_outcome?: string | null
+    quote_status?: string | null
+    close_outcome?: string | null
+    requirements_status?: string | null
+    application_status?: string | null
   }): Promise<Lead> {
     const { data, error } = await supabase
       .from('leads')
       .update(updates)
       .eq('id', leadId)
-      .select()
+      .select(LEAD_SELECT_COLUMNS)
       .single()
 
     if (error) throw error
