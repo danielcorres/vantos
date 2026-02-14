@@ -26,6 +26,7 @@ type PipelineTableProps = {
   onRowClick: (lead: Lead) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
   onToast?: (message: string) => void
+  onUpdated?: () => void | Promise<void>
 }
 
 const TH_BASE = 'px-4 py-3 text-left text-xs font-medium text-neutral-500'
@@ -35,9 +36,9 @@ function HeaderRow() {
     <tr>
       <th className={TH_BASE}>Nombre</th>
       <th className={TH_BASE}>Teléfono</th>
-      <th className={TH_BASE}>Email</th>
-      <th className={TH_BASE}>Progreso</th>
-      <th className={TH_BASE}>Fuente</th>
+      <th className={`${TH_BASE} hidden xl:table-cell`}>Email</th>
+      <th className={`${TH_BASE} hidden lg:table-cell`}>Progreso</th>
+      <th className={TH_BASE}>Estado</th>
       <th className={`${TH_BASE} text-right`}>Acción</th>
     </tr>
   )
@@ -56,6 +57,7 @@ export function PipelineTable({
   onRowClick,
   onMoveStage,
   onToast,
+  onUpdated,
 }: PipelineTableProps) {
   const showGrouped = groupByStage && groupedSections.length > 0
   const prefersReducedMotion = useReducedMotion()
@@ -249,6 +251,7 @@ export function PipelineTable({
                                 onRowClick={onRowClick}
                                 onMoveStage={onMoveStage}
                                 onToast={onToast}
+                                onUpdated={onUpdated}
                               />
                             )
                           })
@@ -267,6 +270,7 @@ export function PipelineTable({
                     onRowClick={onRowClick}
                     onMoveStage={onMoveStage}
                     onToast={onToast}
+                    onUpdated={onUpdated}
                   />
                 ))}
           </tbody>

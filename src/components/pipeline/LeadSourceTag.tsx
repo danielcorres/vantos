@@ -20,18 +20,18 @@ export function LeadSourceTag({
 }) {
   const label = normalizeLeadSource(source)
   if (label === '—') {
-    return <span className={`text-sm text-neutral-400 ${className}`}>—</span>
+    return <span className={`text-xs text-neutral-400 ${className}`}>—</span>
   }
 
-  const base = 'inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1'
+  const base = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1'
   const styles =
     label === 'Referido'
-      ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+      ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
       : label === 'Mercado Natural'
-        ? 'bg-amber-50 text-amber-800 ring-amber-200'
+        ? 'bg-amber-50 text-amber-800 ring-amber-100'
         : label === 'Frío'
-          ? 'bg-sky-50 text-sky-700 ring-sky-200'
-          : 'bg-neutral-100 text-neutral-700 ring-neutral-200'
+          ? 'bg-sky-50 text-sky-700 ring-sky-100'
+          : 'bg-neutral-100 text-neutral-700 ring-neutral-100'
 
   return <span className={`${base} ${styles} ${className}`}>{label}</span>
 }

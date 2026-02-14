@@ -13,6 +13,7 @@ import { LeadContactLine } from './LeadContactLine'
 import { LeadProgressDots, type PipelineStageLite } from './LeadProgressDots'
 import { LeadSourceTag } from './LeadSourceTag'
 import { MoveStageButton } from './MoveStageButton'
+import { LeadQuickActions } from './LeadQuickActions'
 
 export function LeadRowDesktop({
   lead,
@@ -22,6 +23,7 @@ export function LeadRowDesktop({
   onRowClick,
   onMoveStage,
   onToast,
+  onUpdated,
 }: {
   lead: Lead
   stages: PipelineStageLite[]
@@ -30,6 +32,7 @@ export function LeadRowDesktop({
   onRowClick?: (lead: Lead) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
   onToast?: (message: string) => void
+  onUpdated?: () => void | Promise<void>
 }) {
   const navigate = useNavigate()
 
@@ -65,8 +68,8 @@ export function LeadRowDesktop({
       }`}
       style={getStageAccentStyle(stageName)}
     >
-      {/* Nombre */}
-      <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60">
+      {/* Nombre: nombre + fuente debajo + badge Nuevo — min-w-0 + truncate para prioridad sin widths fijos */}
+      <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 min-w-0">
         <div className="flex items-center gap-3 min-w-0">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 shrink-0">
             <IconUser className="w-4 h-4" />
@@ -80,11 +83,8 @@ export function LeadRowDesktop({
                 </span>
               )}
             </div>
-            <div className="mt-1 flex flex-wrap items-center gap-1.5">
-              <span className={getTagClass(mainTag)}>{mainTag.label}</span>
-              {conditionTag && (
-                <span className={getTagClass(conditionTag)}>{conditionTag.label}</span>
-              )}
+            <div className="mt-1">
+              <LeadSourceTag source={lead.source} />
             </div>
           </div>
         </div>
@@ -101,8 +101,8 @@ export function LeadRowDesktop({
         />
       </td>
 
-      {/* Email */}
-      <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 max-w-[320px]">
+      {/* Email — oculto en desktop angosto para priorizar nombre */}
+      <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 max-w-[320px] hidden xl:table-cell">
         <LeadContactLine
           icon={<IconMail className="w-4 h-4 text-neutral-500" />}
           value={email}
@@ -112,14 +112,25 @@ export function LeadRowDesktop({
         />
       </td>
 
-      {/* Progreso */}
-      <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60">
+      {/* Progreso — oculto en desktop angosto (lg) para priorizar nombre */}
+      <td className="hidden lg:table-cell px-4 py-3 align-middle border-b border-dashed border-neutral-200/60">
         <LeadProgressDots stages={stages} currentStageId={lead.stage_id} />
       </td>
 
-      {/* Fuente */}
+      {/* Estado: tag principal arriba, condición abajo + Quick Actions */}
       <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60">
-        <LeadSourceTag source={lead.source} />
+        <div className="flex flex-col gap-1">
+          <span className={getTagClass(mainTag)}>{mainTag.label}</span>
+          {conditionTag && (
+            <span className={getTagClass(conditionTag)}>{conditionTag.label}</span>
+          )}
+          <LeadQuickActions
+            lead={lead}
+            stageName={stageName}
+            onUpdated={onUpdated}
+            onToast={onToast}
+          />
+        </div>
       </td>
 
       {/* Acción */}

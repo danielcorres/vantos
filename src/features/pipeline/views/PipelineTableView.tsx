@@ -461,6 +461,7 @@ export function PipelineTableView({
               onRowClick={(l) => navigate(`/leads/${l.id}`)}
               onMoveStage={handleMoveStage}
               onToast={onToast ?? ((msg) => setToast({ type: 'success', message: msg }))}
+              onUpdated={loadData}
             />
         </div>
       )}
