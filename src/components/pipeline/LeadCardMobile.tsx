@@ -1,17 +1,15 @@
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
+import { pipelineApi } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
-import {
-  getLeadConditionTag,
-  getTagClass,
-  getRowBorderClassFromCondition,
-} from '../../shared/utils/leadTags'
+import { getRowBorderClassFromCondition } from '../../shared/utils/leadTags'
 import type { PipelineStageLite } from './LeadProgressDots'
 import { LeadCardContent } from './LeadCardContent'
 import { LeadSourceTag } from './LeadSourceTag'
 import { MoveStageButton } from './MoveStageButton'
-import { getNextActionLabel } from '../../shared/utils/nextAction'
+import { NextActionActions } from './NextActionActions'
+import { SituationChip } from './SituationChip'
 
 export type LeadCardMobileVariant = 'default' | 'kanban' | 'table'
 
@@ -23,6 +21,7 @@ export function LeadCardMobile({
   onRowClick,
   onMoveStage,
   onToast,
+  onUpdated,
   variant = 'default',
 }: {
   lead: Lead
@@ -32,18 +31,21 @@ export function LeadCardMobile({
   onRowClick?: (lead: Lead) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
   onToast?: (message: string) => void
+  onUpdated?: () => void | Promise<void>
   variant?: LeadCardMobileVariant
 }) {
   const navigate = useNavigate()
 
-  const handleClick = () => {
+  const handleClick = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e && (e.target as HTMLElement).closest('[data-stop-rowclick="true"]')) return
+    navigate(`/leads/${lead.id}`)
+    onRowClick?.(lead)
     navigate(`/leads/${lead.id}`)
     onRowClick?.(lead)
   }
 
   const isCompact = variant === 'kanban' || variant === 'table'
   const paddingClass = isCompact ? 'px-3 py-2' : 'px-2.5 py-2'
-  const conditionTag = variant === 'table' ? getLeadConditionTag(lead) : null
   const conditionBorderClass = variant === 'table' ? getRowBorderClassFromCondition(lead) : ''
 
   const moveButtonBlock = onMoveStage && stages.length > 0 && (
@@ -67,11 +69,11 @@ export function LeadCardMobile({
     <div
       role="button"
       tabIndex={0}
-      onClick={handleClick}
+      onClick={(e) => handleClick(e)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          handleClick()
+          handleClick(e)
         }
       }}
       className={`rounded-xl border border-neutral-200 bg-white shadow-sm active:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 ${paddingClass} ${conditionBorderClass} ${
@@ -93,6 +95,21 @@ export function LeadCardMobile({
                 Nuevo
               </span>
             )}
+            <NextActionActions
+              leadId={lead.id}
+              nextActionAt={lead.next_action_at}
+              nextActionType={lead.next_action_type}
+              onUpdated={onUpdated}
+              onToast={onToast}
+            />
+            <SituationChip
+              value={lead.lead_condition}
+              onPick={async (v) => {
+                await pipelineApi.updateLead(lead.id, { lead_condition: v })
+                await onUpdated?.()
+              }}
+              onToast={onToast}
+            />
           </div>
           {moveButtonBlock}
         </>
@@ -105,13 +122,22 @@ export function LeadCardMobile({
               {lead.full_name}
             </span>
           </div>
-          <div className="text-xs text-neutral-500 mt-1">
-            Siguiente: {getNextActionLabel(lead.next_action_at)}
-          </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            {conditionTag && (
-              <span className={getTagClass(conditionTag)}>{conditionTag.label}</span>
-            )}
+            <NextActionActions
+              leadId={lead.id}
+              nextActionAt={lead.next_action_at}
+              nextActionType={lead.next_action_type}
+              onUpdated={onUpdated}
+              onToast={onToast}
+            />
+            <SituationChip
+              value={lead.lead_condition}
+              onPick={async (v) => {
+                await pipelineApi.updateLead(lead.id, { lead_condition: v })
+                await onUpdated?.()
+              }}
+              onToast={onToast}
+            />
           </div>
           {moveButtonBlock}
         </>

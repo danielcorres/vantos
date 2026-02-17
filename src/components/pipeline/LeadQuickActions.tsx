@@ -32,6 +32,14 @@ function normVal(s: string | null | undefined): string {
   return v === '' || v === 'none' ? 'none' : v
 }
 
+/** Tipo para completar: contact | meeting. null si no aplica. */
+function getCompletionActionType(t: string | null | undefined): 'contact' | 'meeting' | null {
+  const v = (t ?? '').trim().toLowerCase()
+  if (v === 'contact' || v === 'call' || v === 'follow_up') return 'contact'
+  if (v === 'meeting' || v === 'presentation') return 'meeting'
+  return null
+}
+
 function isSelected(lead: Lead, field: FieldKey, value: string | null): boolean {
   switch (field) {
     case 'last_contact_outcome':
@@ -78,6 +86,8 @@ export function LeadQuickActions({
   const [openUp, setOpenUp] = useState(false)
   const [saving, setSaving] = useState(false)
   const [openNextAction, setOpenNextAction] = useState(false)
+  const [nextActionModalAfterComplete, setNextActionModalAfterComplete] = useState(false)
+  const [completingNextAction, setCompletingNextAction] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -174,11 +184,38 @@ export function LeadQuickActions({
             Próxima acción
           </div>
           <div className="py-0.5">
+            {lead.next_action_at && getCompletionActionType(lead.next_action_type) != null && (
+              <button
+                type="button"
+                role="menuitem"
+                onClick={async () => {
+                  const actionType = getCompletionActionType(lead.next_action_type)
+                  if (!actionType || completingNextAction || saving) return
+                  setCompletingNextAction(true)
+                  try {
+                    await pipelineApi.logNextActionCompletion(lead.id, actionType)
+                    onToast?.('Listo. Define el siguiente paso.')
+                    setOpen(false)
+                    setNextActionModalAfterComplete(true)
+                    setOpenNextAction(true)
+                  } catch {
+                    onToast?.('No se pudo registrar')
+                  } finally {
+                    setCompletingNextAction(false)
+                  }
+                }}
+                disabled={saving || completingNextAction}
+                className="w-full text-left px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
+              >
+                Hecho
+              </button>
+            )}
             <button
               type="button"
               role="menuitem"
               onClick={() => {
                 setOpen(false)
+                setNextActionModalAfterComplete(false)
                 setOpenNextAction(true)
               }}
               disabled={saving}
@@ -364,7 +401,10 @@ export function LeadQuickActions({
 
       <NextActionModal
         isOpen={openNextAction}
-        onClose={() => setOpenNextAction(false)}
+        onClose={() => {
+          setOpenNextAction(false)
+          setNextActionModalAfterComplete(false)
+        }}
         onSave={async (next_action_at, next_action_type) => {
           const normalizedType =
             next_action_type && next_action_type.trim() !== ''
@@ -372,10 +412,11 @@ export function LeadQuickActions({
               : null
           await handleSave({ next_action_at, next_action_type: normalizedType })
           setOpenNextAction(false)
+          setNextActionModalAfterComplete(false)
         }}
-        title="Editar próxima acción"
-        initialNextActionAt={lead.next_action_at}
-        initialNextActionType={lead.next_action_type}
+        title={nextActionModalAfterComplete ? 'Define el siguiente paso' : 'Editar próxima acción'}
+        initialNextActionAt={nextActionModalAfterComplete ? undefined : lead.next_action_at}
+        initialNextActionType={nextActionModalAfterComplete ? undefined : lead.next_action_type}
       />
     </div>
   )

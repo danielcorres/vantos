@@ -68,6 +68,24 @@ Flujo de creación de lead, weeklyMode, conectividad Productividad ↔ Pipeline 
 
 ---
 
+## FASE 5b — Próximo paso (NextActionChip + NextActionModal + Marcar como hecho)
+
+- [ ] **Tipos simplificados:** Modal muestra solo 2 opciones: Contactar (📞) y Reunión (🗓️). Default: Contactar.
+- [ ] **Tabla:** Chip con tipo + fecha (ej. "📞 Contactar · Mañana 6:06 pm") inline con Fuente; NO texto "Siguiente:" debajo.
+- [ ] **Tabla:** Clic en chip abre modal y NO navega.
+- [ ] **Kanban:** Chip con tipo + fecha visible en card; clic en chip abre modal y NO abre detalle del lead.
+- [ ] **Guardar:** Tras guardar en modal, el chip se actualiza (tipo/fecha) tras loadData.
+- [ ] **Definir próximo paso:** Si next_action_at es null, chip muestra "Definir próximo paso" y sigue siendo clicable.
+- [ ] **Modal — Fecha inválida:** Intentar guardar con fecha inválida muestra error en el modal y no cierra.
+- [ ] **Filtros:** Labels "Se me pasó", "Hoy", "Esta semana", "Más adelante" (query param `?na=` igual: overdue|today|week|later).
+- [ ] **Marcar como hecho:** En menú "Actualizar ▾" (tabla y Kanban) existe "Marcar como hecho" cuando next_action_type es contact o meeting.
+- [ ] **Al marcar:** Si contact → incrementa contacts_made; si meeting → incrementa meetings_done. Toast "Listo. Define el siguiente paso.", se abre modal para elegir siguiente next_action_at.
+- [ ] **Error RPC:** Si falla el registro, toast "No se pudo registrar" y NO se abre modal.
+- [ ] **Métricas:** Verificar en OKR/Daily Log que contacts_made y meetings_done se muestran tras completar pasos.
+- [ ] **TZ Monterrey:** Fechas y buckets de filtros usan America/Monterrey consistentemente.
+
+---
+
 ## FASE 6 — Performance (code-splitting)
 
 - [ ] **Lazy loading:** CalendarPage, ProductivityPage, PipelinePage y LeadDetailPage cargan bajo demanda (Suspense + fallback skeleton).

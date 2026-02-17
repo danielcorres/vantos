@@ -406,10 +406,10 @@ export function PipelinePage() {
       <div className="flex flex-wrap items-center gap-2">
         {(
           [
-            { key: 'overdue' as const, label: 'Contactar hoy mismo', emoji: '🔴' },
-            { key: 'today' as const, label: 'Hablar hoy', emoji: '🟡' },
-            { key: 'week' as const, label: 'Hablar esta semana', emoji: '🟢' },
-            { key: 'later' as const, label: 'Seguimiento después', emoji: '⚪' },
+            { key: 'overdue' as const, label: 'Se me pasó', emoji: '🔴' },
+            { key: 'today' as const, label: 'Hoy', emoji: '🟡' },
+            { key: 'week' as const, label: 'Esta semana', emoji: '🟢' },
+            { key: 'later' as const, label: 'Más adelante', emoji: '⚪' },
           ] as const
         ).map(({ key, label, emoji }) => (
           <button
@@ -620,6 +620,7 @@ export function PipelinePage() {
             onMoveStage={handleMoveStage}
             onCreateLead={handleCreateLeadFromStage}
             onToast={(msg) => setPipelineToast({ type: 'success', message: msg })}
+            onUpdated={loadData}
           />
         </div>
       )}

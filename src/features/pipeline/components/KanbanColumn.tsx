@@ -17,6 +17,7 @@ interface KanbanColumnProps {
   onDrop: (e: React.DragEvent, stageId: string) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
   onToast?: (message: string) => void
+  onUpdated?: () => void | Promise<void>
 }
 
 function KanbanColumnInner({
@@ -28,6 +29,7 @@ function KanbanColumnInner({
   onDrop,
   onMoveStage,
   onToast,
+  onUpdated,
 }: KanbanColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -107,6 +109,7 @@ function KanbanColumnInner({
                 onDragStart={onDragStart}
                 onMoveStage={onMoveStage}
                 onToast={onToast}
+                onUpdated={onUpdated}
               />
             ))}
           </div>

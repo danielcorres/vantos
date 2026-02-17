@@ -1,19 +1,16 @@
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
+import { pipelineApi } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
-import {
-  getLeadConditionTag,
-  getTagClass,
-  getRowBorderClassFromCondition,
-} from '../../shared/utils/leadTags'
+import { getRowBorderClassFromCondition } from '../../shared/utils/leadTags'
 import { IconMail, IconPhone, IconUser } from '../../app/layout/icons'
 import { LeadContactLine } from './LeadContactLine'
-import { LeadProgressDots, type PipelineStageLite } from './LeadProgressDots'
+import type { PipelineStageLite } from './LeadProgressDots'
 import { LeadSourceTag } from './LeadSourceTag'
 import { MoveStageButton } from './MoveStageButton'
-import { getNextActionLabel } from '../../shared/utils/nextAction'
-import { LeadQuickActions } from './LeadQuickActions'
+import { NextActionActions } from './NextActionActions'
+import { SituationChip } from './SituationChip'
 
 export function LeadRowDesktop({
   lead,
@@ -35,7 +32,6 @@ export function LeadRowDesktop({
   onUpdated?: () => void | Promise<void>
 }) {
   const navigate = useNavigate()
-
   const phone = lead.phone?.trim() ?? ''
   const email = lead.email?.trim() ?? ''
 
@@ -56,7 +52,6 @@ export function LeadRowDesktop({
     onRowClick?.(lead)
   }
 
-  const conditionTag = getLeadConditionTag(lead)
   const rowBorderClass = getRowBorderClassFromCondition(lead)
 
   return (
@@ -81,7 +76,7 @@ export function LeadRowDesktop({
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 shrink-0">
             <IconUser className="w-4 h-4" />
           </span>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="truncate font-medium text-neutral-900">{lead.full_name}</span>
               {isLikelyNeverMoved(lead) && (
@@ -92,9 +87,6 @@ export function LeadRowDesktop({
             </div>
             <div className="mt-1">
               <LeadSourceTag source={lead.source} />
-            </div>
-            <div className="text-xs text-neutral-500 mt-1">
-              Siguiente: {getNextActionLabel(lead.next_action_at)}
             </div>
           </div>
         </div>
@@ -122,24 +114,27 @@ export function LeadRowDesktop({
         />
       </td>
 
-      {/* Progreso — oculto en desktop angosto (lg) para priorizar nombre */}
+      {/* Próximo paso — chip + Hecho */}
       <td className="hidden lg:table-cell px-4 py-3 align-middle border-b border-dashed border-neutral-200/60">
-        <LeadProgressDots stages={stages} currentStageId={lead.stage_id} />
+        <NextActionActions
+          leadId={lead.id}
+          nextActionAt={lead.next_action_at}
+          nextActionType={lead.next_action_type}
+          onUpdated={onUpdated}
+          onToast={onToast}
+        />
       </td>
 
-      {/* Estado: solo condición (si existe) + Quick Actions — pipeline puro sin estados micro */}
+      {/* Situación */}
       <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60">
-        <div className="flex flex-col items-start gap-1">
-          {conditionTag && (
-            <span className={getTagClass(conditionTag)}>{conditionTag.label}</span>
-          )}
-          <LeadQuickActions
-            lead={lead}
-            stageName={stageName}
-            onUpdated={onUpdated}
-            onToast={onToast}
-          />
-        </div>
+        <SituationChip
+          value={lead.lead_condition}
+          onPick={async (v) => {
+            await pipelineApi.updateLead(lead.id, { lead_condition: v })
+            await onUpdated?.()
+          }}
+          onToast={onToast}
+        />
       </td>
 
       {/* Acción */}

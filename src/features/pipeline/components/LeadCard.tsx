@@ -1,7 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import type { Lead, PipelineStage } from '../pipeline.api'
+import { pipelineApi } from '../pipeline.api'
 import { MoveStageButton } from '../../../components/pipeline/MoveStageButton'
 import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
+import { NextActionActions } from '../../../components/pipeline/NextActionActions'
+import { SituationChip } from '../../../components/pipeline/SituationChip'
 import { isLikelyNeverMoved } from '../../../shared/utils/leadUtils'
 import type { PipelineStageLite } from '../../../components/pipeline/LeadProgressDots'
 
@@ -12,12 +15,13 @@ interface LeadCardProps {
   onDragStart: (e: React.DragEvent, lead: Lead) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
   onToast?: (message: string) => void
+  onUpdated?: () => void | Promise<void>
 }
 
 const stagesToLite = (stages: PipelineStage[]): PipelineStageLite[] =>
   stages.map((s) => ({ id: s.id, name: s.name, position: s.position }))
 
-export function LeadCard({ lead, stages, onDragStart, onMoveStage }: LeadCardProps) {
+export function LeadCard({ lead, stages, onDragStart, onMoveStage, onToast, onUpdated }: LeadCardProps) {
   const navigate = useNavigate()
   const stagesLite = stagesToLite(stages)
 
@@ -25,12 +29,16 @@ export function LeadCard({ lead, stages, onDragStart, onMoveStage }: LeadCardPro
     <div
       draggable
       onDragStart={(e) => onDragStart(e, lead)}
-      onClick={() => navigate(`/leads/${lead.id}`)}
+      onClick={(e) => {
+        if ((e.target as HTMLElement).closest('[data-stop-rowclick="true"]')) return
+        navigate(`/leads/${lead.id}`)
+      }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
+          if ((e.target as HTMLElement).closest('[data-stop-rowclick="true"]')) return
           navigate(`/leads/${lead.id}`)
         }
       }}
@@ -56,7 +64,7 @@ export function LeadCard({ lead, stages, onDragStart, onMoveStage }: LeadCardPro
           </div>
         ) : null}
       </div>
-      {/* Debajo: fuente + badge Nuevo (Kanban: pipeline puro, sin estados micro ni condición) */}
+      {/* Debajo: fuente + badge Nuevo + próximo paso (chip+Hecho) + situación */}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <LeadSourceTag source={lead.source} className="shrink-0" />
         {isLikelyNeverMoved(lead) && (
@@ -64,6 +72,21 @@ export function LeadCard({ lead, stages, onDragStart, onMoveStage }: LeadCardPro
             Nuevo
           </span>
         )}
+        <NextActionActions
+          leadId={lead.id}
+          nextActionAt={lead.next_action_at}
+          nextActionType={lead.next_action_type}
+          onUpdated={onUpdated}
+          onToast={onToast}
+        />
+        <SituationChip
+          value={lead.lead_condition}
+          onPick={async (v) => {
+            await pipelineApi.updateLead(lead.id, { lead_condition: v })
+            await onUpdated?.()
+          }}
+          onToast={onToast}
+        />
       </div>
     </div>
   )

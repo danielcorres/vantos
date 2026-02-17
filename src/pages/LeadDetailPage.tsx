@@ -8,6 +8,8 @@ import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
 import { getStageTagClasses, displayStageName } from '../shared/utils/stageStyles'
+import { NextActionActions } from '../components/pipeline/NextActionActions'
+import { SituationChip } from '../components/pipeline/SituationChip'
 
 type LeadData = {
   id: string
@@ -30,6 +32,8 @@ type LeadData = {
   close_outcome: string | null
   requirements_status: string | null
   application_status: string | null
+  next_action_at: string | null
+  next_action_type: string | null
 }
 
 const TOAST_CLEAR_MS = 2800
@@ -217,7 +221,7 @@ export function LeadDetailPage() {
         supabase
           .from('leads')
           .select(
-            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition,last_contact_outcome,quote_status,close_outcome,requirements_status,application_status'
+            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition,last_contact_outcome,quote_status,close_outcome,requirements_status,application_status,next_action_at,next_action_type'
           )
           .eq('id', id)
           .single(),
@@ -897,30 +901,44 @@ export function LeadDetailPage() {
                 </select>
               )}
             </div>
-            {/* Condición (opcional) — solo explica por qué no avanza */}
+            {/* Próximo paso */}
             <div className="mt-3">
-              <label htmlFor="lead_condition" className="block text-xs font-medium text-muted mb-1">
-                Condición (opcional)
+              <label className="block text-xs font-medium text-muted mb-1">
+                Próximo paso
               </label>
-              <p className="text-[10px] text-muted mb-1">
-                No cambia la etapa; solo explica por qué no avanza.
-              </p>
               {lead.archived_at ? (
                 <p className="text-sm text-muted py-1">—</p>
               ) : (
-                <select
-                  id="lead_condition"
-                  value={lead.lead_condition ?? ''}
-                  onChange={async (e) => {
-                    const value = e.target.value
-                    const next = value === '' ? null : value
+                <NextActionActions
+                  leadId={id!}
+                  nextActionAt={lead.next_action_at}
+                  nextActionType={lead.next_action_type}
+                  onUpdated={loadData}
+                  onToast={(msg) => {
+                    setToast({ kind: 'success', text: msg })
+                    setTimeout(() => setToast(null), TOAST_CLEAR_MS)
+                  }}
+                />
+              )}
+            </div>
+            {/* Situación */}
+            <div className="mt-3">
+              <label className="block text-xs font-medium text-muted mb-1">
+                Situación
+              </label>
+              {lead.archived_at ? (
+                <p className="text-sm text-muted py-1">—</p>
+              ) : (
+                <SituationChip
+                  value={lead.lead_condition}
+                  onPick={async (v) => {
                     if (!id) return
                     setSaving(true)
                     setError(null)
                     try {
-                      await pipelineApi.updateLead(id, { lead_condition: next })
+                      await pipelineApi.updateLead(id, { lead_condition: v })
                       await loadData()
-                      setToast({ kind: 'success', text: 'Condición actualizada' })
+                      setToast({ kind: 'success', text: 'Actualizado' })
                       setTimeout(() => setToast(null), TOAST_CLEAR_MS)
                     } catch (err) {
                       const msg = err instanceof Error ? err.message : 'Error al guardar'
@@ -931,16 +949,11 @@ export function LeadDetailPage() {
                       setSaving(false)
                     }
                   }}
-                  disabled={saving}
-                  className="w-full rounded-md border border-border px-3 py-2 text-sm"
-                >
-                  <option value="">Ninguna</option>
-                  <option value="waiting_client">Esperando cliente</option>
-                  <option value="docs_pending">Pendiente docs</option>
-                  <option value="paused">En pausa</option>
-                  <option value="budget">Sin presupuesto</option>
-                  <option value="unreachable">No localizable</option>
-                </select>
+                  onToast={(msg) => {
+                    setToast({ kind: 'success', text: msg })
+                    setTimeout(() => setToast(null), TOAST_CLEAR_MS)
+                  }}
+                />
               )}
             </div>
             {/* Estado del lead — tags por etapa */}

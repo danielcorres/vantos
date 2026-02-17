@@ -1,5 +1,15 @@
 import { supabase } from '../../lib/supabaseClient'
 
+/** Normaliza next_action_type a solo 'contact' | 'meeting' (compatibilidad con legacy). */
+function normalizeNextActionType(t: string | null | undefined): string | null {
+  const v = (t ?? '').trim().toLowerCase()
+  if (!v) return null
+  if (v === 'meeting' || v === 'contact') return v
+  if (v === 'call' || v === 'follow_up') return 'contact'
+  if (v === 'presentation') return 'meeting'
+  return 'contact'
+}
+
 const LEAD_SELECT_COLUMNS =
   'id,owner_user_id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason,referral_name,cita_realizada_at,propuesta_presentada_at,cerrado_at,lead_condition,last_contact_outcome,quote_status,close_outcome,requirements_status,application_status,next_action_at,next_action_type'
 
@@ -119,10 +129,7 @@ export const pipelineApi = {
   },
 
   async createLead(input: CreateLeadInput): Promise<Lead> {
-    const normalizedType =
-      input.next_action_type != null && String(input.next_action_type).trim() !== ''
-        ? input.next_action_type
-        : null
+    const normalizedType = normalizeNextActionType(input.next_action_type)
 
     const { data, error } = await supabase
       .from('leads')
@@ -196,9 +203,14 @@ export const pipelineApi = {
       )
     }
 
+    const payload = { ...updates }
+    if (payload.next_action_type !== undefined) {
+      payload.next_action_type = normalizeNextActionType(payload.next_action_type)
+    }
+
     const { data, error } = await supabase
       .from('leads')
-      .update(updates)
+      .update(payload)
       .eq('id', leadId)
       .select(LEAD_SELECT_COLUMNS)
       .single()
@@ -248,5 +260,14 @@ export const pipelineApi = {
     const { error } = await supabase.from('leads').delete().eq('id', leadId)
 
     if (error) throw error
+  },
+
+  /** Registra completado de próximo paso (contact→contacts_made, meeting→meetings_done). */
+  async logNextActionCompletion(leadId: string, actionType: 'contact' | 'meeting'): Promise<void> {
+    const { error } = await supabase.rpc('log_next_action_completion', {
+      p_lead_id: leadId,
+      p_action_type: actionType,
+    })
+    if (error) throw new Error(error.message)
   },
 }
