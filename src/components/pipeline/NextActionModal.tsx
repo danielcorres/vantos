@@ -29,6 +29,16 @@ function nextBusinessDayAt10(): Date {
   return d
 }
 
+/** Recomendación por horario local: <10→hoy 10, <12→hoy 12, <17→hoy 17, else→mañana 10 */
+function getRecommendedNextAction(): { date: Date; label: string } {
+  const now = new Date()
+  const hour = now.getHours()
+  if (hour < 10) return { date: todayAt(10), label: 'Hoy 10' }
+  if (hour < 12) return { date: todayAt(12), label: 'Hoy 12' }
+  if (hour < 17) return { date: todayAt(17), label: 'Hoy 17' }
+  return { date: tomorrowAt(10), label: 'Mañana 10' }
+}
+
 function toDatetimeLocal(d: Date): string {
   const y = d.getFullYear()
   const m = String(d.getMonth() + 1).padStart(2, '0')
@@ -64,13 +74,13 @@ export function NextActionModal({
   const [error, setError] = useState<string | null>(null)
   const prefersReducedMotion = useReducedMotion()
 
-  // Reset a defaults recomendados cada vez que se abre el modal (1-click: Hoy 10 + Llamada)
+  // Auto-selecciona next_action_at recomendado por horario local al abrir (Guardar habilitado sin fricción)
   useEffect(() => {
     if (isOpen) {
-      const defaultDate = todayAt(10)
-      setPickedAt(defaultDate)
-      setDatetimeLocal(toDatetimeLocal(defaultDate))
-      setActivePresetLabel('Hoy 10')
+      const { date, label } = getRecommendedNextAction()
+      setPickedAt(date)
+      setDatetimeLocal(toDatetimeLocal(date))
+      setActivePresetLabel(label)
       setActionType('call')
       setError(null)
     }
