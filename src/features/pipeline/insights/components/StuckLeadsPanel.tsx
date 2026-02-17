@@ -14,6 +14,7 @@ export function StuckLeadsPanel({ onViewInKanban }: StuckLeadsPanelProps) {
 
   useEffect(() => {
     loadStuckLeads()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: run only when days changes
   }, [days])
 
   const loadStuckLeads = async () => {

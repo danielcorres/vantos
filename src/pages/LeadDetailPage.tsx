@@ -190,6 +190,7 @@ export function LeadDetailPage() {
     if (id) {
       loadData()
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: run only when id changes
   }, [id])
 
   // Initialize form when lead loads; do not overwrite selectedStageId while moving

@@ -59,14 +59,18 @@ function getStoredViewMode(): ViewMode {
   try {
     const v = localStorage.getItem(STORAGE_KEY_VIEW)
     if (v === 'table' || v === 'kanban' || v === 'insights') return v
-  } catch (_) {}
+  } catch {
+    /* intentionally ignored */
+  }
   return 'table'
 }
 
 function setStoredViewMode(mode: ViewMode) {
   try {
     localStorage.setItem(STORAGE_KEY_VIEW, mode)
-  } catch (_) {}
+  } catch {
+    /* intentionally ignored */
+  }
 }
 
 const initialState: PipelineState = {
@@ -183,7 +187,7 @@ export function PipelinePage() {
     const c = countLeadsByNextAction(displayedLeads)
     if (c.overdue > 0) setNextActionFilter('overdue')
     else if (c.today > 0) setNextActionFilter('today')
-  }, [displayedLeads, validNa])
+  }, [displayedLeads, validNa, setNextActionFilter])
 
   const [tableVisibleCount, setTableVisibleCount] = useState<number | null>(null)
 
@@ -263,7 +267,7 @@ export function PipelinePage() {
       try {
         await pipelineApi.moveLeadStage(draggedLead.id, toStageId, idempotencyKey)
         await loadData()
-      } catch (err: unknown) {
+      } catch {
         dispatch({
           type: 'MOVE_ROLLBACK',
           payload: {
@@ -675,7 +679,7 @@ export function PipelinePage() {
               pendingMove.toStageId
             )
             await pipelineApi.moveLeadStage(pendingMove.leadId, pendingMove.toStageId, idempotencyKey)
-          } catch (err: unknown) {
+          } catch {
             setPipelineToast({
               type: 'error',
               message:

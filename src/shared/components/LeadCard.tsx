@@ -96,7 +96,7 @@ export function LeadCard({
         setMoveMessage(null)
         onMoveSuccess?.()
       }, 1000)
-    } catch (err) {
+    } catch {
       setMoveMessage('Error')
       setTimeout(() => setMoveMessage(null), 2000)
     } finally {

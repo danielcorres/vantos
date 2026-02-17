@@ -84,9 +84,10 @@ export function PipelineTable({
   const collapsedStages = isControlled ? controlledCollapsed : internalCollapsed
   const setCollapsedStages = isControlled ? onCollapsedStagesChange : setInternalCollapsed
 
-  // Estado inicial (solo modo no controlado): etapas con 0 leads colapsadas
+  // Estado inicial (solo modo no controlado): etapas con 0 leads colapsadas (seed intencional; no re-arquitectar)
   useEffect(() => {
     if (isControlled || !showGrouped || groupedSections.length === 0) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sync initial collapsed state from groupedSections
     setInternalCollapsed((prev) => {
       let next = prev
       for (const { stage, leads: sectionLeads } of groupedSections) {

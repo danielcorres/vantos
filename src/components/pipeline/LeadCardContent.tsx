@@ -13,11 +13,11 @@ import { LeadSourceTag } from './LeadSourceTag'
 export function LeadCardContent({
   lead,
   stages,
-  stageName: _stageName,
   onToast,
 }: {
   lead: Lead
   stages: PipelineStageLite[]
+  /** Aceptado por compatibilidad con callers; no se usa en este contenido. */
   stageName?: string
   onToast?: (message: string) => void
 }) {

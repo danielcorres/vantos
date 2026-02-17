@@ -4,7 +4,7 @@ import { chipBase, chipSizeSm, chipTint } from '../../shared/utils/chips'
  * Tag de fuente normalizada (case-insensitive).
  * Mantener la lógica aquí evita duplicados entre Tabla (desktop) y Cards (mobile).
  */
-export function normalizeLeadSource(source: string | null | undefined): 'Frío' | 'Referido' | 'Mercado Natural' | 'Otros' | '—' {
+function normalizeLeadSource(source: string | null | undefined): 'Frío' | 'Referido' | 'Mercado Natural' | 'Otros' | '—' {
   const s = (source ?? '').trim().toLowerCase()
   if (!s) return '—'
   if (s.includes('refer')) return 'Referido'

@@ -123,6 +123,7 @@ export function PipelineTableView({
 
   useEffect(() => {
     loadData()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: run only when pipelineMode changes
   }, [pipelineMode])
 
   useEffect(() => {
