@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { pipelineApi } from '../../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../../features/pipeline/pipeline.store'
 import { formatDate } from '../utils/focusHelpers'
+import { displayStageName } from '../utils/stageStyles'
 
 type Stage = {
   id: string
@@ -114,7 +115,7 @@ export function LeadCard({
             {displayName}
           </h3>
           {stageName && (
-            <div className="text-xs text-muted">{stageName}</div>
+            <div className="text-xs text-muted">{displayStageName(stageName)}</div>
           )}
         </div>
         <div className={getSlaBadgeClass(slaStatus)}>
@@ -150,7 +151,7 @@ export function LeadCard({
           >
             {stages.map((stage) => (
               <option key={stage.id} value={stage.id}>
-                {stage.name}
+                {displayStageName(stage.name)}
               </option>
             ))}
           </select>

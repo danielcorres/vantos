@@ -3,7 +3,6 @@ import type { Lead } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
 import {
-  getLeadMainTag,
   getLeadConditionTag,
   getTagClass,
   getRowBorderClassFromCondition,
@@ -48,7 +47,6 @@ export function LeadRowDesktop({
     onRowClick?.(lead)
   }
 
-  const mainTag = getLeadMainTag(lead, stageName)
   const conditionTag = getLeadConditionTag(lead)
   const rowBorderClass = getRowBorderClassFromCondition(lead)
 
@@ -117,10 +115,9 @@ export function LeadRowDesktop({
         <LeadProgressDots stages={stages} currentStageId={lead.stage_id} />
       </td>
 
-      {/* Estado: tag principal arriba, condición abajo + Quick Actions */}
+      {/* Estado: solo condición (si existe) + Quick Actions — pipeline puro sin estados micro */}
       <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60">
-        <div className="flex flex-col gap-1">
-          <span className={getTagClass(mainTag)}>{mainTag.label}</span>
+        <div className="flex flex-col items-start gap-1">
           {conditionTag && (
             <span className={getTagClass(conditionTag)}>{conditionTag.label}</span>
           )}

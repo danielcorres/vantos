@@ -1,13 +1,15 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { pipelineApi, type Lead, type PipelineStage } from '../pipeline.api'
+import { pipelineApi, type Lead, type PipelineStage, type CreateLeadInput } from '../pipeline.api'
 import { generateIdempotencyKey } from '../pipeline.store'
 import { LeadCreateModal } from '../components/LeadCreateModal'
 import { PipelineTable } from '../components/PipelineTable'
 import { getProximaLabel } from '../utils/proximaLabel'
 import { Toast } from '../../../shared/components/Toast'
 import { formatDateMX } from '../../../shared/utils/dates'
-import { getStageTagClasses, getStageAccentStyle } from '../../../shared/utils/stageStyles'
+import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
+import type { NextActionFilter } from '../utils/nextActionFilter'
+import { filterLeadsByNextAction } from '../utils/nextActionFilter'
 
 // Barra de controles unificada: segmented controls y botones neutros
 const SEGMENT_WRAPPER = 'inline-flex rounded-xl border border-neutral-200 bg-neutral-50 p-0.5 gap-0'
@@ -40,6 +42,7 @@ export function PipelineTableView({
   onClearWeekly,
   onVisibleCountChange,
   onToast,
+  nextActionFilter,
 }: {
   weeklyFilterLeadIds?: Set<string> | null
   weeklyStageLabel?: string | null
@@ -50,6 +53,8 @@ export function PipelineTableView({
   onVisibleCountChange?: (n: number) => void
   /** Toast global del Pipeline (ej. desde PipelinePage). Si no se pasa, se usa toast local. */
   onToast?: (message: string) => void
+  /** Filtro por próxima acción (desde PipelinePage). */
+  nextActionFilter?: NextActionFilter
 } = {}) {
   const navigate = useNavigate()
   const [stages, setStages] = useState<PipelineStage[]>([])
@@ -89,8 +94,11 @@ export function PipelineTableView({
       const srcLower = src.toLowerCase()
       list = list.filter((l) => (l.source?.toLowerCase().trim() || '') === srcLower)
     }
+    if (nextActionFilter) {
+      list = filterLeadsByNextAction(list, nextActionFilter)
+    }
     return list
-  }, [pipelineMode, leads, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds])
+  }, [pipelineMode, leads, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds, nextActionFilter])
 
   useEffect(() => {
     onVisibleCountChange?.(filteredLeads.length)
@@ -150,15 +158,7 @@ export function PipelineTableView({
     }
   }
 
-  const handleCreateLead = async (data: {
-    full_name: string
-    phone?: string
-    email?: string
-    source?: string
-    notes?: string
-    stage_id: string
-    next_follow_up_at?: string
-  }) => {
+  const handleCreateLead = async (data: CreateLeadInput) => {
     const newLead = await pipelineApi.createLead(data)
     setIsCreateModalOpen(false)
     setCollapsedStages((prev) => ({ ...prev, [newLead.stage_id]: false }))
@@ -410,7 +410,7 @@ export function PipelineTableView({
                         </button>
                       </td>
                       <td className="py-2.5 pr-4">
-                        <span className={getStageTagClasses(stageName)}>{stageName ?? '—'}</span>
+                        <span className={getStageTagClasses(stageName)}>{displayStageName(stageName)}</span>
                       </td>
                       <td className="py-2.5 pr-4 text-muted">{lead.source ?? '—'}</td>
                       <td className="py-2.5 pr-4 text-muted tabular-nums">

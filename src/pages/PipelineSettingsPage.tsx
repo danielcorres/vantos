@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
+import { displayStageName } from '../shared/utils/stageStyles'
 
 type PipelineStageSettings = {
   id: string
@@ -319,7 +320,7 @@ export function PipelineSettingsPage() {
                 return (
                   <tr key={stage.id}>
                     <td style={{ padding: '16px', fontWeight: '600' }}>
-                      {stage.name}
+                      {displayStageName(stage.name)}
                     </td>
                     <td style={{ padding: '16px', textAlign: 'center' }}>
                       <label

@@ -1,19 +1,14 @@
 import { useState, useEffect } from 'react'
-import type { PipelineStage } from '../pipeline.api'
+import type { PipelineStage, CreateLeadInput } from '../pipeline.api'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
+import { displayStageName } from '../../../shared/utils/stageStyles'
+import { NextActionModal } from '../../../components/pipeline/NextActionModal'
 
 interface LeadCreateModalProps {
   stages: PipelineStage[]
   isOpen: boolean
   onClose: () => void
-  onSubmit: (data: {
-    full_name: string
-    phone?: string
-    email?: string
-    source?: string
-    notes?: string
-    stage_id: string
-  }) => Promise<void>
+  onSubmit: (data: CreateLeadInput) => Promise<void>
   defaultStageId?: string
 }
 
@@ -39,6 +34,8 @@ export function LeadCreateModal({
   const [notes, setNotes] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showNextAction, setShowNextAction] = useState(false)
+  const [pendingCreateData, setPendingCreateData] = useState<Omit<CreateLeadInput, 'next_action_at' | 'next_action_type'> | null>(null)
   const prefersReducedMotion = useReducedMotion()
 
   useEffect(() => {
@@ -49,26 +46,38 @@ export function LeadCreateModal({
     }
   }, [isOpen, stages, defaultStageId])
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!fullName.trim()) {
       setError('El nombre es requerido')
       return
     }
+    setError(null)
+    setPendingCreateData({
+      full_name: fullName.trim(),
+      source: source || undefined,
+      notes: notes.trim() || undefined,
+      stage_id: stageId,
+    })
+    setShowNextAction(true)
+  }
 
+  const handleNextActionSave = async (next_action_at: string, next_action_type: string | null) => {
+    if (!pendingCreateData) return
     setLoading(true)
     setError(null)
-
     try {
       await onSubmit({
-        full_name: fullName.trim(),
-        source: source || undefined,
-        notes: notes.trim() || undefined,
-        stage_id: stageId,
+        ...pendingCreateData,
+        next_action_at,
+        next_action_type,
       })
+      setShowNextAction(false)
+      setPendingCreateData(null)
       handleClose()
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Error al crear el lead')
+      throw err
     } finally {
       setLoading(false)
     }
@@ -79,12 +88,21 @@ export function LeadCreateModal({
     setSource(DEFAULT_SOURCE)
     setNotes('')
     setError(null)
+    setPendingCreateData(null)
+    setShowNextAction(false)
     onClose()
   }
 
   if (!isOpen) return null
 
   return (
+    <>
+      <NextActionModal
+        isOpen={showNextAction}
+        onClose={() => { setShowNextAction(false); setPendingCreateData(null) }}
+        onSave={handleNextActionSave}
+        title="Próxima acción (obligatoria)"
+      />
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
       onClick={handleClose}
@@ -161,7 +179,7 @@ export function LeadCreateModal({
             >
               {stages.map((stage) => (
                 <option key={stage.id} value={stage.id}>
-                  {stage.name}
+                  {displayStageName(stage.name)}
                 </option>
               ))}
             </select>
@@ -209,5 +227,6 @@ export function LeadCreateModal({
         </form>
       </div>
     </div>
+    </>
   )
 }

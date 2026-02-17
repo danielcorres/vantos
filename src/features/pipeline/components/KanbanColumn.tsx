@@ -6,6 +6,7 @@ import {
   aggregateColumnCounts,
   sortLeadsBySla,
 } from '../utils/slaHelpers'
+import { displayStageName } from '../../../shared/utils/stageStyles'
 
 interface KanbanColumnProps {
   stage: PipelineStage
@@ -66,7 +67,7 @@ function KanbanColumnInner({
     >
       <div className="sticky top-0 z-10 shrink-0 border-b border-neutral-200 bg-neutral-50/95 px-4 py-3 backdrop-blur-[2px]">
         <div className="mb-2 text-base font-semibold text-neutral-800">
-          {stage.name}
+          {displayStageName(stage.name)}
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="text-neutral-500 tabular-nums">

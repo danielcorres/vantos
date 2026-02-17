@@ -3,7 +3,6 @@ import type { Lead } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
 import {
-  getLeadMainTag,
   getLeadConditionTag,
   getTagClass,
   getRowBorderClassFromCondition,
@@ -43,7 +42,6 @@ export function LeadCardMobile({
 
   const isCompact = variant === 'kanban' || variant === 'table'
   const paddingClass = isCompact ? 'px-3 py-2' : 'px-2.5 py-2'
-  const mainTag = getLeadMainTag(lead, stageName)
   const conditionTag = variant === 'table' ? getLeadConditionTag(lead) : null
   const conditionBorderClass = variant === 'table' ? getRowBorderClassFromCondition(lead) : ''
 
@@ -88,7 +86,6 @@ export function LeadCardMobile({
             </span>
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <span className={getTagClass(mainTag)}>{mainTag.label}</span>
             <LeadSourceTag source={lead.source} className="shrink-0" />
             {isLikelyNeverMoved(lead) && (
               <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
@@ -108,7 +105,6 @@ export function LeadCardMobile({
             </span>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <span className={getTagClass(mainTag)}>{mainTag.label}</span>
             {conditionTag && (
               <span className={getTagClass(conditionTag)}>{conditionTag.label}</span>
             )}

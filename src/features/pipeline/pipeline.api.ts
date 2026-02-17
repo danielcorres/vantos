@@ -1,7 +1,7 @@
 import { supabase } from '../../lib/supabaseClient'
 
 const LEAD_SELECT_COLUMNS =
-  'id,owner_user_id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason,referral_name,cita_realizada_at,propuesta_presentada_at,cerrado_at,lead_condition,last_contact_outcome,quote_status,close_outcome,requirements_status,application_status'
+  'id,owner_user_id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason,referral_name,cita_realizada_at,propuesta_presentada_at,cerrado_at,lead_condition,last_contact_outcome,quote_status,close_outcome,requirements_status,application_status,next_action_at,next_action_type'
 
 function normalizeLead(row: Record<string, unknown>): Lead {
   return {
@@ -53,6 +53,8 @@ export type Lead = {
   close_outcome: string | null
   requirements_status: string | null
   application_status: string | null
+  next_action_at: string | null
+  next_action_type: string | null
 }
 
 export type CreateLeadInput = {
@@ -63,6 +65,8 @@ export type CreateLeadInput = {
   notes?: string
   stage_id: string
   next_follow_up_at?: string
+  next_action_at: string
+  next_action_type?: string | null
 }
 
 export type LeadStageHistoryRow = {
@@ -123,6 +127,8 @@ export const pipelineApi = {
         notes: input.notes || null,
         stage_id: input.stage_id,
         next_follow_up_at: input.next_follow_up_at || null,
+        next_action_at: input.next_action_at,
+        next_action_type: input.next_action_type ?? null,
       })
       .select(LEAD_SELECT_COLUMNS)
       .single()
@@ -153,6 +159,8 @@ export const pipelineApi = {
     close_outcome?: string | null
     requirements_status?: string | null
     application_status?: string | null
+    next_action_at?: string | null
+    next_action_type?: string | null
   }): Promise<Lead> {
     const { data, error } = await supabase
       .from('leads')

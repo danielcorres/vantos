@@ -1135,8 +1135,8 @@ export function LeadDetailPage() {
           {!actividadExpanded && stageHistory.length > 0 && (
             <div className="mt-1 pt-2 border-t border-border space-y-1">
               {stageHistory.slice(-3).reverse().map((h) => {
-                const fromName = h.from_stage_id ? (stageNameById.get(h.from_stage_id) ?? '—') : 'Inicio'
-                const toName = stageNameById.get(h.to_stage_id) ?? '—'
+                const fromName = h.from_stage_id ? displayStageName(stageNameById.get(h.from_stage_id)) ?? '—' : 'Inicio'
+                const toName = displayStageName(stageNameById.get(h.to_stage_id)) ?? '—'
                 const when = h.occurred_at ?? h.moved_at
                 return (
                   <div key={h.id} className="text-sm flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
@@ -1160,8 +1160,8 @@ export function LeadDetailPage() {
                 <div className="space-y-2">
                   <p className="text-xs font-medium text-muted mb-2">Historial de etapas</p>
                   {stageHistory.map((h) => {
-                    const fromName = h.from_stage_id ? (stageNameById.get(h.from_stage_id) ?? '—') : 'Inicio'
-                    const toName = stageNameById.get(h.to_stage_id) ?? '—'
+                    const fromName = h.from_stage_id ? displayStageName(stageNameById.get(h.from_stage_id)) ?? '—' : 'Inicio'
+                    const toName = displayStageName(stageNameById.get(h.to_stage_id)) ?? '—'
                     const when = h.occurred_at ?? h.moved_at
                     return (
                       <div key={h.id} className="text-sm flex flex-wrap items-baseline gap-x-2 gap-y-0.5">

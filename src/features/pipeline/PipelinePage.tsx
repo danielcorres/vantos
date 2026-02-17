@@ -17,14 +17,22 @@ const PipelineInsightsPage = lazy(() =>
 import type { StageSlug } from '../productivity/types/productivity.types'
 import { STAGE_SLUGS_ORDER } from '../productivity/types/productivity.types'
 import { Toast } from '../../shared/components/Toast'
+import { displayStageName } from '../../shared/utils/stageStyles'
+import type { CreateLeadInput } from './pipeline.api'
+import { NextActionModal } from '../../components/pipeline/NextActionModal'
+import {
+  type NextActionFilter,
+  countLeadsByNextAction,
+  filterLeadsByNextAction,
+} from './utils/nextActionFilter'
 
 const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
-  contactos_nuevos: 'Contactos Nuevos',
-  citas_agendadas: 'Citas Agendadas',
-  casos_abiertos: 'Casos Abiertos',
-  citas_cierre: 'Citas de Cierre',
-  solicitudes_ingresadas: 'Solicitudes Ingresadas',
-  casos_ganados: 'Casos Ganados',
+  contactos_nuevos: 'Prospecto',
+  citas_agendadas: 'Diagnóstico',
+  casos_abiertos: 'Propuesta',
+  citas_cierre: 'Decisión',
+  solicitudes_ingresadas: 'Emisión',
+  casos_ganados: 'Ganado (Cerrado)',
 }
 
 function isValidWeekStartYmd(s: string): boolean {
@@ -77,6 +85,8 @@ export function PipelinePage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [createStageId, setCreateStageId] = useState<string | undefined>(undefined)
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
+  const [pendingMove, setPendingMove] = useState<{ leadId: string; toStageId: string } | null>(null)
+  const [nextActionFilter, setNextActionFilter] = useState<NextActionFilter>('week')
   const kanbanRef = useRef<HTMLDivElement>(null)
 
   const weekStartYmd = searchParams.get('weekStart')
@@ -131,6 +141,25 @@ export function PipelinePage() {
     return state.leads.filter((l) => weeklyLeadIds.has(l.id))
   }, [weeklyMode, weeklyLeadIds, state.leads])
 
+  const nextActionCounts = useMemo(
+    () => countLeadsByNextAction(displayedLeads),
+    [displayedLeads]
+  )
+
+  const leadsFilteredByNextAction = useMemo(
+    () => filterLeadsByNextAction(displayedLeads, nextActionFilter),
+    [displayedLeads, nextActionFilter]
+  )
+
+  const hasSetNextActionDefault = useRef(false)
+  useEffect(() => {
+    if (displayedLeads.length === 0 || hasSetNextActionDefault.current) return
+    hasSetNextActionDefault.current = true
+    const c = countLeadsByNextAction(displayedLeads)
+    if (c.overdue > 0) setNextActionFilter('overdue')
+    else if (c.today > 0) setNextActionFilter('today')
+  }, [displayedLeads])
+
   const [tableVisibleCount, setTableVisibleCount] = useState<number | null>(null)
 
   const clearWeeklyMode = () => {
@@ -155,14 +184,7 @@ export function PipelinePage() {
     }
   }
 
-  const handleCreateLead = async (data: {
-    full_name: string
-    phone?: string
-    email?: string
-    source?: string
-    notes?: string
-    stage_id: string
-  }) => {
+  const handleCreateLead = async (data: CreateLeadInput) => {
     const newLead = await pipelineApi.createLead(data)
     dispatch({ type: 'CREATE_LEAD', payload: newLead })
     setIsModalOpen(false)
@@ -191,6 +213,11 @@ export function PipelinePage() {
       const fromStageId = draggedLead.stage_id
       const prevStageChangedAt = draggedLead.stage_changed_at ?? null
       if (fromStageId === toStageId) {
+        setDraggedLead(null)
+        return
+      }
+      if (draggedLead.next_action_at == null) {
+        setPendingMove({ leadId: draggedLead.id, toStageId })
         setDraggedLead(null)
         return
       }
@@ -242,6 +269,11 @@ export function PipelinePage() {
     const prevStageChangedAt = lead.stage_changed_at ?? null
     if (fromStageId === toStageId) return
 
+    if (lead.next_action_at == null) {
+      setPendingMove({ leadId, toStageId })
+      return
+    }
+
     const scrollY = window.scrollY
     const stageName = state.stages.find((s) => s.id === toStageId)?.name
 
@@ -260,7 +292,7 @@ export function PipelinePage() {
       await loadData()
       setPipelineToast({
         type: 'success',
-        message: stageName ? `Movido a ${stageName}` : 'Etapa actualizada',
+        message: stageName ? `Movido a ${displayStageName(stageName)}` : 'Etapa actualizada',
       })
     } catch (err: unknown) {
       dispatch({
@@ -343,6 +375,33 @@ export function PipelinePage() {
             + Nuevo lead
           </button>
         )}
+      </div>
+
+      {/* Filtros por próxima acción (America/Monterrey) */}
+      <div className="flex flex-wrap items-center gap-2">
+        {(
+          [
+            { key: 'overdue' as const, label: 'Contactar hoy mismo', emoji: '🔴' },
+            { key: 'today' as const, label: 'Hablar hoy', emoji: '🟡' },
+            { key: 'week' as const, label: 'Hablar esta semana', emoji: '🟢' },
+            { key: 'later' as const, label: 'Seguimiento después', emoji: '⚪' },
+          ] as const
+        ).map(({ key, label, emoji }) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setNextActionFilter(key)}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors ${
+              nextActionFilter === key
+                ? 'bg-neutral-900 text-white border-neutral-900'
+                : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
+            }`}
+          >
+            <span aria-hidden>{emoji}</span>
+            <span>{label}</span>
+            <span className="tabular-nums text-xs opacity-90">({nextActionCounts[key]})</span>
+          </button>
+        ))}
       </div>
 
       {weekStartValid && weekStartYmd && !stageSlugValid && (
@@ -506,6 +565,7 @@ export function PipelinePage() {
           onClearWeekly={clearWeeklyMode}
           onVisibleCountChange={setTableVisibleCount}
           onToast={(msg) => setPipelineToast({ type: 'success', message: msg })}
+          nextActionFilter={nextActionFilter}
         />
       )}
 
@@ -528,7 +588,7 @@ export function PipelinePage() {
         <div ref={kanbanRef}>
           <KanbanBoard
             stages={state.stages}
-            leads={displayedLeads}
+            leads={leadsFilteredByNextAction}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
@@ -566,6 +626,28 @@ export function PipelinePage() {
           defaultStageId={createStageId}
         />
       )}
+
+      <NextActionModal
+        isOpen={pendingMove != null}
+        onClose={() => setPendingMove(null)}
+        onSave={async (next_action_at, next_action_type) => {
+          if (!pendingMove) return
+          await pipelineApi.updateLead(pendingMove.leadId, { next_action_at, next_action_type })
+          const lead = state.leads.find((l) => l.id === pendingMove.leadId)
+          if (lead) {
+            const idempotencyKey = generateIdempotencyKey(lead.id, lead.stage_id, pendingMove.toStageId)
+            await pipelineApi.moveLeadStage(pendingMove.leadId, pendingMove.toStageId, idempotencyKey)
+          }
+          await loadData()
+          const stageName = state.stages.find((s) => s.id === pendingMove.toStageId)?.name
+          setPipelineToast({
+            type: 'success',
+            message: stageName ? `Movido a ${displayStageName(stageName)}` : 'Etapa actualizada',
+          })
+          setPendingMove(null)
+        }}
+        title="Definir próxima acción para mover"
+      />
 
       {pipelineToast && (
         <Toast

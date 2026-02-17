@@ -69,10 +69,19 @@ export function getStageHeaderStyle(stageName: string | undefined): { borderLeft
   return { borderLeftWidth: 4, borderLeftStyle: 'solid', borderLeftColor: color, paddingLeft: 12 }
 }
 
-/** Etiqueta visual de etapa: "Propuesta" se muestra como "Propuesta presentada". Valor almacenado no cambia. */
+/** Etiquetas visuales por etapa (solo frontend; IDs y backend no cambian). */
+const DISPLAY_STAGE_NAMES: Record<string, string> = {
+  'Contactos Nuevos': 'Prospecto',
+  'Citas Agendadas': 'Diagnóstico',
+  'Casos Abiertos': 'Propuesta',
+  'Citas de Cierre': 'Decisión',
+  'Solicitudes Ingresadas': 'Emisión',
+  'Casos Ganados': 'Ganado (Cerrado)',
+}
+
+/** Etiqueta visual de etapa. Valor almacenado (stage.name) no cambia. */
 export function displayStageName(stageName: string | undefined): string {
   if (!stageName || typeof stageName !== 'string') return '—'
   const n = stageName.trim()
-  if (n === 'Propuesta' || n.toLowerCase().includes('propuesta presentada')) return 'Propuesta presentada'
-  return n
+  return DISPLAY_STAGE_NAMES[n] ?? n
 }
