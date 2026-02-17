@@ -1,6 +1,7 @@
 import { createPortal } from 'react-dom'
 import { useRef, useState, useEffect } from 'react'
 import { useFloatingPopover } from '../../shared/hooks/useFloatingPopover'
+import { chipBase, chipSizeSm, chipTint } from '../../shared/utils/chips'
 
 export type SituationValue = 'waiting_client' | 'docs_pending' | 'paused' | 'unreachable' | null
 
@@ -61,7 +62,7 @@ function SituationPopoverPortal({
           type="button"
           role="menuitem"
           onClick={() => handleSelect(opt.value)}
-          className="w-full text-left px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
+          className="w-full text-left px-3 py-2 text-sm text-neutral-700 hover:bg-neutral-50"
         >
           {opt.label}
         </button>
@@ -70,7 +71,7 @@ function SituationPopoverPortal({
         type="button"
         role="menuitem"
         onClick={() => handleSelect(null)}
-        className="w-full text-left px-3 py-1.5 text-sm text-neutral-500 hover:bg-neutral-50 border-t border-neutral-100 mt-1 pt-1"
+        className="w-full text-left px-3 py-2 text-sm text-neutral-500 hover:bg-neutral-50 border-t border-neutral-100 mt-1 pt-1"
       >
         Quitar
       </button>
@@ -127,9 +128,7 @@ export function SituationChip({
   }, [open])
 
   const displayValue = normalizeDisplayValue(value)
-  const label = getSituationLabel(value)
-
-  if (!displayValue && !onPick) return null
+  const label = displayValue ? getSituationLabel(value) : 'Sin situación'
 
   const handleSelect = async (v: SituationValue) => {
     try {
@@ -154,36 +153,27 @@ export function SituationChip({
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      {displayValue ? (
+      {onPick ? (
         <button
           ref={anchorRef}
           type="button"
           data-stop-rowclick="true"
           onClick={handleToggle}
-          disabled={!onPick}
+          disabled={false}
           aria-expanded={open}
           aria-haspopup="menu"
-          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 bg-neutral-100 text-neutral-700 ring-neutral-200 hover:bg-neutral-200 disabled:opacity-100 shrink-0"
+          className={`${chipBase} ${chipSizeSm} ${chipTint.neutral} hover:bg-neutral-100 cursor-pointer transition-colors`}
         >
           {label}
         </button>
-      ) : onPick ? (
-        <button
-          ref={anchorRef}
-          type="button"
-          data-stop-rowclick="true"
-          onClick={() => {
-            const rect = anchorRef.current?.getBoundingClientRect() ?? null
-            setAnchorRect(rect)
-            setOpen(true)
-          }}
-          aria-expanded={open}
-          aria-haspopup="menu"
-          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 shrink-0"
+      ) : (
+        <span
+          className={`${chipBase} ${chipSizeSm} ${chipTint.neutral}`}
+          aria-hidden
         >
-          —
-        </button>
-      ) : null}
+          {label}
+        </span>
+      )}
 
       {onPick && (
         <SituationPopoverPortal

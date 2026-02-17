@@ -9,7 +9,7 @@ import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
 import { getStageTagClasses, displayStageName } from '../shared/utils/stageStyles'
 import { NextActionActions } from '../components/pipeline/NextActionActions'
-import { SituationChip } from '../components/pipeline/SituationChip'
+import { MomentoChip } from '../components/pipeline/MomentoChip'
 
 type LeadData = {
   id: string
@@ -27,13 +27,9 @@ type LeadData = {
   archive_reason: string | null
   referral_name: string | null
   lead_condition: string | null
-  last_contact_outcome: string | null
-  quote_status: string | null
-  close_outcome: string | null
-  requirements_status: string | null
-  application_status: string | null
   next_action_at: string | null
   next_action_type: string | null
+  momento_override: string | null
 }
 
 const TOAST_CLEAR_MS = 2800
@@ -221,7 +217,7 @@ export function LeadDetailPage() {
         supabase
           .from('leads')
           .select(
-            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition,last_contact_outcome,quote_status,close_outcome,requirements_status,application_status,next_action_at,next_action_type'
+            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition,next_action_at,next_action_type,momento_override'
           )
           .eq('id', id)
           .single(),
@@ -921,34 +917,27 @@ export function LeadDetailPage() {
                 />
               )}
             </div>
-            {/* Situación */}
+            {/* Momento */}
             <div className="mt-3">
               <label className="block text-xs font-medium text-muted mb-1">
-                Situación
+                Momento
               </label>
               {lead.archived_at ? (
-                <p className="text-sm text-muted py-1">—</p>
-              ) : (
-                <SituationChip
-                  value={lead.lead_condition}
-                  onPick={async (v) => {
-                    if (!id) return
-                    setSaving(true)
-                    setError(null)
-                    try {
-                      await pipelineApi.updateLead(id, { lead_condition: v })
-                      await loadData()
-                      setToast({ kind: 'success', text: 'Actualizado' })
-                      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
-                    } catch (err) {
-                      const msg = err instanceof Error ? err.message : 'Error al guardar'
-                      setError(msg)
-                      setToast({ kind: 'error', text: msg })
-                      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
-                    } finally {
-                      setSaving(false)
-                    }
+                <MomentoChip
+                  leadId={id!}
+                  next_action_at={lead.next_action_at}
+                  momento_override={lead.momento_override}
+                  onToast={(msg) => {
+                    setToast({ kind: 'success', text: msg })
+                    setTimeout(() => setToast(null), TOAST_CLEAR_MS)
                   }}
+                />
+              ) : (
+                <MomentoChip
+                  leadId={id!}
+                  next_action_at={lead.next_action_at}
+                  momento_override={lead.momento_override}
+                  onUpdated={loadData}
                   onToast={(msg) => {
                     setToast({ kind: 'success', text: msg })
                     setTimeout(() => setToast(null), TOAST_CLEAR_MS)
@@ -956,145 +945,6 @@ export function LeadDetailPage() {
                 />
               )}
             </div>
-            {/* Estado del lead — tags por etapa */}
-            {(() => {
-              const stageName = currentStage?.name ?? ''
-              const showContactOutcome = stageName === 'Contactos Nuevos'
-              const showQuoteStatus = stageName === 'Casos Abiertos'
-              const showCloseOutcome = stageName === 'Citas de Cierre'
-              const showRequirements = stageName === 'Solicitudes Ingresadas'
-              const showApplication = stageName === 'Solicitudes Ingresadas'
-              const showEstado =
-                showContactOutcome ||
-                showQuoteStatus ||
-                showCloseOutcome ||
-                showRequirements ||
-                showApplication
-              if (!showEstado || lead.archived_at) return null
-              const handleTagChange = async (
-                field: 'last_contact_outcome' | 'quote_status' | 'close_outcome' | 'requirements_status' | 'application_status',
-                value: string
-              ) => {
-                if (!id) return
-                const isSolicitudesField = field === 'requirements_status' || field === 'application_status'
-                const normalized =
-                  isSolicitudesField && (value === '' || value === 'none')
-                    ? null
-                    : value === ''
-                      ? 'none'
-                      : value
-                setSaving(true)
-                setError(null)
-                try {
-                  await pipelineApi.updateLead(id, { [field]: normalized })
-                  await loadData()
-                  setToast({ kind: 'success', text: 'Guardado' })
-                  setTimeout(() => setToast(null), TOAST_CLEAR_MS)
-                } catch (err) {
-                  const msg = err instanceof Error ? err.message : 'Error al guardar'
-                  setError(msg)
-                  setToast({ kind: 'error', text: msg })
-                  setTimeout(() => setToast(null), TOAST_CLEAR_MS)
-                } finally {
-                  setSaving(false)
-                }
-              }
-              return (
-                <div className="mt-3 pt-3 border-t border-black/10">
-                  <p className="text-xs font-medium text-muted mb-2">Estado del lead</p>
-                  {showContactOutcome && (
-                    <div className="mb-2">
-                      <label htmlFor="last_contact_outcome" className="block text-xs text-muted mb-1">
-                        Último contacto
-                      </label>
-                      <select
-                        id="last_contact_outcome"
-                        value={lead.last_contact_outcome ?? 'none'}
-                        onChange={(e) => handleTagChange('last_contact_outcome', e.target.value)}
-                        disabled={saving}
-                        className="w-full rounded-md border border-border px-3 py-2 text-sm"
-                      >
-                        <option value="none">Sin intento</option>
-                        <option value="no_answer">No respondió</option>
-                        <option value="voicemail">Buzón</option>
-                        <option value="connected">Contestó</option>
-                      </select>
-                    </div>
-                  )}
-                  {showQuoteStatus && (
-                    <div className="mb-2">
-                      <label htmlFor="quote_status" className="block text-xs text-muted mb-1">
-                        Cotización
-                      </label>
-                      <select
-                        id="quote_status"
-                        value={lead.quote_status ?? 'none'}
-                        onChange={(e) => handleTagChange('quote_status', e.target.value)}
-                        disabled={saving}
-                        className="w-full rounded-md border border-border px-3 py-2 text-sm"
-                      >
-                        <option value="none">En seguimiento</option>
-                        <option value="pending">Cotización pendiente</option>
-                        <option value="done">Cotización realizada</option>
-                      </select>
-                    </div>
-                  )}
-                  {showCloseOutcome && (
-                    <div className="mb-2">
-                      <label htmlFor="close_outcome" className="block text-xs text-muted mb-1">
-                        Cierre
-                      </label>
-                      <select
-                        id="close_outcome"
-                        value={lead.close_outcome ?? 'none'}
-                        onChange={(e) => handleTagChange('close_outcome', e.target.value)}
-                        disabled={saving}
-                        className="w-full rounded-md border border-border px-3 py-2 text-sm"
-                      >
-                        <option value="none">Cierre pendiente</option>
-                        <option value="done">Cierre realizado</option>
-                        <option value="no_show">No se presentó</option>
-                      </select>
-                    </div>
-                  )}
-                  {showRequirements && (
-                    <div className="mb-2">
-                      <label htmlFor="requirements_status" className="block text-xs text-muted mb-1">
-                        Requisitos
-                      </label>
-                      <select
-                        id="requirements_status"
-                        value={lead.requirements_status ?? 'none'}
-                        onChange={(e) => handleTagChange('requirements_status', e.target.value)}
-                        disabled={saving}
-                        className="w-full rounded-md border border-border px-3 py-2 text-sm"
-                      >
-                        <option value="none">Ninguno</option>
-                        <option value="ra">En RA</option>
-                      </select>
-                    </div>
-                  )}
-                  {showApplication && (
-                    <div className="mb-2">
-                      <label htmlFor="application_status" className="block text-xs text-muted mb-1">
-                        Solicitud
-                      </label>
-                      <select
-                        id="application_status"
-                        value={lead.application_status ?? 'none'}
-                        onChange={(e) => handleTagChange('application_status', e.target.value)}
-                        disabled={saving}
-                        className="w-full rounded-md border border-border px-3 py-2 text-sm"
-                      >
-                        <option value="none">Solicitud pendiente</option>
-                        <option value="submitted">Falta firma</option>
-                        <option value="signed">Firmado</option>
-                      </select>
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
             {/* Tiempos */}
             <div className="mt-3 pt-3 border-t border-black/10">
               <p className="text-xs font-medium text-muted mb-2">Tiempos</p>

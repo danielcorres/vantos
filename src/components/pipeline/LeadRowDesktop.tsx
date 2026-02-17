@@ -1,16 +1,14 @@
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
-import { pipelineApi } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
-import { getRowBorderClassFromCondition } from '../../shared/utils/leadTags'
 import { IconMail, IconPhone, IconUser } from '../../app/layout/icons'
 import { LeadContactLine } from './LeadContactLine'
 import type { PipelineStageLite } from './LeadProgressDots'
 import { LeadSourceTag } from './LeadSourceTag'
 import { MoveStageButton } from './MoveStageButton'
+import { MomentoChip } from './MomentoChip'
 import { NextActionActions } from './NextActionActions'
-import { SituationChip } from './SituationChip'
 
 export function LeadRowDesktop({
   lead,
@@ -52,7 +50,7 @@ export function LeadRowDesktop({
     onRowClick?.(lead)
   }
 
-  const rowBorderClass = getRowBorderClassFromCondition(lead)
+  const rowBorderClass = ''
 
   return (
     <tr
@@ -125,14 +123,13 @@ export function LeadRowDesktop({
         />
       </td>
 
-      {/* Situación */}
+      {/* Momento */}
       <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 whitespace-nowrap">
-        <SituationChip
-          value={lead.lead_condition}
-          onPick={async (v) => {
-            await pipelineApi.updateLead(lead.id, { lead_condition: v })
-            await onUpdated?.()
-          }}
+        <MomentoChip
+          leadId={lead.id}
+          next_action_at={lead.next_action_at}
+          momento_override={lead.momento_override}
+          onUpdated={onUpdated}
           onToast={onToast}
         />
       </td>

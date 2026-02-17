@@ -38,7 +38,7 @@ function HeaderRow() {
       <th className={TH_BASE}>Teléfono</th>
       <th className={`${TH_BASE} hidden xl:table-cell`}>Email</th>
       <th className={`${TH_BASE} hidden lg:table-cell`}>Próximo paso</th>
-      <th className={TH_BASE}>Situación</th>
+      <th className={TH_BASE}>Momento</th>
       <th className={`${TH_BASE} text-right`}>Acción</th>
     </tr>
   )

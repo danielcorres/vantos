@@ -84,15 +84,6 @@ function ymdHourMinToDate(ymd: string, hour: number, min: number): Date {
   return new Date(y, m - 1, d, hour, min, 0)
 }
 
-/** Recomendación: Hoy 12:00, Hoy 17:00 o Mañana 10:00 — siempre minutos :00. */
-function getRecommendedDate(now: Date = new Date()): { ymd: string; hour: number } {
-  const today = getTodayYmd(now)
-  const hour = now.getHours()
-  if (hour < 12) return { ymd: today, hour: 12 }
-  if (hour < 17) return { ymd: today, hour: 17 }
-  return { ymd: addDaysYmd(today, 1), hour: 10 }
-}
-
 const TIME_SLOTS = [
   { label: '9:00', hour: 9 },
   { label: '10:00', hour: 10 },
@@ -144,9 +135,10 @@ export function NextActionModal({
   const [error, setError] = useState<string | null>(null)
   const prefersReducedMotion = useReducedMotion()
 
-  // Computed: fecha+hora final (local = Monterrey para usuarios del app)
+  // Computed: fecha+hora final (local = Monterrey). Sin selección explícita no devuelve valor.
   const getSubmitDate = (): Date | null => {
-    const ymd = selectedYmd ?? todayYmd
+    const ymd = selectedYmd
+    if (!ymd) return null
     const hour = useCustomTime
       ? parseInt(customTime.split(':')[0] ?? '18', 10)
       : selectedHour ?? 9
@@ -185,10 +177,9 @@ export function NextActionModal({
           setUseCustomTime(true)
         }
       } else {
-        const rec = getRecommendedDate(now)
         setActionType('contact')
-        setSelectedYmd(rec.ymd)
-        setSelectedHour(rec.hour)
+        setSelectedYmd(null)
+        setSelectedHour(null)
         setUseCustomTime(false)
       }
     }

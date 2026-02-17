@@ -82,6 +82,26 @@ export function getNextActionBucket(
   return 'later'
 }
 
+/** Días que next_action_at está vencido en America/Monterrey (0 si no vencido). */
+export function daysOverdue(next_action_at: string | null | undefined, now: Date = new Date()): number {
+  if (!next_action_at) return 0
+  const d = new Date(next_action_at)
+  if (isNaN(d.getTime())) return 0
+  const leadYmd = toYmdInMonterrey(d)
+  const todayYmd = getTodayYmd(now)
+  if (leadYmd >= todayYmd) return 0
+  const [ly, lm, ld] = leadYmd.split('-').map(Number)
+  const [ty, tm, td] = todayYmd.split('-').map(Number)
+  const leadUtc = Date.UTC(ly, lm - 1, ld)
+  const todayUtc = Date.UTC(ty, tm - 1, td)
+  return Math.floor((todayUtc - leadUtc) / (24 * 60 * 60 * 1000))
+}
+
+/** true si el próximo paso está vencido 7+ días (America/Monterrey). */
+export function isSinRespuesta(next_action_at: string | null | undefined, now: Date = new Date()): boolean {
+  return daysOverdue(next_action_at, now) >= 7
+}
+
 /**
  * Label en America/Monterrey: "Hoy 5:00 pm", "Mañana 10:00 am", "Mié 12:00 pm".
  * Horario formateado con timeZone TZ.

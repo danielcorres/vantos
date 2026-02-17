@@ -11,7 +11,7 @@ function normalizeNextActionType(t: string | null | undefined): string | null {
 }
 
 const LEAD_SELECT_COLUMNS =
-  'id,owner_user_id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason,referral_name,cita_realizada_at,propuesta_presentada_at,cerrado_at,lead_condition,last_contact_outcome,quote_status,close_outcome,requirements_status,application_status,next_action_at,next_action_type'
+  'id,owner_user_id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason,referral_name,cita_realizada_at,propuesta_presentada_at,cerrado_at,lead_condition,next_action_at,next_action_type,momento_override'
 
 function normalizeLead(row: Record<string, unknown>): Lead {
   return {
@@ -27,6 +27,7 @@ function normalizeLead(row: Record<string, unknown>): Lead {
     referral_name: (row.referral_name as string | null) ?? null,
     next_action_at: (row.next_action_at as string | null) ?? null,
     next_action_type: (row.next_action_type as string | null) ?? null,
+    momento_override: (row.momento_override as string | null) ?? null,
   } as Lead
 }
 
@@ -60,13 +61,9 @@ export type Lead = {
   cerrado_at: string | null
   referral_name: string | null
   lead_condition: string | null
-  last_contact_outcome: string | null
-  quote_status: string | null
-  close_outcome: string | null
-  requirements_status: string | null
-  application_status: string | null
   next_action_at: string | null
   next_action_type: string | null
+  momento_override: string | null
 }
 
 export type CreateLeadInput = {
@@ -186,13 +183,9 @@ export const pipelineApi = {
     cerrado_at?: string | null
     referral_name?: string | null
     lead_condition?: string | null
-    last_contact_outcome?: string | null
-    quote_status?: string | null
-    close_outcome?: string | null
-    requirements_status?: string | null
-    application_status?: string | null
     next_action_at?: string | null
     next_action_type?: string | null
+    momento_override?: string | null
   }): Promise<Lead> {
     if (
       updates.next_action_at === null &&

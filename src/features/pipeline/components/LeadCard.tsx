@@ -1,10 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import type { Lead, PipelineStage } from '../pipeline.api'
-import { pipelineApi } from '../pipeline.api'
 import { MoveStageButton } from '../../../components/pipeline/MoveStageButton'
 import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
+import { MomentoChip } from '../../../components/pipeline/MomentoChip'
 import { NextActionActions } from '../../../components/pipeline/NextActionActions'
-import { SituationChip } from '../../../components/pipeline/SituationChip'
 import { isLikelyNeverMoved } from '../../../shared/utils/leadUtils'
 import type { PipelineStageLite } from '../../../components/pipeline/LeadProgressDots'
 
@@ -64,7 +63,7 @@ export function LeadCard({ lead, stages, onDragStart, onMoveStage, onToast, onUp
           </div>
         ) : null}
       </div>
-      {/* Debajo: fuente + badge Nuevo + próximo paso + situación */}
+      {/* Debajo: fuente + badge Nuevo + próximo paso + momento */}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <LeadSourceTag source={lead.source} className="shrink-0" />
         {isLikelyNeverMoved(lead) && (
@@ -79,12 +78,11 @@ export function LeadCard({ lead, stages, onDragStart, onMoveStage, onToast, onUp
           onUpdated={onUpdated}
           onToast={onToast}
         />
-        <SituationChip
-          value={lead.lead_condition}
-          onPick={async (v) => {
-            await pipelineApi.updateLead(lead.id, { lead_condition: v })
-            await onUpdated?.()
-          }}
+        <MomentoChip
+          leadId={lead.id}
+          next_action_at={lead.next_action_at}
+          momento_override={lead.momento_override}
+          onUpdated={onUpdated}
           onToast={onToast}
         />
       </div>

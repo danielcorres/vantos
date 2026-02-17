@@ -1,3 +1,5 @@
+import { chipBase, chipSizeSm, chipTint } from '../../shared/utils/chips'
+
 /**
  * Tag de fuente normalizada (case-insensitive).
  * Mantener la lógica aquí evita duplicados entre Tabla (desktop) y Cards (mobile).
@@ -20,18 +22,15 @@ export function LeadSourceTag({
 }) {
   const label = normalizeLeadSource(source)
   if (label === '—') {
-    return <span className={`text-xs text-neutral-400 ${className}`}>—</span>
+    return <span className={`${chipBase} ${chipSizeSm} ${chipTint.graySoft} ${className}`}>—</span>
   }
 
-  const base = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1'
-  const styles =
+  const tint =
     label === 'Referido'
-      ? 'bg-emerald-50 text-emerald-700 ring-emerald-100'
+      ? chipTint.greenSoft
       : label === 'Mercado Natural'
-        ? 'bg-amber-50 text-amber-800 ring-amber-100'
-        : label === 'Frío'
-          ? 'bg-sky-50 text-sky-700 ring-sky-100'
-          : 'bg-neutral-100 text-neutral-700 ring-neutral-100'
+        ? chipTint.amberSoft
+        : chipTint.neutral
 
-  return <span className={`${base} ${styles} ${className}`}>{label}</span>
+  return <span className={`${chipBase} ${chipSizeSm} ${tint} ${className}`}>{label}</span>
 }
