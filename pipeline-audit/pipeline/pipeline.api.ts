@@ -74,8 +74,7 @@ export type CreateLeadInput = {
   notes?: string
   stage_id: string
   next_follow_up_at?: string
-  /** Opcional: si no se envía, el lead queda sin próxima acción. */
-  next_action_at?: string | null
+  next_action_at: string
   next_action_type?: string | null
 }
 
@@ -139,7 +138,7 @@ export const pipelineApi = {
         notes: input.notes || null,
         stage_id: input.stage_id,
         next_follow_up_at: input.next_follow_up_at || null,
-        next_action_at: input.next_action_at ?? null,
+        next_action_at: input.next_action_at,
         next_action_type: normalizedType,
       })
       .select(LEAD_SELECT_COLUMNS)
@@ -188,6 +187,15 @@ export const pipelineApi = {
     next_action_type?: string | null
     momento_override?: string | null
   }): Promise<Lead> {
+    if (
+      updates.next_action_at === null &&
+      (updates.archived_at === undefined || updates.archived_at === null)
+    ) {
+      throw new Error(
+        'Lead activo requiere Próxima Acción. Para quitarla debes archivar el lead.'
+      )
+    }
+
     const payload = { ...updates }
     if (payload.next_action_type !== undefined) {
       payload.next_action_type = normalizeNextActionType(payload.next_action_type)

@@ -2,16 +2,27 @@ import { createPortal } from 'react-dom'
 import { useRef, useState, useEffect } from 'react'
 import { useFloatingPopover } from '../../shared/hooks/useFloatingPopover'
 import { chipBase, chipSizeSm } from '../../shared/utils/chips'
+import { isSinRespuesta } from '../../shared/utils/nextAction'
 import { pipelineApi } from '../../features/pipeline/pipeline.api'
-import { computeMomento, type Momento } from '../../features/pipeline/domain/pipeline.domain'
 
-const MOMENTO_STYLES: Record<Momento, string> = {
+type MomentoDisplay = 'avanzando' | 'por_definir' | 'sin_respuesta'
+
+function getMomentoDisplay(
+  next_action_at: string | null,
+  momento_override: string | null
+): MomentoDisplay {
+  if (momento_override === 'por_definir') return 'por_definir'
+  if (next_action_at && isSinRespuesta(next_action_at)) return 'sin_respuesta'
+  return 'avanzando'
+}
+
+const MOMENTO_STYLES: Record<MomentoDisplay, string> = {
   avanzando: 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-50/90',
   por_definir: 'bg-amber-50 border-amber-200 text-amber-900 hover:bg-amber-50/90',
   sin_respuesta: 'bg-red-50 border-red-200 text-red-900 hover:bg-red-50/90',
 }
 
-const MOMENTO_LABELS: Record<Momento, string> = {
+const MOMENTO_LABELS: Record<MomentoDisplay, string> = {
   avanzando: 'Avanzando',
   por_definir: 'Por definir',
   sin_respuesta: 'Sin respuesta',
@@ -86,8 +97,8 @@ export function MomentoChip({
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
 
-  const display = computeMomento({ next_action_at, momento_override })
-  const isPorDefinir = display === 'por_definir'
+  const display = getMomentoDisplay(next_action_at, momento_override)
+  const isPorDefinir = momento_override === 'por_definir'
 
   const close = () => {
     setOpen(false)

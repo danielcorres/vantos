@@ -4,7 +4,7 @@ import { MoveStageButton } from '../../../components/pipeline/MoveStageButton'
 import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
 import { NextActionActions } from '../../../components/pipeline/NextActionActions'
 import { isLikelyNeverMoved } from '../../../shared/utils/leadUtils'
-import { computeMomento } from '../domain/pipeline.domain'
+import { isSinRespuesta } from '../../../shared/utils/nextAction'
 import type { PipelineStageLite } from '../../../components/pipeline/LeadProgressDots'
 
 interface LeadCardProps {
@@ -24,24 +24,24 @@ export function LeadCard({ lead, stages, onDragStart, onMoveStage, onToast, onUp
   const navigate = useNavigate()
   const stagesLite = stagesToLite(stages)
 
-  const momento = computeMomento(lead)
-  const cardBorderClass =
-    momento === 'sin_respuesta'
-      ? 'border-l-4 border-red-200 bg-white'
-      : momento === 'por_definir'
-        ? 'border-l-4 border-amber-200 bg-white'
-        : 'border-neutral-200 bg-white'
+  const isPorDefinir = lead.momento_override === 'por_definir'
+  const isSinResp = lead.next_action_at ? isSinRespuesta(lead.next_action_at) : false
 
-  const momentoLabel =
-    momento === 'por_definir' ? (
-      <span className="shrink-0 text-xs rounded-full border border-amber-200 bg-amber-50/80 px-2 py-0.5 text-amber-800">
-        Por definir
-      </span>
-    ) : momento === 'sin_respuesta' ? (
-      <span className="shrink-0 text-xs rounded-full border border-red-200 bg-red-50/50 px-2 py-0.5 text-red-700">
-        Sin respuesta
-      </span>
-    ) : null
+  const cardBorderClass = isSinResp
+    ? 'border-red-300 bg-red-50/30'
+    : isPorDefinir
+      ? 'border-amber-300'
+      : 'border-neutral-200 bg-white'
+
+  const momentoLabel = isPorDefinir ? (
+    <span className="shrink-0 text-xs rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800">
+      Por definir
+    </span>
+  ) : isSinResp ? (
+    <span className="shrink-0 text-xs rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-red-700">
+      Sin respuesta
+    </span>
+  ) : null
 
   return (
     <div

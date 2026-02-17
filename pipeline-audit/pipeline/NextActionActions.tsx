@@ -20,7 +20,7 @@ export function NextActionActions({
 }) {
   const [openModal, setOpenModal] = useState(false)
 
-  const handleSave = async (next_action_at: string | null, next_action_type: string | null) => {
+  const handleSave = async (next_action_at: string, next_action_type: string | null) => {
     try {
       const normalizedType =
         next_action_type && next_action_type.trim() !== '' ? next_action_type : null

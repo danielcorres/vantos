@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
-import { computeMomento } from '../../features/pipeline/domain/pipeline.domain'
+import { isSinRespuesta } from '../../shared/utils/nextAction'
 import type { PipelineStageLite } from './LeadProgressDots'
 import { LeadCardContent } from './LeadCardContent'
 import { LeadSourceTag } from './LeadSourceTag'
@@ -35,23 +35,24 @@ export function LeadCardMobile({
 }) {
   const navigate = useNavigate()
 
-  const momento = computeMomento(lead)
+  const isPorDefinir = lead.momento_override === 'por_definir'
+  const isSinResp = lead.next_action_at ? isSinRespuesta(lead.next_action_at) : false
   const kanbanCardBorderClass =
     variant === 'kanban'
-      ? momento === 'sin_respuesta'
-        ? 'border-l-4 border-red-200 bg-white'
-        : momento === 'por_definir'
-          ? 'border-l-4 border-amber-200 bg-white'
+      ? isSinResp
+        ? 'border-red-300 bg-red-50/30'
+        : isPorDefinir
+          ? 'border-amber-300'
           : 'border-neutral-200 bg-white'
       : 'border-neutral-200 bg-white'
 
   const kanbanMomentoLabel =
-    variant === 'kanban' && momento === 'por_definir' ? (
-      <span className="shrink-0 text-xs rounded-full border border-amber-200 bg-amber-50/80 px-2 py-0.5 text-amber-800">
+    variant === 'kanban' && isPorDefinir ? (
+      <span className="shrink-0 text-xs rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-800">
         Por definir
       </span>
-    ) : variant === 'kanban' && momento === 'sin_respuesta' ? (
-      <span className="shrink-0 text-xs rounded-full border border-red-200 bg-red-50/50 px-2 py-0.5 text-red-700">
+    ) : variant === 'kanban' && isSinResp ? (
+      <span className="shrink-0 text-xs rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-red-700">
         Sin respuesta
       </span>
     ) : null

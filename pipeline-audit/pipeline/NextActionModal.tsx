@@ -98,13 +98,10 @@ const TIME_SLOTS = [
 export type NextActionModalProps = {
   isOpen: boolean
   onClose: () => void
-  /** Si next_action_at es null, se guarda sin fecha (opcional). */
-  onSave: (next_action_at: string | null, next_action_type: string | null) => Promise<void>
+  onSave: (next_action_at: string, next_action_type: string | null) => Promise<void>
   title?: string
   initialNextActionAt?: string | null
   initialNextActionType?: string | null
-  /** Si true, muestra botón "Sin fecha" para guardar sin next_action_at. */
-  allowNoDate?: boolean
 }
 
 export function NextActionModal({
@@ -114,7 +111,6 @@ export function NextActionModal({
   title = 'Define el próximo paso',
   initialNextActionAt,
   initialNextActionType,
-  allowNoDate = true,
 }: NextActionModalProps) {
   const now = new Date()
   const todayYmd = getTodayYmd(now)
@@ -217,19 +213,6 @@ export function NextActionModal({
     setError(null)
     try {
       await onSave(d.toISOString(), actionType)
-      onClose()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleSaveNoDate = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      await onSave(null, actionType)
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo guardar')
@@ -444,20 +427,10 @@ export function NextActionModal({
             </p>
           )}
 
-          <div className="flex flex-wrap gap-2 justify-end pt-2">
+          <div className="flex gap-2 justify-end pt-2">
             <button type="button" onClick={onClose} className="btn btn-ghost">
               Cancelar
             </button>
-            {allowNoDate && (
-              <button
-                type="button"
-                onClick={handleSaveNoDate}
-                disabled={loading}
-                className="btn btn-ghost text-neutral-600"
-              >
-                {loading ? 'Guardando…' : 'Sin fecha'}
-              </button>
-            )}
             <button
               type="submit"
               disabled={loading || !hasValidSelection}

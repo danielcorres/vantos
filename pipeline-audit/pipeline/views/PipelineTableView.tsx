@@ -4,6 +4,7 @@ import { pipelineApi, type Lead, type PipelineStage, type CreateLeadInput } from
 import { generateIdempotencyKey } from '../pipeline.store'
 import { LeadCreateModal } from '../components/LeadCreateModal'
 import { PipelineTable } from '../components/PipelineTable'
+import { getProximaLabel } from '../utils/proximaLabel'
 import { Toast } from '../../../shared/components/Toast'
 import { formatDateMX } from '../../../shared/utils/dates'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
@@ -456,6 +457,7 @@ export function PipelineTableView({
               collapsedStages={collapsedStages}
               onCollapsedStagesChange={setCollapsedStages}
               highlightLeadId={highlightLeadId}
+              getProximaLabel={getProximaLabel}
               onRowClick={(l) => navigate(`/leads/${l.id}`)}
               onMoveStage={handleMoveStage}
               onToast={onToast ?? ((msg) => setToast({ type: 'success', message: msg }))}

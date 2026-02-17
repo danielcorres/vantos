@@ -1,14 +1,51 @@
-import { getNextActionBucket } from '../../shared/utils/nextAction'
+import { getNextActionBucket, TZ, toYmdInMonterrey, getTodayYmd } from '../../shared/utils/nextAction'
 import { chipBase, chipSizeSm, chipTint } from '../../shared/utils/chips'
-import {
-  getNextActionType,
-  formatNextActionDateLabel,
-  type NextActionType,
-} from '../../features/pipeline/domain/pipeline.domain'
 
-const TYPE_CONFIG: Record<NextActionType, { icon: string; label: string }> = {
+const TYPE_CONFIG: Record<string, { icon: string; label: string }> = {
   contact: { icon: '📞', label: 'Contactar' },
   meeting: { icon: '🗓️', label: 'Reunión' },
+  call: { icon: '📞', label: 'Contactar' },
+  follow_up: { icon: '📞', label: 'Contactar' },
+  presentation: { icon: '🗓️', label: 'Reunión' },
+}
+
+/** Suma 1 día a YYYY-MM-DD. */
+function addOneDay(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (Number.isNaN(y) || Number.isNaN(m) || Number.isNaN(d)) return ymd
+  const next = new Date(Date.UTC(y, m - 1, d + 1))
+  return `${next.getUTCFullYear()}-${String(next.getUTCMonth() + 1).padStart(2, '0')}-${String(next.getUTCDate()).padStart(2, '0')}`
+}
+
+/** Formato: "Mié 18 · 6:30 p.m." o "Hoy · 6:30 p.m." / "Mañana · 10:00 a.m." (es-MX, TZ). */
+function formatNextActionDate(at: string | Date): string {
+  const d = typeof at === 'string' ? new Date(at) : at
+  if (isNaN(d.getTime())) return ''
+  const opts: Intl.DateTimeFormatOptions = { timeZone: TZ }
+  const leadYmd = toYmdInMonterrey(d)
+  const todayYmd = getTodayYmd()
+  const tomorrowYmd = addOneDay(todayYmd)
+
+  let prefix: string
+  if (leadYmd === todayYmd) {
+    prefix = 'Hoy'
+  } else if (leadYmd === tomorrowYmd) {
+    prefix = 'Mañana'
+  } else {
+    const weekday = new Intl.DateTimeFormat('es-MX', { ...opts, weekday: 'short' }).format(d)
+    const day = new Intl.DateTimeFormat('es-MX', { ...opts, day: 'numeric' }).format(d)
+    prefix = `${weekday.charAt(0).toUpperCase() + weekday.slice(1)} ${day}`
+  }
+
+  const time = new Intl.DateTimeFormat('es-MX', {
+    ...opts,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+    .format(d)
+    .replace(/\.\s*\./g, '.')
+  return `${prefix} · ${time}`
 }
 
 export function NextActionChip({
@@ -23,8 +60,7 @@ export function NextActionChip({
   className?: string
 }) {
   const hasValue = nextActionAt != null && nextActionAt.trim() !== ''
-  const type = getNextActionType({ next_action_type: nextActionType })
-  const config = type ? TYPE_CONFIG[type] : null
+  const config = nextActionType && TYPE_CONFIG[nextActionType] ? TYPE_CONFIG[nextActionType] : null
   const overdue = hasValue && getNextActionBucket(nextActionAt) === 'overdue'
 
   const handleClick = (e: React.MouseEvent) => {
@@ -56,7 +92,7 @@ export function NextActionChip({
   }
 
   const typeLabel = config ? `${config.icon} ${config.label}` : 'Próximo paso'
-  const dateLabel = formatNextActionDateLabel(nextActionAt!)
+  const dateLabel = formatNextActionDate(nextActionAt!)
 
   const typeChipStyle =
     config?.label === 'Reunión'

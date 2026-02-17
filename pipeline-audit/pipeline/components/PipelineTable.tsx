@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react'
 import type { Lead } from '../pipeline.api'
+import type { ProximaLabel } from '../utils/proximaLabel'
 import { displayStageName, getStageAccentStyle } from '../../../shared/utils/stageStyles'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 
@@ -32,6 +33,8 @@ type PipelineTableProps = {
   collapsedStages?: Record<string, boolean>
   onCollapsedStagesChange?: (next: Record<string, boolean>) => void
   highlightLeadId?: string | null
+  /** Se mantiene por compatibilidad con el caller; no se usa en la tabla (read-only). */
+  getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
   onRowClick: (lead: Lead) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
   onToast?: (message: string) => void
@@ -70,6 +73,8 @@ export function PipelineTable({
   collapsedStages: controlledCollapsed,
   onCollapsedStagesChange,
   highlightLeadId,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  getProximaLabel: _getProximaLabel,
   onRowClick,
   onMoveStage,
   onToast,

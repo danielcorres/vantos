@@ -43,9 +43,7 @@ export function LeadCreateModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showNextAction, setShowNextAction] = useState(false)
-  const [pendingCreateData, setPendingCreateData] = useState<Omit<CreateLeadInput, 'next_action_at' | 'next_action_type'> | null>(
-    null
-  )
+  const [pendingCreateData, setPendingCreateData] = useState<Omit<CreateLeadInput, 'next_action_at' | 'next_action_type'> | null>(null)
   const prefersReducedMotion = useReducedMotion()
 
   useEffect(() => {
@@ -76,7 +74,7 @@ export function LeadCreateModal({
     setShowNextAction(true)
   }
 
-  const handleNextActionSave = async (next_action_at: string | null, next_action_type: string | null) => {
+  const handleNextActionSave = async (next_action_at: string, next_action_type: string | null) => {
     if (!pendingCreateData) return
     if (!isValidStageId(pendingCreateData.stage_id)) {
       setError('Selecciona una etapa válida')
@@ -89,7 +87,7 @@ export function LeadCreateModal({
         next_action_type && next_action_type.trim() !== '' ? next_action_type : undefined
       const payload: CreateLeadInput = {
         ...pendingCreateData,
-        next_action_at: next_action_at ?? undefined,
+        next_action_at,
         next_action_type: normalizedType,
       }
       await onSubmit(payload)
@@ -127,8 +125,7 @@ export function LeadCreateModal({
           setPendingCreateData(null)
         }}
         onSave={handleNextActionSave}
-        title="Próximo paso"
-        allowNoDate
+        title="Próxima acción (obligatoria)"
       />
     <div
       className={`fixed inset-0 bg-black/50 flex items-center justify-center p-4 ${showNextAction ? 'z-40' : 'z-50'}`}
