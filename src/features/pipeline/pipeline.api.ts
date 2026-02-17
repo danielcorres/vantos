@@ -169,6 +169,15 @@ export const pipelineApi = {
     next_action_at?: string | null
     next_action_type?: string | null
   }): Promise<Lead> {
+    if (
+      updates.next_action_at === null &&
+      (updates.archived_at === undefined || updates.archived_at === null)
+    ) {
+      throw new Error(
+        'Lead activo requiere Próxima Acción. Para quitarla debes archivar el lead.'
+      )
+    }
+
     const { data, error } = await supabase
       .from('leads')
       .update(updates)
@@ -176,7 +185,13 @@ export const pipelineApi = {
       .select(LEAD_SELECT_COLUMNS)
       .single()
 
-    if (error) throw error
+    if (error) {
+      const msg =
+        error.code === '23514'
+          ? 'Lead activo debe tener Próxima Acción. Define una fecha o archiva el lead.'
+          : error.message
+      throw new Error(msg)
+    }
     return normalizeLead(data as Record<string, unknown>)
   },
 

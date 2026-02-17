@@ -24,7 +24,7 @@ import {
   type NextActionFilter,
   countLeadsByNextAction,
   filterLeadsByNextAction,
-} from './utils/nextActionFilter'
+} from '../../shared/utils/nextAction'
 
 const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
   contactos_nuevos: 'Prospecto',
@@ -85,9 +85,30 @@ export function PipelinePage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [createStageId, setCreateStageId] = useState<string | undefined>(undefined)
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
-  const [pendingMove, setPendingMove] = useState<{ leadId: string; toStageId: string } | null>(null)
-  const [nextActionFilter, setNextActionFilter] = useState<NextActionFilter>('week')
+  const [pendingMove, setPendingMove] = useState<{
+    leadId: string
+    fromStageId: string
+    toStageId: string
+  } | null>(null)
+  const naParam = searchParams.get('na')
+  const validNa = naParam === 'overdue' || naParam === 'today' || naParam === 'week' || naParam === 'later'
+  const [nextActionFilter, setNextActionFilterState] = useState<NextActionFilter>(validNa ? naParam : 'week')
   const kanbanRef = useRef<HTMLDivElement>(null)
+
+  const setNextActionFilter = useCallback(
+    (filter: NextActionFilter) => {
+      setNextActionFilterState(filter)
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.set('na', filter)
+          return next
+        },
+        { replace: true }
+      )
+    },
+    [setSearchParams]
+  )
 
   const weekStartYmd = searchParams.get('weekStart')
   const weekStartValid = weekStartYmd != null && isValidWeekStartYmd(weekStartYmd)
@@ -107,6 +128,10 @@ export function PipelinePage() {
   useEffect(() => {
     setStoredViewMode(activeTab)
   }, [activeTab])
+
+  useEffect(() => {
+    if (validNa && naParam) setNextActionFilterState(naParam)
+  }, [naParam, validNa])
 
   useEffect(() => {
     if (!weekStartValid || !stageSlugValid || !weekStartYmd) {
@@ -153,12 +178,12 @@ export function PipelinePage() {
 
   const hasSetNextActionDefault = useRef(false)
   useEffect(() => {
-    if (displayedLeads.length === 0 || hasSetNextActionDefault.current) return
+    if (displayedLeads.length === 0 || hasSetNextActionDefault.current || validNa) return
     hasSetNextActionDefault.current = true
     const c = countLeadsByNextAction(displayedLeads)
     if (c.overdue > 0) setNextActionFilter('overdue')
     else if (c.today > 0) setNextActionFilter('today')
-  }, [displayedLeads])
+  }, [displayedLeads, validNa])
 
   const [tableVisibleCount, setTableVisibleCount] = useState<number | null>(null)
 
@@ -217,7 +242,7 @@ export function PipelinePage() {
         return
       }
       if (draggedLead.next_action_at == null) {
-        setPendingMove({ leadId: draggedLead.id, toStageId })
+        setPendingMove({ leadId: draggedLead.id, fromStageId, toStageId })
         setDraggedLead(null)
         return
       }
@@ -270,7 +295,7 @@ export function PipelinePage() {
     if (fromStageId === toStageId) return
 
     if (lead.next_action_at == null) {
-      setPendingMove({ leadId, toStageId })
+      setPendingMove({ leadId, fromStageId, toStageId })
       return
     }
 
@@ -635,11 +660,28 @@ export function PipelinePage() {
         onClose={() => setPendingMove(null)}
         onSave={async (next_action_at, next_action_type) => {
           if (!pendingMove) return
-          await pipelineApi.updateLead(pendingMove.leadId, { next_action_at, next_action_type })
-          const lead = state.leads.find((l) => l.id === pendingMove.leadId)
-          if (lead) {
-            const idempotencyKey = generateIdempotencyKey(lead.id, lead.stage_id, pendingMove.toStageId)
+          try {
+            await pipelineApi.updateLead(pendingMove.leadId, { next_action_at, next_action_type })
+          } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : 'No se pudo guardar la próxima acción.'
+            setPipelineToast({ type: 'error', message: msg })
+            return
+          }
+          try {
+            const idempotencyKey = generateIdempotencyKey(
+              pendingMove.leadId,
+              pendingMove.fromStageId,
+              pendingMove.toStageId
+            )
             await pipelineApi.moveLeadStage(pendingMove.leadId, pendingMove.toStageId, idempotencyKey)
+          } catch (err: unknown) {
+            setPipelineToast({
+              type: 'error',
+              message:
+                'Se guardó la próxima acción pero no se pudo mover la etapa. Intenta mover de nuevo.',
+            })
+            await loadData()
+            return
           }
           await loadData()
           const stageName = state.stages.find((s) => s.id === pendingMove.toStageId)?.name

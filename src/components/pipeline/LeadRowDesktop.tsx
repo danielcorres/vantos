@@ -12,6 +12,7 @@ import { LeadContactLine } from './LeadContactLine'
 import { LeadProgressDots, type PipelineStageLite } from './LeadProgressDots'
 import { LeadSourceTag } from './LeadSourceTag'
 import { MoveStageButton } from './MoveStageButton'
+import { getNextActionLabel } from '../../shared/utils/nextAction'
 import { LeadQuickActions } from './LeadQuickActions'
 
 export function LeadRowDesktop({
@@ -83,6 +84,9 @@ export function LeadRowDesktop({
             </div>
             <div className="mt-1">
               <LeadSourceTag source={lead.source} />
+            </div>
+            <div className="text-xs text-neutral-500 mt-1">
+              Siguiente: {getNextActionLabel(lead.next_action_at)}
             </div>
           </div>
         </div>

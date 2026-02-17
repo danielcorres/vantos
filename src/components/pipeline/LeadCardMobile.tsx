@@ -11,6 +11,7 @@ import type { PipelineStageLite } from './LeadProgressDots'
 import { LeadCardContent } from './LeadCardContent'
 import { LeadSourceTag } from './LeadSourceTag'
 import { MoveStageButton } from './MoveStageButton'
+import { getNextActionLabel } from '../../shared/utils/nextAction'
 
 export type LeadCardMobileVariant = 'default' | 'kanban' | 'table'
 
@@ -103,6 +104,9 @@ export function LeadCardMobile({
             <span className="min-w-0 truncate font-medium text-neutral-900 text-sm">
               {lead.full_name}
             </span>
+          </div>
+          <div className="text-xs text-neutral-500 mt-1">
+            Siguiente: {getNextActionLabel(lead.next_action_at)}
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             {conditionTag && (

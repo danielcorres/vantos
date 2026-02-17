@@ -8,8 +8,8 @@ import { getProximaLabel } from '../utils/proximaLabel'
 import { Toast } from '../../../shared/components/Toast'
 import { formatDateMX } from '../../../shared/utils/dates'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
-import type { NextActionFilter } from '../utils/nextActionFilter'
-import { filterLeadsByNextAction } from '../utils/nextActionFilter'
+import type { NextActionFilter } from '../../../shared/utils/nextAction'
+import { filterLeadsByNextAction } from '../../../shared/utils/nextAction'
 
 // Barra de controles unificada: segmented controls y botones neutros
 const SEGMENT_WRAPPER = 'inline-flex rounded-xl border border-neutral-200 bg-neutral-50 p-0.5 gap-0'
