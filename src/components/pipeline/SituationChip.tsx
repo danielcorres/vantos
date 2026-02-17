@@ -1,4 +1,6 @@
+import { createPortal } from 'react-dom'
 import { useRef, useState, useEffect } from 'react'
+import { useFloatingPopover } from '../../shared/hooks/useFloatingPopover'
 
 export type SituationValue = 'waiting_client' | 'docs_pending' | 'paused' | 'unreachable' | null
 
@@ -27,6 +29,67 @@ function getSituationLabel(v: string | null | undefined): string {
   return opt?.label ?? 'En pausa'
 }
 
+function SituationPopoverPortal({
+  open,
+  anchorRect,
+  onClose,
+  onSelect,
+}: {
+  open: boolean
+  anchorRect: DOMRect | null
+  onClose: () => void
+  onSelect: (v: SituationValue) => void | Promise<void>
+}) {
+  const { style } = useFloatingPopover(anchorRect, open)
+
+  if (!open || !anchorRect) return null
+
+  const handleSelect = (v: SituationValue) => {
+    void onSelect(v)
+    onClose()
+  }
+
+  const panel = (
+    <div
+      role="menu"
+      className="rounded-lg border border-neutral-200 bg-white shadow-lg py-1"
+      style={style}
+    >
+      {SITUATION_OPTIONS.map((opt) => (
+        <button
+          key={opt.value ?? 'null'}
+          type="button"
+          role="menuitem"
+          onClick={() => handleSelect(opt.value)}
+          className="w-full text-left px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
+        >
+          {opt.label}
+        </button>
+      ))}
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => handleSelect(null)}
+        className="w-full text-left px-3 py-1.5 text-sm text-neutral-500 hover:bg-neutral-50 border-t border-neutral-100 mt-1 pt-1"
+      >
+        Quitar
+      </button>
+    </div>
+  )
+
+  const content = (
+    <>
+      <div
+        className="fixed inset-0 z-[999]"
+        aria-hidden
+        onMouseDown={onClose}
+      />
+      {panel}
+    </>
+  )
+  return createPortal(content, document.body)
+}
+
 export function SituationChip({
   value,
   onPick,
@@ -38,18 +101,29 @@ export function SituationChip({
   onToast?: (msg: string) => void
   className?: string
 }) {
-  const containerRef = useRef<HTMLDivElement>(null)
+  const anchorRef = useRef<HTMLButtonElement>(null)
   const [open, setOpen] = useState(false)
+  const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
+
+  const close = () => {
+    setOpen(false)
+    setAnchorRect(null)
+  }
 
   useEffect(() => {
     if (!open) return
-    const handleDoc = (e: PointerEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close()
     }
-    document.addEventListener('pointerdown', handleDoc)
-    return () => document.removeEventListener('pointerdown', handleDoc)
+    const handleScrollOrResize = () => close()
+    document.addEventListener('keydown', handleEscape)
+    window.addEventListener('scroll', handleScrollOrResize, true)
+    window.addEventListener('resize', handleScrollOrResize)
+    return () => {
+      document.removeEventListener('keydown', handleEscape)
+      window.removeEventListener('scroll', handleScrollOrResize, true)
+      window.removeEventListener('resize', handleScrollOrResize)
+    }
   }, [open])
 
   const displayValue = normalizeDisplayValue(value)
@@ -61,15 +135,20 @@ export function SituationChip({
     try {
       await onPick?.(v)
       onToast?.('Actualizado')
-      setOpen(false)
     } catch {
       onToast?.('No se pudo actualizar')
     }
   }
 
+  const handleToggle = () => {
+    if (!onPick) return
+    const rect = anchorRef.current?.getBoundingClientRect() ?? null
+    setAnchorRect(rect)
+    setOpen((o) => !o)
+  }
+
   return (
     <div
-      ref={containerRef}
       className={`relative inline-block ${className}`}
       data-stop-rowclick="true"
       onClick={(e) => e.stopPropagation()}
@@ -77,50 +156,42 @@ export function SituationChip({
     >
       {displayValue ? (
         <button
+          ref={anchorRef}
           type="button"
           data-stop-rowclick="true"
-          onClick={() => onPick && setOpen((o) => !o)}
+          onClick={handleToggle}
           disabled={!onPick}
+          aria-expanded={open}
+          aria-haspopup="menu"
           className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 bg-neutral-100 text-neutral-700 ring-neutral-200 hover:bg-neutral-200 disabled:opacity-100 shrink-0"
         >
           {label}
         </button>
       ) : onPick ? (
         <button
+          ref={anchorRef}
           type="button"
           data-stop-rowclick="true"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            const rect = anchorRef.current?.getBoundingClientRect() ?? null
+            setAnchorRect(rect)
+            setOpen(true)
+          }}
+          aria-expanded={open}
+          aria-haspopup="menu"
           className="inline-flex items-center rounded-full px-2 py-0.5 text-xs text-neutral-400 hover:text-neutral-600 hover:bg-neutral-100 shrink-0"
         >
           —
         </button>
       ) : null}
 
-      {open && onPick && (
-        <div
-          role="menu"
-          className="absolute left-0 top-full mt-1 z-50 min-w-[160px] rounded-lg border border-neutral-200 bg-white shadow-lg py-1"
-        >
-          {SITUATION_OPTIONS.map((opt) => (
-            <button
-              key={opt.value ?? 'null'}
-              type="button"
-              role="menuitem"
-              onClick={() => handleSelect(opt.value)}
-              className="w-full text-left px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50"
-            >
-              {opt.label}
-            </button>
-          ))}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => handleSelect(null)}
-            className="w-full text-left px-3 py-1.5 text-sm text-neutral-500 hover:bg-neutral-50 border-t border-neutral-100 mt-1 pt-1"
-          >
-            Quitar
-          </button>
-        </div>
+      {onPick && (
+        <SituationPopoverPortal
+          open={open}
+          anchorRect={anchorRect}
+          onClose={close}
+          onSelect={handleSelect}
+        />
       )}
     </div>
   )
