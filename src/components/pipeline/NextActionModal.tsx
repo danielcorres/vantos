@@ -8,6 +8,7 @@ const ACTION_TYPES = [
   { value: 'presentation', label: 'Presentación' },
 ] as const
 
+
 function todayAt(hour: number): Date {
   const d = new Date()
   d.setHours(hour, 0, 0, 0)
@@ -58,6 +59,9 @@ export type NextActionModalProps = {
   onClose: () => void
   onSave: (next_action_at: string, next_action_type: string | null) => Promise<void>
   title?: string
+  /** Valores iniciales para modo edición (precarga fecha y tipo) */
+  initialNextActionAt?: string | null
+  initialNextActionType?: string | null
 }
 
 export function NextActionModal({
@@ -65,6 +69,8 @@ export function NextActionModal({
   onClose,
   onSave,
   title = 'Próxima acción',
+  initialNextActionAt,
+  initialNextActionType,
 }: NextActionModalProps) {
   const [pickedAt, setPickedAt] = useState<Date>(() => todayAt(10))
   const [datetimeLocal, setDatetimeLocal] = useState<string>(() => toDatetimeLocal(todayAt(10)))
@@ -74,17 +80,33 @@ export function NextActionModal({
   const [error, setError] = useState<string | null>(null)
   const prefersReducedMotion = useReducedMotion()
 
-  // Auto-selecciona next_action_at recomendado por horario local al abrir (Guardar habilitado sin fricción)
+  // Al abrir: precargar initial* si existen y son válidos, sino usar recomendación
   useEffect(() => {
     if (isOpen) {
-      const { date, label } = getRecommendedNextAction()
-      setPickedAt(date)
-      setDatetimeLocal(toDatetimeLocal(date))
-      setActivePresetLabel(label)
-      setActionType('call')
       setError(null)
+      const parsed =
+        initialNextActionAt && initialNextActionAt.trim() !== ''
+          ? new Date(initialNextActionAt)
+          : null
+      if (parsed && !isNaN(parsed.getTime())) {
+        setPickedAt(parsed)
+        setDatetimeLocal(toDatetimeLocal(parsed))
+        setActivePresetLabel(null)
+        const t = (initialNextActionType ?? '').trim()
+        const valid =
+          ACTION_TYPES.some((a) => a.value === t) ?
+            (t as (typeof ACTION_TYPES)[number]['value'])
+          : 'call'
+        setActionType(valid)
+      } else {
+        const { date, label } = getRecommendedNextAction()
+        setPickedAt(date)
+        setDatetimeLocal(toDatetimeLocal(date))
+        setActivePresetLabel(label)
+        setActionType('call')
+      }
     }
-  }, [isOpen])
+  }, [isOpen, initialNextActionAt, initialNextActionType])
 
   const presets: { label: string; get: () => Date }[] = [
     { label: 'Hoy 10', get: () => todayAt(10) },

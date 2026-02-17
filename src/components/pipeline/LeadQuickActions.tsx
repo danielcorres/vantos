@@ -1,6 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import { pipelineApi } from '../../features/pipeline/pipeline.api'
+import { NextActionModal } from './NextActionModal'
 
 const STAGE_CONTACTOS_NUEVOS = 'Contactos Nuevos'
 const STAGE_CASOS_ABIERTOS = 'Casos Abiertos'
@@ -76,6 +77,7 @@ export function LeadQuickActions({
   const [open, setOpen] = useState(false)
   const [openUp, setOpenUp] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [openNextAction, setOpenNextAction] = useState(false)
 
   useEffect(() => {
     if (!open) return
@@ -167,6 +169,23 @@ export function LeadQuickActions({
             openUp ? 'bottom-full mb-2' : 'top-full mt-2'
           }`}
         >
+          <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 border-b border-neutral-100">
+            Próxima acción
+          </div>
+          <div className="py-0.5">
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false)
+                setOpenNextAction(true)
+              }}
+              disabled={saving}
+              className="w-full text-left px-3 py-1.5 text-sm text-neutral-700 hover:bg-neutral-50 disabled:opacity-60"
+            >
+              Editar próxima acción
+            </button>
+          </div>
           {showEstado && (
             <>
               <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-neutral-400 border-b border-neutral-100">
@@ -341,6 +360,22 @@ export function LeadQuickActions({
           </div>
         </div>
       )}
+
+      <NextActionModal
+        isOpen={openNextAction}
+        onClose={() => setOpenNextAction(false)}
+        onSave={async (next_action_at, next_action_type) => {
+          const normalizedType =
+            next_action_type && next_action_type.trim() !== ''
+              ? next_action_type
+              : null
+          await handleSave({ next_action_at, next_action_type: normalizedType })
+          setOpenNextAction(false)
+        }}
+        title="Editar próxima acción"
+        initialNextActionAt={lead.next_action_at}
+        initialNextActionType={lead.next_action_type}
+      />
     </div>
   )
 }
