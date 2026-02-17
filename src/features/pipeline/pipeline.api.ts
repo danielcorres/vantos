@@ -15,6 +15,8 @@ function normalizeLead(row: Record<string, unknown>): Lead {
     propuesta_presentada_at: (row.propuesta_presentada_at as string | null) ?? null,
     cerrado_at: (row.cerrado_at as string | null) ?? null,
     referral_name: (row.referral_name as string | null) ?? null,
+    next_action_at: (row.next_action_at as string | null) ?? null,
+    next_action_type: (row.next_action_type as string | null) ?? null,
   } as Lead
 }
 
@@ -133,7 +135,12 @@ export const pipelineApi = {
       .select(LEAD_SELECT_COLUMNS)
       .single()
 
-    if (error) throw error
+    if (error) {
+      if (import.meta.env?.DEV) {
+        console.error('[createLead] Supabase error:', error)
+      }
+      throw error
+    }
     return normalizeLead(data as Record<string, unknown>)
   },
 

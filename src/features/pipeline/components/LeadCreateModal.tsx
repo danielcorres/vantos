@@ -10,6 +10,8 @@ interface LeadCreateModalProps {
   onClose: () => void
   onSubmit: (data: CreateLeadInput) => Promise<void>
   defaultStageId?: string
+  /** Llamado cuando el usuario cancela el NextActionModal (no se crea el lead) */
+  onCancelNextAction?: () => void
 }
 
 const SOURCE_OPTIONS = [
@@ -27,6 +29,7 @@ export function LeadCreateModal({
   onClose,
   onSubmit,
   defaultStageId,
+  onCancelNextAction,
 }: LeadCreateModalProps) {
   const [fullName, setFullName] = useState('')
   const [source, setSource] = useState(DEFAULT_SOURCE)
@@ -67,11 +70,12 @@ export function LeadCreateModal({
     setLoading(true)
     setError(null)
     try {
-      await onSubmit({
+      const payload: CreateLeadInput = {
         ...pendingCreateData,
         next_action_at,
-        next_action_type,
-      })
+        next_action_type: next_action_type ?? undefined,
+      }
+      await onSubmit(payload)
       setShowNextAction(false)
       setPendingCreateData(null)
       handleClose()
@@ -99,7 +103,11 @@ export function LeadCreateModal({
     <>
       <NextActionModal
         isOpen={showNextAction}
-        onClose={() => { setShowNextAction(false); setPendingCreateData(null) }}
+        onClose={() => {
+          onCancelNextAction?.()
+          setShowNextAction(false)
+          setPendingCreateData(null)
+        }}
         onSave={handleNextActionSave}
         title="Próxima acción (obligatoria)"
       />

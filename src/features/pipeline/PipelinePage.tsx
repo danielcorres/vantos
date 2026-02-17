@@ -623,6 +623,9 @@ export function PipelinePage() {
             setCreateStageId(undefined)
           }}
           onSubmit={handleCreateLead}
+          onCancelNextAction={() =>
+            setPipelineToast({ type: 'info', message: 'Creación cancelada' })
+          }
           defaultStageId={createStageId}
         />
       )}

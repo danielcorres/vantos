@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useReducedMotion } from '../../shared/hooks/useReducedMotion'
 
 const ACTION_TYPES = [
@@ -64,6 +64,18 @@ export function NextActionModal({
   const [error, setError] = useState<string | null>(null)
   const prefersReducedMotion = useReducedMotion()
 
+  // Reset a defaults recomendados cada vez que se abre el modal (1-click: Hoy 10 + Llamada)
+  useEffect(() => {
+    if (isOpen) {
+      const defaultDate = todayAt(10)
+      setPickedAt(defaultDate)
+      setDatetimeLocal(toDatetimeLocal(defaultDate))
+      setActivePresetLabel('Hoy 10')
+      setActionType('call')
+      setError(null)
+    }
+  }, [isOpen])
+
   const presets: { label: string; get: () => Date }[] = [
     { label: 'Hoy 10', get: () => todayAt(10) },
     { label: 'Hoy 12', get: () => todayAt(12) },
@@ -88,6 +100,10 @@ export function NextActionModal({
   }
 
   const getSubmitAt = (): Date => (activePresetLabel ? pickedAt : parseDatetimeLocal(datetimeLocal))
+  const hasValidNextAction = () => {
+    const d = getSubmitAt()
+    return !isNaN(d.getTime())
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -180,7 +196,11 @@ export function NextActionModal({
             <button type="button" onClick={onClose} className="btn btn-ghost">
               Cancelar
             </button>
-            <button type="submit" disabled={loading} className="btn btn-primary">
+            <button
+              type="submit"
+              disabled={loading || !hasValidNextAction()}
+              className="btn btn-primary"
+            >
               {loading ? 'Guardando…' : 'Guardar y continuar'}
             </button>
           </div>
