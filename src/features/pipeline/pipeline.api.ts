@@ -119,6 +119,11 @@ export const pipelineApi = {
   },
 
   async createLead(input: CreateLeadInput): Promise<Lead> {
+    const normalizedType =
+      input.next_action_type != null && String(input.next_action_type).trim() !== ''
+        ? input.next_action_type
+        : null
+
     const { data, error } = await supabase
       .from('leads')
       .insert({
@@ -130,7 +135,7 @@ export const pipelineApi = {
         stage_id: input.stage_id,
         next_follow_up_at: input.next_follow_up_at || null,
         next_action_at: input.next_action_at,
-        next_action_type: input.next_action_type ?? null,
+        next_action_type: normalizedType,
       })
       .select(LEAD_SELECT_COLUMNS)
       .single()
@@ -138,6 +143,19 @@ export const pipelineApi = {
     if (error) {
       if (import.meta.env?.DEV) {
         console.error('[createLead] Supabase error:', error)
+      }
+      const code = (error as { code?: string })?.code
+      const msg = (error as { message?: string })?.message ?? ''
+      if (code === '23514') {
+        throw new Error(
+          'Lead activo debe tener Próxima Acción válida. Define fecha o deja el tipo vacío.'
+        )
+      }
+      if (code === '22P02') {
+        throw new Error('Etapa inválida (UUID). Recarga pipeline.')
+      }
+      if (code === '42501' || /policy|permission|row-level|rls/i.test(msg)) {
+        throw new Error('No tienes permisos o tu sesión expiró. Recarga e inicia sesión.')
       }
       throw error
     }

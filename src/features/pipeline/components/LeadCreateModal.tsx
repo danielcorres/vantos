@@ -23,6 +23,11 @@ const SOURCE_OPTIONS = [
 
 const DEFAULT_SOURCE = 'Referido'
 
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function isValidStageId(id: string): boolean {
+  return typeof id === 'string' && id.trim() !== '' && UUID_REGEX.test(id.trim())
+}
+
 export function LeadCreateModal({
   stages,
   isOpen,
@@ -55,6 +60,10 @@ export function LeadCreateModal({
       setError('El nombre es requerido')
       return
     }
+    if (!isValidStageId(stageId)) {
+      setError('Selecciona una etapa válida')
+      return
+    }
     setError(null)
     setPendingCreateData({
       full_name: fullName.trim(),
@@ -67,20 +76,27 @@ export function LeadCreateModal({
 
   const handleNextActionSave = async (next_action_at: string, next_action_type: string | null) => {
     if (!pendingCreateData) return
+    if (!isValidStageId(pendingCreateData.stage_id)) {
+      setError('Selecciona una etapa válida')
+      throw new Error('Selecciona una etapa válida')
+    }
     setLoading(true)
     setError(null)
     try {
+      const normalizedType =
+        next_action_type && next_action_type.trim() !== '' ? next_action_type : undefined
       const payload: CreateLeadInput = {
         ...pendingCreateData,
         next_action_at,
-        next_action_type: next_action_type ?? undefined,
+        next_action_type: normalizedType,
       }
       await onSubmit(payload)
       setShowNextAction(false)
       setPendingCreateData(null)
       handleClose()
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Error al crear el lead')
+      const msg = err instanceof Error ? err.message : 'Error al crear el lead'
+      setError(msg)
       throw err
     } finally {
       setLoading(false)
@@ -112,8 +128,8 @@ export function LeadCreateModal({
         title="Próxima acción (obligatoria)"
       />
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-      onClick={handleClose}
+      className={`fixed inset-0 bg-black/50 flex items-center justify-center p-4 ${showNextAction ? 'z-40' : 'z-50'}`}
+      onClick={showNextAction ? undefined : handleClose}
       style={{
         animation: prefersReducedMotion ? 'none' : 'fadeIn 150ms ease-out',
       }}
