@@ -43,7 +43,15 @@ export function LeadRowDesktop({
     void navigator.clipboard.writeText(text).then(() => onToast?.(toastMessage))
   }
 
-  const handleRowClick = () => {
+  const shouldIgnoreRowClick = (e: React.MouseEvent | React.KeyboardEvent) => {
+    const target = e.target as HTMLElement
+    return !!target.closest(
+      'button, a, input, select, textarea, [role="menu"], [role="menuitem"], [data-stop-rowclick="true"]'
+    )
+  }
+
+  const handleRowClick = (e?: React.MouseEvent | React.KeyboardEvent) => {
+    if (e && shouldIgnoreRowClick(e)) return
     navigate(`/leads/${lead.id}`)
     onRowClick?.(lead)
   }
@@ -55,11 +63,11 @@ export function LeadRowDesktop({
     <tr
       role="button"
       tabIndex={0}
-      onClick={handleRowClick}
+      onClick={(e) => handleRowClick(e)}
       onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
-          handleRowClick()
+          handleRowClick(e)
         }
       }}
       className={`group select-none cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset focus-visible:outline-none ${rowBorderClass} ${

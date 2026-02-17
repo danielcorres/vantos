@@ -136,6 +136,7 @@ export function LeadQuickActions({
     <div ref={containerRef} className="relative inline-block">
       <button
         type="button"
+        data-stop-rowclick="true"
         disabled={saving}
         onMouseDown={stop}
         onClick={(e) => {
