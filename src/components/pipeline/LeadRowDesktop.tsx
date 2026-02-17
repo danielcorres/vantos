@@ -114,8 +114,8 @@ export function LeadRowDesktop({
         />
       </td>
 
-      {/* Próximo paso — chip + Hecho */}
-      <td className="hidden lg:table-cell px-4 py-3 align-middle border-b border-dashed border-neutral-200/60">
+      {/* Próximo paso */}
+      <td className="hidden lg:table-cell px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 whitespace-nowrap">
         <NextActionActions
           leadId={lead.id}
           nextActionAt={lead.next_action_at}
@@ -126,7 +126,7 @@ export function LeadRowDesktop({
       </td>
 
       {/* Situación */}
-      <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60">
+      <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 whitespace-nowrap">
         <SituationChip
           value={lead.lead_condition}
           onPick={async (v) => {

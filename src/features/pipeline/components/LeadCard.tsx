@@ -64,7 +64,7 @@ export function LeadCard({ lead, stages, onDragStart, onMoveStage, onToast, onUp
           </div>
         ) : null}
       </div>
-      {/* Debajo: fuente + badge Nuevo + próximo paso (chip+Hecho) + situación */}
+      {/* Debajo: fuente + badge Nuevo + próximo paso + situación */}
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <LeadSourceTag source={lead.source} className="shrink-0" />
         {isLikelyNeverMoved(lead) && (
