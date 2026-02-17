@@ -11,6 +11,8 @@ const TYPE_CONFIG: Record<NextActionType, { icon: string; label: string }> = {
   meeting: { icon: '🗓️', label: 'Reunión' },
 }
 
+const DATE_LABEL_NONE = 'Sin fecha'
+
 export function NextActionChip({
   nextActionAt,
   nextActionType,
@@ -22,10 +24,10 @@ export function NextActionChip({
   onClick?: () => void
   className?: string
 }) {
-  const hasValue = nextActionAt != null && nextActionAt.trim() !== ''
   const type = getNextActionType({ next_action_type: nextActionType })
   const config = type ? TYPE_CONFIG[type] : null
-  const overdue = hasValue && getNextActionBucket(nextActionAt) === 'overdue'
+  const hasDate = nextActionAt != null && nextActionAt.trim() !== ''
+  const overdue = hasDate && getNextActionBucket(nextActionAt) === 'overdue'
 
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -33,9 +35,9 @@ export function NextActionChip({
     onClick?.()
   }
 
-  const emptyChipClass = `${chipBase} ${chipSizeSm} ${chipTint.neutral} cursor-pointer hover:bg-neutral-100/60 transition-colors`
-
-  if (!hasValue) {
+  // Sin tipo → estado vacío (selecciona próximo paso)
+  if (!type || !config) {
+    const emptyChipClass = `${chipBase} ${chipSizeSm} ${chipTint.neutral} cursor-pointer hover:bg-neutral-100/60 transition-colors`
     if (onClick) {
       return (
         <button
@@ -55,13 +57,13 @@ export function NextActionChip({
     )
   }
 
-  const typeLabel = config ? `${config.icon} ${config.label}` : 'Próximo paso'
-  const dateLabel = formatNextActionDateLabel(nextActionAt!)
+  const typeLabel = `${config.icon} ${config.label}`
+  const dateLabel = hasDate ? formatNextActionDateLabel(nextActionAt) : DATE_LABEL_NONE
 
   const typeChipStyle =
-    config?.label === 'Reunión'
+    config.label === 'Reunión'
       ? 'bg-emerald-100 border-emerald-300 text-emerald-900 hover:bg-emerald-100/90'
-      : config?.label === 'Contactar'
+      : config.label === 'Contactar'
         ? 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-50/90'
         : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100/60'
 
