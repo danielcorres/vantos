@@ -7,8 +7,6 @@ import { PipelineTable } from '../components/PipelineTable'
 import { Toast } from '../../../shared/components/Toast'
 import { formatDateMX } from '../../../shared/utils/dates'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
-import type { NextActionFilter } from '../../../shared/utils/nextAction'
-import { filterLeadsByNextAction } from '../../../shared/utils/nextAction'
 
 // Barra de controles unificada: segmented controls y botones neutros
 const SEGMENT_WRAPPER = 'inline-flex rounded-xl border border-neutral-200 bg-neutral-50 p-0.5 gap-0'
@@ -41,7 +39,6 @@ export function PipelineTableView({
   onClearWeekly,
   onVisibleCountChange,
   onToast,
-  nextActionFilter,
 }: {
   weeklyFilterLeadIds?: Set<string> | null
   weeklyStageLabel?: string | null
@@ -52,8 +49,6 @@ export function PipelineTableView({
   onVisibleCountChange?: (n: number) => void
   /** Toast global del Pipeline (ej. desde PipelinePage). Si no se pasa, se usa toast local. */
   onToast?: (message: string) => void
-  /** Filtro por próxima acción (desde PipelinePage). */
-  nextActionFilter?: NextActionFilter
 } = {}) {
   const navigate = useNavigate()
   const [stages, setStages] = useState<PipelineStage[]>([])
@@ -93,11 +88,8 @@ export function PipelineTableView({
       const srcLower = src.toLowerCase()
       list = list.filter((l) => (l.source?.toLowerCase().trim() || '') === srcLower)
     }
-    if (nextActionFilter) {
-      list = filterLeadsByNextAction(list, nextActionFilter)
-    }
     return list
-  }, [pipelineMode, leads, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds, nextActionFilter])
+  }, [pipelineMode, leads, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds])
 
   useEffect(() => {
     onVisibleCountChange?.(filteredLeads.length)

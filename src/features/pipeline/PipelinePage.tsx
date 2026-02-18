@@ -21,11 +21,6 @@ import { Toast } from '../../shared/components/Toast'
 import { displayStageName } from '../../shared/utils/stageStyles'
 import type { CreateLeadInput } from './pipeline.api'
 import { NextActionModal } from '../../components/pipeline/NextActionModal'
-import {
-  type NextActionFilter,
-  countLeadsByNextAction,
-  filterLeadsByNextAction,
-} from '../../shared/utils/nextAction'
 
 const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
   contactos_nuevos: 'Prospecto',
@@ -95,25 +90,7 @@ export function PipelinePage() {
     fromStageId: string
     toStageId: string
   } | null>(null)
-  const naParam = searchParams.get('na')
-  const validNa = naParam === 'overdue' || naParam === 'today' || naParam === 'week' || naParam === 'later'
-  const [nextActionFilter, setNextActionFilterState] = useState<NextActionFilter>(validNa ? naParam : 'week')
   const kanbanRef = useRef<HTMLDivElement>(null)
-
-  const setNextActionFilter = useCallback(
-    (filter: NextActionFilter) => {
-      setNextActionFilterState(filter)
-      setSearchParams(
-        (prev) => {
-          const next = new URLSearchParams(prev)
-          next.set('na', filter)
-          return next
-        },
-        { replace: true }
-      )
-    },
-    [setSearchParams]
-  )
 
   const weekStartYmd = searchParams.get('weekStart')
   const weekStartValid = weekStartYmd != null && isValidWeekStartYmd(weekStartYmd)
@@ -133,10 +110,6 @@ export function PipelinePage() {
   useEffect(() => {
     setStoredViewMode(activeTab)
   }, [activeTab])
-
-  useEffect(() => {
-    if (validNa && naParam) setNextActionFilterState(naParam)
-  }, [naParam, validNa])
 
   useEffect(() => {
     if (!weekStartValid || !stageSlugValid || !weekStartYmd) {
@@ -170,25 +143,6 @@ export function PipelinePage() {
     if (weeklyLeadIds === null) return []
     return state.leads.filter((l) => weeklyLeadIds.has(l.id))
   }, [weeklyMode, weeklyLeadIds, state.leads])
-
-  const nextActionCounts = useMemo(
-    () => countLeadsByNextAction(displayedLeads),
-    [displayedLeads]
-  )
-
-  const leadsFilteredByNextAction = useMemo(
-    () => filterLeadsByNextAction(displayedLeads, nextActionFilter),
-    [displayedLeads, nextActionFilter]
-  )
-
-  const hasSetNextActionDefault = useRef(false)
-  useEffect(() => {
-    if (displayedLeads.length === 0 || hasSetNextActionDefault.current || validNa) return
-    hasSetNextActionDefault.current = true
-    const c = countLeadsByNextAction(displayedLeads)
-    if (c.overdue > 0) setNextActionFilter('overdue')
-    else if (c.today > 0) setNextActionFilter('today')
-  }, [displayedLeads, validNa, setNextActionFilter])
 
   const [tableVisibleCount, setTableVisibleCount] = useState<number | null>(null)
 
@@ -394,8 +348,7 @@ export function PipelinePage() {
     )
   }
 
-  // Mi Embudo: mide SIEMPRE el pipeline completo (state.leads = activos). Filtros (próxima acción, búsqueda, weekly) no afectan el embudo.
-  // Test manual: con filtro "Esta semana" activo, conteos del embudo no cambian; coinciden con suma por etapa en DB (archived_at is null).
+  // Mi Embudo: mide SIEMPRE el pipeline completo (state.leads = activos). Conteos coinciden con suma por etapa en DB (archived_at is null).
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -414,33 +367,6 @@ export function PipelinePage() {
       </div>
 
       <PipelineFunnelHealth leads={state.leads} stages={state.stages} />
-
-      {/* Filtros por próxima acción (America/Monterrey) */}
-      <div className="flex flex-wrap items-center gap-2">
-        {(
-          [
-            { key: 'overdue' as const, label: 'Se me pasó', emoji: '🔴' },
-            { key: 'today' as const, label: 'Hoy', emoji: '🟡' },
-            { key: 'week' as const, label: 'Esta semana', emoji: '🟢' },
-            { key: 'later' as const, label: 'Más adelante', emoji: '⚪' },
-          ] as const
-        ).map(({ key, label, emoji }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => setNextActionFilter(key)}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm border transition-colors ${
-              nextActionFilter === key
-                ? 'bg-neutral-900 text-white border-neutral-900'
-                : 'bg-white border-neutral-200 text-neutral-700 hover:bg-neutral-50'
-            }`}
-          >
-            <span aria-hidden>{emoji}</span>
-            <span>{label}</span>
-            <span className="tabular-nums text-xs opacity-90">({nextActionCounts[key]})</span>
-          </button>
-        ))}
-      </div>
 
       {weekStartValid && weekStartYmd && !stageSlugValid && (
         <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 dark:bg-neutral-800/40 px-4 py-3 flex flex-wrap items-center gap-3">
@@ -603,7 +529,6 @@ export function PipelinePage() {
           onClearWeekly={clearWeeklyMode}
           onVisibleCountChange={setTableVisibleCount}
           onToast={(msg) => setPipelineToast({ type: 'success', message: msg })}
-          nextActionFilter={nextActionFilter}
         />
       )}
 
@@ -626,7 +551,7 @@ export function PipelinePage() {
         <div ref={kanbanRef}>
           <KanbanBoard
             stages={state.stages}
-            leads={leadsFilteredByNextAction}
+            leads={displayedLeads}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
