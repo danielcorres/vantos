@@ -8,6 +8,7 @@ import {
 } from './pipeline.store'
 import { KanbanBoard } from './components/KanbanBoard'
 import { LeadCreateModal } from './components/LeadCreateModal'
+import { PipelineFunnelHealth } from './components/PipelineFunnelHealth'
 import { PipelineTableView } from './views/PipelineTableView'
 import { getWeeklyEntryLeads } from '../productivity/api/drilldown.api'
 
@@ -363,6 +364,7 @@ export function PipelinePage() {
             <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
           </div>
         </div>
+        <PipelineFunnelHealth leads={state.leads} stages={state.stages} />
         <div className="text-center p-8">
           <span className="text-muted">Cargando...</span>
         </div>
@@ -379,6 +381,7 @@ export function PipelinePage() {
             <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
           </div>
         </div>
+        <PipelineFunnelHealth leads={state.leads} stages={state.stages} />
         <div className="card p-4 bg-red-50 border border-red-200">
           <p className="text-sm text-red-700 mb-3">{state.error}</p>
           <button onClick={() => loadData()} className="btn btn-primary text-sm">
@@ -405,6 +408,8 @@ export function PipelinePage() {
           </button>
         )}
       </div>
+
+      <PipelineFunnelHealth leads={state.leads} stages={state.stages} />
 
       {/* Filtros por próxima acción (America/Monterrey) */}
       <div className="flex flex-wrap items-center gap-2">

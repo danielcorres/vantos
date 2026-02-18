@@ -50,7 +50,7 @@ export function InfoPopover({
   content,
   className = '',
 }: InfoPopoverProps) {
-  const buttonRef = useRef<HTMLButtonElement>(null)
+  const triggerRef = useRef<HTMLSpanElement>(null)
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
@@ -69,7 +69,7 @@ export function InfoPopover({
       clearTimeout(closeTimeoutRef.current)
       closeTimeoutRef.current = null
     }
-    const rect = buttonRef.current?.getBoundingClientRect() ?? null
+    const rect = triggerRef.current?.getBoundingClientRect() ?? null
     setAnchorRect(rect)
     setOpen(true)
   }, [])
@@ -86,11 +86,23 @@ export function InfoPopover({
     }
   }, [])
 
-  const toggle = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
+  const toggle = useCallback(() => {
     if (open) close()
     else openPopover()
+  }, [open, close, openPopover])
+
+  const handleTriggerClick = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    toggle()
+  }
+
+  const handleTriggerKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      e.stopPropagation()
+      toggle()
+    }
   }
 
   useEffect(() => {
@@ -149,18 +161,20 @@ export function InfoPopover({
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <button
-        ref={buttonRef}
-        type="button"
+      <span
+        ref={triggerRef}
+        role="button"
+        tabIndex={0}
+        aria-label={title}
         data-stop-rowclick="true"
-        onClick={toggle}
+        onClick={handleTriggerClick}
+        onKeyDown={handleTriggerKeyDown}
         onMouseEnter={canHover ? openPopover : undefined}
         onMouseLeave={canHover ? scheduleClose : undefined}
-        aria-label={title}
         className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border border-neutral-200 bg-white text-[10px] text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
       >
         ⓘ
-      </button>
+      </span>
       {open && createPortal(panel, document.body)}
     </span>
   )
