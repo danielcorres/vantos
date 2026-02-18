@@ -16,6 +16,7 @@ export function LeadCardMobile({
   lead,
   stages,
   stageName,
+  stageSlug,
   isHighlight,
   onRowClick,
   onMoveStage,
@@ -26,6 +27,8 @@ export function LeadCardMobile({
   lead: Lead
   stages: PipelineStageLite[]
   stageName: string | undefined
+  /** Slug para estilos (colores); opcional. Si no se pasa, se usa gris. */
+  stageSlug?: string
   isHighlight?: boolean
   onRowClick?: (lead: Lead) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
@@ -96,7 +99,7 @@ export function LeadCardMobile({
       className={`rounded-xl border shadow-sm active:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 ${kanbanCardBorderClass} ${paddingClass} ${
         isHighlight ? 'ring-2 ring-primary/40 bg-primary/5' : ''
       }`}
-      style={getStageAccentStyle(stageName)}
+      style={getStageAccentStyle(stageSlug)}
     >
       {variant === 'kanban' && (
         <>

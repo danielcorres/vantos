@@ -3,7 +3,7 @@ import type { ProximaLabel } from '../utils/proximaLabel'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
 import { todayLocalYmd } from '../../../shared/utils/dates'
 
-type Stage = { id: string; name: string; position: number }
+type Stage = { id: string; name: string; position: number; slug?: string }
 
 function phoneDigits(phone: string): string {
   return (phone || '').replace(/\D/g, '')
@@ -42,9 +42,9 @@ type LeadsTableProps = {
   onRowClick: (lead: Lead) => void
 }
 
-/** Clase pill de etapa más suave para tabla (pastel muy suave + text oscuro) */
-function getTableStagePillClasses(stageName: string | undefined): string {
-  const base = getStageTagClasses(stageName)
+/** Clase pill de etapa más suave para tabla (pastel muy suave + text oscuro). Resuelve por slug. */
+function getTableStagePillClasses(stageSlug: string | undefined): string {
+  const base = getStageTagClasses(stageSlug)
   return `${base} opacity-90`
 }
 
@@ -73,7 +73,9 @@ export function LeadsTable({ leads, stages, getProximaLabel, onRowClick }: Leads
             </tr>
           ) : (
             leads.map((lead) => {
-              const stageName = stages.find((s) => s.id === lead.stage_id)?.name
+              const stage = stages.find((s) => s.id === lead.stage_id)
+              const stageName = stage?.name
+              const stageSlug = stage?.slug
               const proxima = getProximaLabel(stageName ?? '', lead.next_follow_up_at)
               const digits = phoneDigits(lead.phone ?? '')
               const waNumber = normalizeWhatsAppNumber(digits)
@@ -90,7 +92,7 @@ export function LeadsTable({ leads, stages, getProximaLabel, onRowClick }: Leads
                   key={lead.id}
                   onClick={() => onRowClick(lead)}
                   className="group cursor-pointer bg-white transition-colors hover:bg-neutral-50"
-                  style={getStageAccentStyle(stageName)}
+                  style={getStageAccentStyle(stageSlug)}
                 >
                   <td className="py-3 pr-4">
                     <span className="font-medium text-neutral-900">{lead.full_name}</span>
@@ -137,7 +139,7 @@ export function LeadsTable({ leads, stages, getProximaLabel, onRowClick }: Leads
                     </span>
                   </td>
                   <td className="py-3 pr-4">
-                    <span className={getTableStagePillClasses(stageName)}>
+                    <span className={getTableStagePillClasses(stageSlug)}>
                       {displayStageName(stageName)}
                     </span>
                   </td>

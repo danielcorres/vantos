@@ -508,7 +508,7 @@ export function LeadDetailPage() {
               </span>
             )}
             {currentStage && (
-              <span className={getStageTagClasses(currentStage.name)}>
+              <span className={getStageTagClasses(currentStage.slug)}>
                 {displayStageName(currentStage.name)}
               </span>
             )}

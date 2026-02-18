@@ -392,13 +392,15 @@ export function PipelineTableView({
                 </tr>
               ) : (
                 leads.map((lead) => {
-                  const stageName = stages.find((s) => s.id === lead.stage_id)?.name
+                  const stage = stages.find((s) => s.id === lead.stage_id)
+                  const stageName = stage?.name
+                  const stageSlug = stage?.slug
                   const isArchived = lead.archived_at != null
                   return (
                     <tr
                       key={lead.id}
                       className="border-b border-border/60 hover:bg-black/[0.02]"
-                      style={getStageAccentStyle(stageName)}
+                      style={getStageAccentStyle(stageSlug)}
                     >
                       <td className="py-2.5 pr-4">
                         <button
@@ -410,7 +412,7 @@ export function PipelineTableView({
                         </button>
                       </td>
                       <td className="py-2.5 pr-4">
-                        <span className={getStageTagClasses(stageName)}>{displayStageName(stageName)}</span>
+                        <span className={getStageTagClasses(stageSlug)}>{displayStageName(stageName)}</span>
                       </td>
                       <td className="py-2.5 pr-4 text-muted">{lead.source ?? '—'}</td>
                       <td className="py-2.5 pr-4 text-muted tabular-nums">

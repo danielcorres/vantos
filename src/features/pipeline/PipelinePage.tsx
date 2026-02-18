@@ -364,6 +364,7 @@ export function PipelinePage() {
             <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
           </div>
         </div>
+        {/* Embudo: siempre pipeline completo (activos), sin filtrar. */}
         <PipelineFunnelHealth leads={state.leads} stages={state.stages} />
         <div className="text-center p-8">
           <span className="text-muted">Cargando...</span>
@@ -381,6 +382,7 @@ export function PipelinePage() {
             <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
           </div>
         </div>
+        {/* Embudo: siempre pipeline completo (activos), sin filtrar por próxima acción ni búsqueda. */}
         <PipelineFunnelHealth leads={state.leads} stages={state.stages} />
         <div className="card p-4 bg-red-50 border border-red-200">
           <p className="text-sm text-red-700 mb-3">{state.error}</p>
@@ -392,6 +394,8 @@ export function PipelinePage() {
     )
   }
 
+  // Mi Embudo: mide SIEMPRE el pipeline completo (state.leads = activos). Filtros (próxima acción, búsqueda, weekly) no afectan el embudo.
+  // Test manual: con filtro "Esta semana" activo, conteos del embudo no cambian; coinciden con suma por etapa en DB (archived_at is null).
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-3">

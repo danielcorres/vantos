@@ -14,6 +14,7 @@ export function LeadRowDesktop({
   lead,
   stages,
   stageName,
+  stageSlug,
   isHighlight,
   onRowClick,
   onMoveStage,
@@ -23,6 +24,8 @@ export function LeadRowDesktop({
   lead: Lead
   stages: PipelineStageLite[]
   stageName: string | undefined
+  /** Slug para estilos (colores); opcional. */
+  stageSlug?: string
   isHighlight?: boolean
   onRowClick?: (lead: Lead) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
@@ -66,7 +69,8 @@ export function LeadRowDesktop({
       className={`group select-none cursor-pointer bg-white transition-colors hover:bg-neutral-50 focus-within:bg-neutral-50 focus-within:ring-2 focus-within:ring-neutral-200 focus-within:ring-inset focus-visible:outline-none ${rowBorderClass} ${
         isHighlight ? 'ring-2 ring-primary/40 ring-inset bg-primary/5' : ''
       }`}
-      style={getStageAccentStyle(stageName)}
+      style={getStageAccentStyle(stageSlug)}
+      data-stage-name={stageName ?? undefined}
     >
       {/* Nombre: nombre + fuente debajo + badge Nuevo — min-w-0 + truncate para prioridad sin widths fijos */}
       <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 min-w-0">

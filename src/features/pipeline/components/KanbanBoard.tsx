@@ -73,6 +73,11 @@ export function KanbanBoard({
     [stages, mobileStageId]
   )
 
+  const mobileStageSlug = React.useMemo(
+    () => stages.find((s) => s.id === mobileStageId)?.slug,
+    [stages, mobileStageId]
+  )
+
   const leadsByStage = React.useMemo(() => {
     const map = new Map<string, Lead[]>()
     for (const lead of leads) {
@@ -125,6 +130,7 @@ export function KanbanBoard({
                   lead={lead}
                   stages={stagesLite}
                   stageName={mobileStageName}
+                  stageSlug={mobileStageSlug}
                   onMoveStage={onMoveStage}
                   onToast={onToast}
                   onUpdated={onUpdated}

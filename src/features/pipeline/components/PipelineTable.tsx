@@ -125,7 +125,7 @@ export function PipelineTable({
                   type="button"
                   onClick={() => toggleStage(stage.id)}
                   className="w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200"
-                  style={getStageAccentStyle(stage.name)}
+                  style={getStageAccentStyle(stage.slug)}
                   aria-expanded={!isCollapsed}
                 >
                   <div className="flex items-center justify-between gap-3">
@@ -168,6 +168,7 @@ export function PipelineTable({
                             lead={lead}
                             stages={stages}
                             stageName={stage.name}
+                            stageSlug={stage.slug}
                             isHighlight={isHighlight}
                             onRowClick={onRowClick}
                             onMoveStage={onMoveStage}
@@ -182,19 +183,23 @@ export function PipelineTable({
               </Fragment>
             )
           })
-        : leads.map((lead) => (
-            <LeadCardMobile
-              key={lead.id}
-              lead={lead}
-              stages={stages}
-              stageName={groupedSections.find((s) => s.stage.id === lead.stage_id)?.stage.name}
-              isHighlight={highlightLeadId === lead.id}
-              onRowClick={onRowClick}
-              onMoveStage={onMoveStage}
-              onToast={onToast}
-              variant="table"
-            />
-          ))}
+        : leads.map((lead) => {
+            const sectionStage = groupedSections.find((s) => s.stage.id === lead.stage_id)?.stage
+            return (
+              <LeadCardMobile
+                key={lead.id}
+                lead={lead}
+                stages={stages}
+                stageName={sectionStage?.name}
+                stageSlug={sectionStage?.slug}
+                isHighlight={highlightLeadId === lead.id}
+                onRowClick={onRowClick}
+                onMoveStage={onMoveStage}
+                onToast={onToast}
+                variant="table"
+              />
+            )
+          })}
     </div>
   )
 
@@ -232,7 +237,7 @@ export function PipelineTable({
                           }
                         }}
                         className="cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-inset"
-                        style={getStageAccentStyle(stage.name)}
+                        style={getStageAccentStyle(stage.slug)}
                         aria-expanded={!isCollapsed}
                       >
                         <td colSpan={6} className="border-y border-neutral-200 bg-neutral-50 hover:bg-neutral-100">
@@ -276,6 +281,7 @@ export function PipelineTable({
                                 lead={lead}
                                 stages={stages}
                                 stageName={stage.name}
+                                stageSlug={stage.slug}
                                 isHighlight={isHighlight}
                                 onRowClick={onRowClick}
                                 onMoveStage={onMoveStage}
@@ -295,6 +301,7 @@ export function PipelineTable({
                     lead={lead}
                     stages={stages}
                     stageName={groupedSections.find((s) => s.stage.id === lead.stage_id)?.stage.name}
+                    stageSlug={groupedSections.find((s) => s.stage.id === lead.stage_id)?.stage.slug}
                     isHighlight={highlightLeadId === lead.id}
                     onRowClick={onRowClick}
                     onMoveStage={onMoveStage}
