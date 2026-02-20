@@ -58,3 +58,10 @@ export type CloseToWonKpi = {
   count: number
   rows: CloseToWonRow[]
 }
+
+/** Resultados del mes: entradas a etapas clave (lead_stage_history) en el mes actual. */
+export type MonthlyProductionCounts = {
+  casos_abiertos: number
+  citas_cierre: number
+  casos_ganados: number
+}

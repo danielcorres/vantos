@@ -6,6 +6,7 @@ import {
   generateIdempotencyKey,
   type PipelineState,
 } from './pipeline.store'
+import { computeMomento, type Momento } from './domain/pipeline.domain'
 import { KanbanBoard } from './components/KanbanBoard'
 import { LeadCreateModal } from './components/LeadCreateModal'
 import { PipelineFunnelHealth } from './components/PipelineFunnelHealth'
@@ -48,6 +49,8 @@ function formatWeekRangeLabel(weekStartYmd: string): string {
 
 const STORAGE_KEY_VIEW = 'pipeline:viewMode'
 type ViewMode = 'table' | 'kanban' | 'insights'
+
+type MomentoFilterValue = 'all' | Momento
 
 type PipelineToast = { type: 'error' | 'success' | 'info'; message: string } | null
 
@@ -143,6 +146,22 @@ export function PipelinePage() {
     if (weeklyLeadIds === null) return []
     return state.leads.filter((l) => weeklyLeadIds.has(l.id))
   }, [weeklyMode, weeklyLeadIds, state.leads])
+
+  const [momentoFilter, setMomentoFilter] = useState<MomentoFilterValue>('all')
+
+  const momentoCounts = useMemo(() => {
+    const counts = { all: displayedLeads.length, avanzando: 0, por_definir: 0, sin_respuesta: 0 }
+    for (const lead of displayedLeads) {
+      const m = computeMomento(lead)
+      counts[m] += 1
+    }
+    return counts
+  }, [displayedLeads])
+
+  const momentoFilteredLeads = useMemo(() => {
+    if (momentoFilter === 'all') return displayedLeads
+    return displayedLeads.filter((l) => computeMomento(l) === momentoFilter)
+  }, [displayedLeads, momentoFilter])
 
   const [tableVisibleCount, setTableVisibleCount] = useState<number | null>(null)
 
@@ -450,7 +469,7 @@ export function PipelinePage() {
           </span>
           {!weeklyLoadError && (
             <span className="text-sm text-neutral-600 dark:text-neutral-400 tabular-nums">
-              Mostrando: {activeTab === 'table' ? (tableVisibleCount ?? displayedLeads.length) : displayedLeads.length}
+              Mostrando: {activeTab === 'table' ? (tableVisibleCount ?? momentoFilteredLeads.length) : momentoFilteredLeads.length}
             </span>
           )}
           <button
@@ -483,45 +502,109 @@ export function PipelinePage() {
         </div>
       )}
 
-      <div
-        className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5 gap-0.5"
-        role="tablist"
-        aria-label="Vista del pipeline"
-      >
-        <button
-          role="tab"
-          aria-selected={activeTab === 'table'}
-          onClick={() => setActiveTab('table')}
-          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-            activeTab === 'table' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
-          }`}
+      <div className="flex flex-wrap items-center gap-3">
+        <div
+          className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5 gap-0.5"
+          role="tablist"
+          aria-label="Vista del pipeline"
         >
-          Tabla
-        </button>
-        <button
-          role="tab"
-          aria-selected={activeTab === 'kanban'}
-          onClick={() => setActiveTab('kanban')}
-          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-            activeTab === 'kanban' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
-          }`}
-        >
-          Kanban
-        </button>
-        <button
-          role="tab"
-          aria-selected={activeTab === 'insights'}
-          onClick={() => setActiveTab('insights')}
-          className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-            activeTab === 'insights' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
-          }`}
-        >
-          Insights
-        </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'table'}
+            onClick={() => setActiveTab('table')}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              activeTab === 'table' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+            }`}
+          >
+            Tabla
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'kanban'}
+            onClick={() => setActiveTab('kanban')}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              activeTab === 'kanban' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+            }`}
+          >
+            Kanban
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'insights'}
+            onClick={() => setActiveTab('insights')}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              activeTab === 'insights' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+            }`}
+          >
+            Insights
+          </button>
+        </div>
+
+        {(activeTab === 'table' || activeTab === 'kanban') && (
+          <div
+            className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5 gap-0.5"
+            role="tablist"
+            aria-label="Filtro por momento"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={momentoFilter === 'all'}
+              onClick={() => setMomentoFilter('all')}
+              className={`px-2.5 py-1.5 text-sm rounded-md transition-colors inline-flex items-center gap-1.5 ${
+                momentoFilter === 'all'
+                  ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium'
+                  : 'text-neutral-600 hover:bg-neutral-200/60'
+              }`}
+            >
+              Todos <span className="rounded-full text-[10px] px-1.5 py-0.5 bg-neutral-200/80 text-neutral-500 tabular-nums">{momentoCounts.all}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={momentoFilter === 'avanzando'}
+              onClick={() => setMomentoFilter('avanzando')}
+              className={`px-2.5 py-1.5 text-sm rounded-md transition-colors inline-flex items-center gap-1.5 ${
+                momentoFilter === 'avanzando'
+                  ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium'
+                  : 'text-neutral-600 hover:bg-neutral-200/60'
+              }`}
+            >
+              Avanzando <span className={`rounded-full text-[10px] px-1.5 py-0.5 tabular-nums ${momentoFilter === 'avanzando' ? 'bg-neutral-800 text-white/90' : 'bg-neutral-200/80 text-neutral-500'}`}>{momentoCounts.avanzando}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={momentoFilter === 'por_definir'}
+              onClick={() => setMomentoFilter('por_definir')}
+              className={`px-2.5 py-1.5 text-sm rounded-md transition-colors inline-flex items-center gap-1.5 ${
+                momentoFilter === 'por_definir'
+                  ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium'
+                  : 'text-neutral-600 hover:bg-neutral-200/60'
+              }`}
+            >
+              Por definir <span className={`rounded-full text-[10px] px-1.5 py-0.5 tabular-nums ${momentoFilter === 'por_definir' ? 'bg-neutral-800 text-white/90' : 'bg-neutral-200/80 text-neutral-500'}`}>{momentoCounts.por_definir}</span>
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={momentoFilter === 'sin_respuesta'}
+              onClick={() => setMomentoFilter('sin_respuesta')}
+              className={`px-2.5 py-1.5 text-sm rounded-md transition-colors inline-flex items-center gap-1.5 ${
+                momentoFilter === 'sin_respuesta'
+                  ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium'
+                  : 'text-neutral-600 hover:bg-neutral-200/60'
+              }`}
+            >
+              Sin respuesta <span className={`rounded-full text-[10px] px-1.5 py-0.5 tabular-nums ${momentoFilter === 'sin_respuesta' ? 'bg-neutral-800 text-white/90' : 'bg-neutral-200/80 text-neutral-500'}`}>{momentoCounts.sin_respuesta}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {activeTab === 'table' && (
         <PipelineTableView
+          activosLeads={momentoFilteredLeads}
           weeklyFilterLeadIds={weeklyMode ? weeklyLeadIds : null}
           weeklyStageLabel={weeklyMode && stageSlug ? WEEKLY_STAGE_LABELS[stageSlug] : null}
           weeklyWeekRange={weeklyMode && weekStartYmd ? formatWeekRangeLabel(weekStartYmd) : null}
@@ -551,7 +634,7 @@ export function PipelinePage() {
         <div ref={kanbanRef}>
           <KanbanBoard
             stages={state.stages}
-            leads={displayedLeads}
+            leads={momentoFilteredLeads}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDrop={handleDrop}

@@ -34,12 +34,15 @@ function sortLeadsByPriority(leads: Lead[]): Lead[] {
 }
 
 export function PipelineTableView({
+  activosLeads = null,
   weeklyFilterLeadIds = null,
   weeklyLoadError = null,
   onClearWeekly,
   onVisibleCountChange,
   onToast,
 }: {
+  /** Cuando se proporciona (ej. desde PipelinePage con filtro por momento), se usa como lista base de activos en lugar de la cargada internamente. */
+  activosLeads?: Lead[] | null
   weeklyFilterLeadIds?: Set<string> | null
   weeklyStageLabel?: string | null
   weeklyWeekRange?: string | null
@@ -70,9 +73,14 @@ export function PipelineTableView({
 
   const filteredLeads = useMemo(() => {
     if (pipelineMode !== 'activos') return []
-    let list = leads
-    if (weeklyMode && weeklyFilterLeadIds?.size) {
-      list = list.filter((l) => weeklyFilterLeadIds.has(l.id))
+    let list: Lead[]
+    if (activosLeads != null) {
+      list = activosLeads
+    } else {
+      list = leads
+      if (weeklyMode && weeklyFilterLeadIds?.size) {
+        list = list.filter((l) => weeklyFilterLeadIds.has(l.id))
+      }
     }
     const q = searchQuery.trim().toLowerCase()
     if (q) {
@@ -89,7 +97,7 @@ export function PipelineTableView({
       list = list.filter((l) => (l.source?.toLowerCase().trim() || '') === srcLower)
     }
     return list
-  }, [pipelineMode, leads, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds])
+  }, [pipelineMode, activosLeads, leads, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds])
 
   useEffect(() => {
     onVisibleCountChange?.(filteredLeads.length)
@@ -226,7 +234,9 @@ export function PipelineTableView({
     )
   }
 
-  if (pipelineMode === 'activos' && leads.length === 0) {
+  const activosListLength = activosLeads != null ? activosLeads.length : leads.length
+  const showActivosEmptyState = pipelineMode === 'activos' && activosListLength === 0 && activosLeads == null
+  if (showActivosEmptyState) {
     return (
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-end gap-2">

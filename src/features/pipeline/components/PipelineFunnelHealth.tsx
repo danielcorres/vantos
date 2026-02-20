@@ -3,8 +3,7 @@ import type { Lead } from '../pipeline.api'
 import type { PipelineStage } from '../pipeline.api'
 import {
   getStageCounts,
-  getMonthlyProduction,
-  computeFunnelStatus,
+  computeStockStatus,
   pickPrimarySuggestion,
   isAllGreen,
   type FunnelMetricStatus,
@@ -17,38 +16,26 @@ const STATUS_STYLES: Record<FunnelMetricStatus['status'], string> = {
   red: 'bg-red-50/80 border-red-200/80 text-red-800',
 }
 
-/** Color suave del número para ritmo de producción (solo texto, sin fondo). */
-const PACE_TONE_NUMBER: Record<string, string> = {
-  red: 'text-red-600',
-  amber: 'text-amber-700',
-  green: 'text-emerald-700',
-  ahead: 'text-emerald-700',
-}
-
 type PipelineFunnelHealthProps = {
   /** Lista completa de leads activos del asesor. No debe ser filtrada por próxima acción, búsqueda ni vista. */
   leads: Lead[]
   stages: PipelineStage[]
-  /** Opcional: fecha para prorrateo mensual; por defecto hoy. */
-  monthContext?: Date
 }
 
 export function PipelineFunnelHealth({
   leads,
   stages,
-  monthContext = new Date(),
 }: PipelineFunnelHealthProps) {
   const { statuses, suggestion, allGreen } = useMemo(() => {
-    const inventoryCounts = getStageCounts(leads, stages)
-    const monthlyProduction = getMonthlyProduction(leads, monthContext)
-    const statuses = computeFunnelStatus(inventoryCounts, monthlyProduction, monthContext)
+    const counts = getStageCounts(leads, stages)
+    const statuses = computeStockStatus(counts)
     const suggestion = pickPrimarySuggestion(statuses)
     const allGreen = isAllGreen(statuses)
     return { statuses, suggestion, allGreen }
-  }, [leads, stages, monthContext])
+  }, [leads, stages])
 
-  const stockStatuses = statuses.filter((s) => s.kind === 'stock')
-  const monthlyStatuses = statuses.filter((s) => s.kind === 'monthly')
+  const inventarioStatuses = statuses.filter((s) => s.kind === 'inventario')
+  const avanceStatuses = statuses.filter((s) => s.kind === 'avance')
 
   if (stages.length === 0) {
     return (
@@ -59,7 +46,7 @@ export function PipelineFunnelHealth({
     )
   }
 
-  const StockChip = ({ m }: { m: FunnelMetricStatus }) => (
+  const Chip = ({ m }: { m: FunnelMetricStatus }) => (
     <span
       className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${STATUS_STYLES[m.status]}`}
       title={`${m.label}: ${m.value} / ${m.target} (${m.status})`}
@@ -71,36 +58,6 @@ export function PipelineFunnelHealth({
       <span className="sr-only">({m.status})</span>
     </span>
   )
-
-  const paceEmoji: Record<string, string> = {
-    needs_push: '🔴',
-    in_progress: '🟡',
-    on_track: '🟢',
-    ahead: '🔥',
-  }
-
-  const ProductionChip = ({ m }: { m: FunnelMetricStatus }) => {
-    const tone = m.paceTone ?? 'amber'
-    const numClass = PACE_TONE_NUMBER[tone] ?? 'text-neutral-700'
-    const paceLabel = m.paceLabel ?? 'En progreso'
-    const emoji = m.paceStatusKey ? paceEmoji[m.paceStatusKey] : '🟡'
-    return (
-      <span
-        className="inline-flex flex-col rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs"
-        title={`${m.label}: ${m.value} / ${m.target} · ${paceLabel}`}
-      >
-        <span className="inline-flex items-center gap-1.5 font-medium">
-          <span className="text-neutral-600 shrink-0">{m.label}</span>
-          <span className={`tabular-nums ${numClass}`}>
-            {m.value}/{m.target}
-          </span>
-        </span>
-        <span className="text-[10px] text-neutral-500 mt-0.5 hidden sm:block">
-          {emoji} {paceLabel}
-        </span>
-      </span>
-    )
-  }
 
   return (
     <div className="rounded-lg border border-neutral-200 bg-neutral-50/40 px-3 py-2.5">
@@ -115,23 +72,23 @@ export function PipelineFunnelHealth({
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {stockStatuses.map((m) => (
-            <StockChip key={m.slug} m={m} />
+          {inventarioStatuses.map((m) => (
+            <Chip key={m.slug} m={m} />
           ))}
         </div>
       </div>
       <div>
         <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-xs text-neutral-500">Producción del mes</span>
+          <span className="text-xs text-neutral-500">Avance hoy</span>
           <InfoPopover
-            title="Producción"
-            bullets={['Cuántos eventos ocurrieron en el mes (1ª cita, cierre, póliza).']}
+            title="Avance"
+            bullets={['Cuántos leads están ahora en etapa de primera cita, cierre o póliza.']}
             className="text-neutral-400 hover:text-neutral-600"
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {monthlyStatuses.map((m) => (
-            <ProductionChip key={m.slug} m={m} />
+          {avanceStatuses.map((m) => (
+            <Chip key={m.slug} m={m} />
           ))}
         </div>
       </div>

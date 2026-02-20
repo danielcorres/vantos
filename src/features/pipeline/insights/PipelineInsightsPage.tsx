@@ -6,9 +6,11 @@ import type {
   PipelineDurationRow,
   PipelineTransitionRow,
   CloseToWonKpi,
+  MonthlyProductionCounts,
 } from './insights.types'
 import { KpiCards } from './components/KpiCards'
 import { FunnelList } from './components/FunnelList'
+import { ResultadosDelMesPanel } from './components/ResultadosDelMesPanel'
 import { DurationTable } from './components/DurationTable'
 import { StuckLeadsPanel } from './components/StuckLeadsPanel'
 import { TransitionsTable } from './components/TransitionsTable'
@@ -24,6 +26,7 @@ export function PipelineInsightsPage({ onViewInKanban }: PipelineInsightsPagePro
   const [funnel, setFunnel] = useState<PipelineFunnelRow[]>([])
   const [duration, setDuration] = useState<PipelineDurationRow[]>([])
   const [transitions, setTransitions] = useState<PipelineTransitionRow[]>([])
+  const [monthlyProduction, setMonthlyProduction] = useState<MonthlyProductionCounts | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -31,13 +34,26 @@ export function PipelineInsightsPage({ onViewInKanban }: PipelineInsightsPagePro
     setLoading(true)
     setError(null)
     try {
-      const [kpisData, closeToWonData, conditionData, funnelData, durationData, transitionsData] = await Promise.all([
+      const [
+        kpisData,
+        closeToWonData,
+        conditionData,
+        funnelData,
+        durationData,
+        transitionsData,
+        monthlyProductionData,
+      ] = await Promise.all([
         insightsApi.getKpisToday(),
         insightsApi.getCloseToWonKpi().catch(() => ({ avgDays: null, count: 0, rows: [] })),
         insightsApi.getConditionCounts().catch(() => ({ withCondition: 0, negative: 0 })),
         insightsApi.getFunnelCurrent(),
         insightsApi.getDurationStats30d(),
         insightsApi.getTransitions30d(),
+        insightsApi.getMonthlyProductionCounts().catch(() => ({
+          casos_abiertos: 0,
+          citas_cierre: 0,
+          casos_ganados: 0,
+        })),
       ])
       setKpis(kpisData)
       setCloseToWon(closeToWonData)
@@ -45,6 +61,7 @@ export function PipelineInsightsPage({ onViewInKanban }: PipelineInsightsPagePro
       setFunnel(funnelData)
       setDuration(durationData)
       setTransitions(transitionsData)
+      setMonthlyProduction(monthlyProductionData)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar insights')
     } finally {
@@ -76,6 +93,7 @@ export function PipelineInsightsPage({ onViewInKanban }: PipelineInsightsPagePro
       )}
 
       <KpiCards kpis={kpis} closeToWon={closeToWon} conditionCounts={conditionCounts} loading={loading} />
+      <ResultadosDelMesPanel counts={monthlyProduction} loading={loading} />
       <FunnelList funnel={funnel} loading={loading} />
       <DurationTable duration={duration} loading={loading} />
       <StuckLeadsPanel onViewInKanban={handleViewInKanban} />

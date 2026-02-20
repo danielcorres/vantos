@@ -7,6 +7,7 @@ import type {
   StuckLeadRow,
   CloseToWonKpi,
   CloseToWonRow,
+  MonthlyProductionCounts,
 } from './insights.types'
 
 export const insightsApi = {
@@ -111,5 +112,30 @@ export const insightsApi = {
     const avgDays = Math.round((sum / rows.length) * 10) / 10
 
     return { avgDays, count: rows.length, rows }
+  },
+
+  /**
+   * Resultados del mes: conteos de entradas a casos_abiertos, citas_cierre, casos_ganados
+   * en el mes (lead_stage_history, occurred_at/moved_at en mes).
+   */
+  async getMonthlyProductionCounts(month?: Date): Promise<MonthlyProductionCounts> {
+    const d = month ?? new Date()
+    const year = d.getFullYear()
+    const monthNum = d.getMonth() + 1
+    const { data, error } = await supabase.rpc('get_monthly_production_counts', {
+      p_year: year,
+      p_month: monthNum,
+    })
+    if (error) throw error
+    const rows = (data ?? []) as { slug: string; count: number }[]
+    const map: Record<string, number> = { casos_abiertos: 0, citas_cierre: 0, casos_ganados: 0 }
+    for (const r of rows) {
+      if (r.slug in map) map[r.slug] = r.count
+    }
+    return {
+      casos_abiertos: map.casos_abiertos,
+      citas_cierre: map.citas_cierre,
+      casos_ganados: map.casos_ganados,
+    }
   },
 }
