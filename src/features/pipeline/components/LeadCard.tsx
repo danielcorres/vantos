@@ -60,13 +60,24 @@ export function LeadCard({ lead, stages, onDragStart, onMoveStage, onToast, onUp
           navigate(`/leads/${lead.id}`)
         }
       }}
-      className={`group rounded-xl border p-3 shadow-sm transition-colors cursor-grab hover:border-neutral-300 hover:shadow-md active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-offset-1 ${cardBorderClass}`}
+      className={`group rounded-xl border p-2 shadow-sm transition-colors cursor-grab hover:border-neutral-300 hover:shadow-md active:cursor-grabbing focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 focus-visible:ring-offset-1 ${cardBorderClass}`}
     >
-      {/* Fila superior: nombre + mini etiqueta Momento (si aplica) + botón Mover etapa */}
-      <div className="flex items-start justify-between gap-2">
-        <span className="min-w-0 truncate font-medium text-neutral-900 text-sm">
-          {lead.full_name}
-        </span>
+      {/* Fila superior: nombre · badge + Momento + botón Mover etapa */}
+      <div className="flex items-center justify-between gap-2 min-w-0">
+        <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+          <span className="truncate font-medium text-neutral-900 text-sm">{lead.full_name}</span>
+          {lead.source && (
+            <>
+              <span className="text-neutral-400 shrink-0">·</span>
+              <LeadSourceTag source={lead.source} abbreviated className="shrink-0" />
+            </>
+          )}
+          {isLikelyNeverMoved(lead) && (
+            <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+              Nuevo
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {momentoLabel}
           {onMoveStage && stagesLite.length > 0 ? (
@@ -85,14 +96,8 @@ export function LeadCard({ lead, stages, onDragStart, onMoveStage, onToast, onUp
           ) : null}
         </div>
       </div>
-      {/* Debajo: fuente + badge Nuevo + próximo paso (sin MomentoChip en Kanban) */}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <LeadSourceTag source={lead.source} className="shrink-0" />
-        {isLikelyNeverMoved(lead) && (
-          <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-            Nuevo
-          </span>
-        )}
+      {/* Próximo paso en una línea */}
+      <div className="mt-1.5 flex items-center min-w-0">
         <NextActionActions
           leadId={lead.id}
           nextActionAt={lead.next_action_at}

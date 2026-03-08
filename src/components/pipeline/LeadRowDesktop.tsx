@@ -72,30 +72,31 @@ export function LeadRowDesktop({
       style={getStageAccentStyle(stageSlug)}
       data-stage-name={stageName ?? undefined}
     >
-      {/* Nombre: nombre + fuente debajo + badge Nuevo — min-w-0 + truncate para prioridad sin widths fijos */}
-      <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 min-w-0">
-        <div className="flex items-center gap-3 min-w-0">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-neutral-600 shrink-0">
-            <IconUser className="w-4 h-4" />
+      {/* Nombre + badge fuente en una línea: "Juan Perez · MN" */}
+      <td className="px-4 py-2 align-middle border-b border-dashed border-neutral-200/60 min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-neutral-100 text-neutral-600">
+            <IconUser className="w-3.5 h-3.5" />
           </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="truncate font-medium text-neutral-900">{lead.full_name}</span>
-              {isLikelyNeverMoved(lead) && (
-                <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                  Nuevo
-                </span>
-              )}
-            </div>
-            <div className="mt-1">
-              <LeadSourceTag source={lead.source} />
-            </div>
+          <div className="min-w-0 flex-1 flex items-center gap-1.5 flex-wrap">
+            <span className="truncate font-medium text-neutral-900 text-sm">{lead.full_name}</span>
+            {lead.source && (
+              <>
+                <span className="text-neutral-400 shrink-0">·</span>
+                <LeadSourceTag source={lead.source} abbreviated className="shrink-0" />
+              </>
+            )}
+            {isLikelyNeverMoved(lead) && (
+              <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                Nuevo
+              </span>
+            )}
           </div>
         </div>
       </td>
 
       {/* Teléfono */}
-      <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 max-w-[220px]">
+      <td className="px-4 py-2 align-middle border-b border-dashed border-neutral-200/60 max-w-[220px]">
         <LeadContactLine
           icon={<IconPhone className="w-4 h-4 text-neutral-500" />}
           value={phone}
@@ -106,7 +107,7 @@ export function LeadRowDesktop({
       </td>
 
       {/* Email — oculto en desktop angosto para priorizar nombre */}
-      <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 max-w-[320px] hidden xl:table-cell">
+      <td className="px-4 py-2 align-middle border-b border-dashed border-neutral-200/60 max-w-[320px] hidden xl:table-cell">
         <LeadContactLine
           icon={<IconMail className="w-4 h-4 text-neutral-500" />}
           value={email}
@@ -117,7 +118,7 @@ export function LeadRowDesktop({
       </td>
 
       {/* Próximo paso */}
-      <td className="hidden lg:table-cell px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 whitespace-nowrap">
+      <td className="hidden lg:table-cell px-4 py-2 align-middle border-b border-dashed border-neutral-200/60 whitespace-nowrap">
         <NextActionActions
           leadId={lead.id}
           nextActionAt={lead.next_action_at}
@@ -128,7 +129,7 @@ export function LeadRowDesktop({
       </td>
 
       {/* Momento */}
-      <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 whitespace-nowrap">
+      <td className="px-4 py-2 align-middle border-b border-dashed border-neutral-200/60 whitespace-nowrap">
         <MomentoChip
           leadId={lead.id}
           next_action_at={lead.next_action_at}
@@ -139,7 +140,7 @@ export function LeadRowDesktop({
       </td>
 
       {/* Acción */}
-      <td className="px-4 py-3 align-middle border-b border-dashed border-neutral-200/60 text-right">
+      <td className="px-4 py-2 align-middle border-b border-dashed border-neutral-200/60 text-right">
         {onMoveStage ? (
           <div className="inline-flex justify-end opacity-100 sm:opacity-70 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
             <MoveStageButton lead={lead} stages={stages} onMoveStage={onMoveStage} />

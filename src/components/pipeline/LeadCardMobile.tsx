@@ -66,7 +66,7 @@ export function LeadCardMobile({
   }
 
   const isCompact = variant === 'kanban' || variant === 'table'
-  const paddingClass = isCompact ? 'px-3 py-2' : 'px-2.5 py-2'
+  const paddingClass = isCompact ? 'px-2.5 py-2' : 'px-2.5 py-2'
 
   const moveButtonBlock = onMoveStage && stages.length > 0 && (
     <div
@@ -103,19 +103,24 @@ export function LeadCardMobile({
     >
       {variant === 'kanban' && (
         <>
-          <div className="flex items-start justify-between gap-2">
-            <span className="min-w-0 truncate font-medium text-neutral-900 text-sm">
-              {lead.full_name}
-            </span>
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+              <span className="truncate font-medium text-neutral-900 text-sm">{lead.full_name}</span>
+              {lead.source && (
+                <>
+                  <span className="text-neutral-400 shrink-0">·</span>
+                  <LeadSourceTag source={lead.source} abbreviated className="shrink-0" />
+                </>
+              )}
+              {isLikelyNeverMoved(lead) && (
+                <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                  Nuevo
+                </span>
+              )}
+            </div>
             {kanbanMomentoLabel}
           </div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <LeadSourceTag source={lead.source} className="shrink-0" />
-            {isLikelyNeverMoved(lead) && (
-              <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
-                Nuevo
-              </span>
-            )}
+          <div className="mt-1 flex items-center min-w-0">
             <NextActionActions
               leadId={lead.id}
               nextActionAt={lead.next_action_at}
@@ -130,10 +135,21 @@ export function LeadCardMobile({
 
       {variant === 'table' && (
         <>
-          <div className="flex items-start justify-between gap-2">
-            <span className="min-w-0 truncate font-medium text-neutral-900 text-sm">
-              {lead.full_name}
-            </span>
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <div className="min-w-0 flex items-center gap-1.5 flex-wrap">
+              <span className="truncate font-medium text-neutral-900 text-sm">{lead.full_name}</span>
+              {lead.source && (
+                <>
+                  <span className="text-neutral-400 shrink-0">·</span>
+                  <LeadSourceTag source={lead.source} abbreviated className="shrink-0" />
+                </>
+              )}
+              {isLikelyNeverMoved(lead) && (
+                <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                  Nuevo
+                </span>
+              )}
+            </div>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <NextActionActions

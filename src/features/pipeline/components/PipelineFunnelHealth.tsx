@@ -8,8 +8,6 @@ import {
   isAllGreen,
   type FunnelMetricStatus,
 } from '../domain/pipeline.funnel'
-import { InfoPopover } from '../../../shared/components/InfoPopover'
-
 const STATUS_STYLES: Record<FunnelMetricStatus['status'], string> = {
   green: 'bg-emerald-50 border-emerald-200 text-emerald-800',
   amber: 'bg-amber-50 border-amber-200 text-amber-800',
@@ -34,8 +32,15 @@ export function PipelineFunnelHealth({
     return { statuses, suggestion, allGreen }
   }, [leads, stages])
 
-  const inventarioStatuses = statuses.filter((s) => s.kind === 'inventario')
-  const avanceStatuses = statuses.filter((s) => s.kind === 'avance')
+  /** Etiquetas cortas para chips en una sola fila */
+  const SHORT_LABELS: Record<string, string> = {
+    contactos_nuevos: 'Pendiente',
+    citas_agendadas: 'Cita',
+    solicitudes_ingresadas: 'Trámite',
+    casos_abiertos: '1ª',
+    citas_cierre: 'Cierre',
+    casos_ganados: 'Póliza',
+  }
 
   if (stages.length === 0) {
     return (
@@ -46,51 +51,29 @@ export function PipelineFunnelHealth({
     )
   }
 
-  const Chip = ({ m }: { m: FunnelMetricStatus }) => (
-    <span
-      className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${STATUS_STYLES[m.status]}`}
-      title={`${m.label}: ${m.value} / ${m.target} (${m.status})`}
-    >
-      <span className="text-neutral-600 shrink-0">{m.label}</span>
-      <span className="tabular-nums">{m.value}</span>
-      <span className="text-neutral-500 font-normal">/</span>
-      <span className="tabular-nums">{m.target}</span>
-      <span className="sr-only">({m.status})</span>
-    </span>
-  )
+  const Chip = ({ m }: { m: FunnelMetricStatus }) => {
+    const shortLabel = SHORT_LABELS[m.slug] ?? m.label
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium ${STATUS_STYLES[m.status]}`}
+        title={`${m.label}: ${m.value} / ${m.target} (${m.status})`}
+      >
+        <span className="text-neutral-600 shrink-0">{shortLabel}</span>
+        <span className="tabular-nums">{m.value}</span>
+        <span className="text-neutral-500 font-normal">/</span>
+        <span className="tabular-nums">{m.target}</span>
+        <span className="sr-only">({m.status})</span>
+      </span>
+    )
+  }
 
   return (
     <div className="rounded-lg border border-neutral-200 bg-neutral-50/40 px-3 py-2.5">
       <p className="text-xs font-medium text-neutral-600 mb-2">Mi Embudo</p>
-      <div className="mb-2">
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-xs text-neutral-500">Inventario hoy</span>
-          <InfoPopover
-            title="Inventario"
-            bullets={['Cuántos leads están ahora en esa etapa.']}
-            className="text-neutral-400 hover:text-neutral-600"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {inventarioStatuses.map((m) => (
-            <Chip key={m.slug} m={m} />
-          ))}
-        </div>
-      </div>
-      <div>
-        <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-xs text-neutral-500">Avance hoy</span>
-          <InfoPopover
-            title="Avance"
-            bullets={['Cuántos leads están ahora en etapa de primera cita, cierre o póliza.']}
-            className="text-neutral-400 hover:text-neutral-600"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {avanceStatuses.map((m) => (
-            <Chip key={m.slug} m={m} />
-          ))}
-        </div>
+      <div className="inline-flex flex-wrap items-center gap-2">
+        {statuses.map((m) => (
+          <Chip key={m.slug} m={m} />
+        ))}
       </div>
       {suggestion && (
         <div

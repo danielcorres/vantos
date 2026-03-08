@@ -38,7 +38,7 @@ type PipelineTableProps = {
   onUpdated?: () => void | Promise<void>
 }
 
-const TH_BASE = 'px-4 py-3 text-left text-xs font-medium text-neutral-500'
+const TH_BASE = 'px-4 py-2 text-left text-xs font-medium text-neutral-500'
 
 function HeaderRow() {
   return (

@@ -35,7 +35,7 @@ export function NextActionActions({
 
   return (
     <div
-      className={`inline-flex items-center gap-1.5 shrink-0 ${className}`}
+      className={`inline-flex items-center gap-1.5 min-w-0 max-w-full ${className}`}
       data-stop-rowclick="true"
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}

@@ -57,39 +57,34 @@ export function NextActionChip({
     )
   }
 
-  const typeLabel = `${config.icon} ${config.label}`
+  const typeLabel = config.label
   const dateLabel = hasDate ? formatNextActionDateLabel(nextActionAt) : DATE_LABEL_NONE
+  const singleLineText = `${config.icon} ${typeLabel} · ${dateLabel}`
 
-  const typeChipStyle =
+  const chipStyle =
     config.label === 'Reunión'
       ? 'bg-emerald-100 border-emerald-300 text-emerald-900 hover:bg-emerald-100/90'
       : config.label === 'Contactar'
         ? 'bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-50/90'
         : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100/60'
 
-  const dateTextClass = overdue
-    ? 'text-[11px] leading-none text-red-700'
-    : 'text-[11px] leading-none text-neutral-500'
+  const chipClass = `inline-flex items-center gap-1 rounded-full border font-medium text-sm leading-none min-w-0 max-w-full truncate ${chipStyle} cursor-pointer transition-colors ${overdue ? 'text-red-700' : ''}`
 
-  const typeChipClass = `${chipBase} ${chipSizeSm} ${typeChipStyle} cursor-pointer transition-colors`
-
-  const chipButton = onClick ? (
-    <button
-      type="button"
-      data-stop-rowclick="true"
-      onClick={handleClick}
-      className={typeChipClass}
-    >
-      {typeLabel}
-    </button>
-  ) : (
-    <span className={typeChipClass}>{typeLabel}</span>
-  )
-
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        data-stop-rowclick="true"
+        onClick={handleClick}
+        className={`${chipClass} px-2.5 py-1 ${className}`}
+      >
+        {singleLineText}
+      </button>
+    )
+  }
   return (
-    <div className={`inline-flex flex-col items-start gap-0.5 shrink-0 ${className}`}>
-      {chipButton}
-      <span className={dateTextClass}>{dateLabel}</span>
-    </div>
+    <span className={`${chipClass} px-2.5 py-1 ${className}`}>
+      {singleLineText}
+    </span>
   )
 }
