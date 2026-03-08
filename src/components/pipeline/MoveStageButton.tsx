@@ -48,7 +48,12 @@ function StageMoveMenu({
 
   const sortedStages = [...stages].sort((a, b) => a.position - b.position)
   const content = (
-    <div ref={menuRef} role="menu" className="rounded-md border border-neutral-200 bg-white py-1 shadow-lg" style={style}>
+    <div
+      ref={menuRef}
+      role="menu"
+      className="rounded-md border border-neutral-200 bg-white py-1 shadow-lg overflow-y-auto max-h-[70vh]"
+      style={style}
+    >
       {sortedStages.map((s) => {
         const isCurrent = s.id === lead.stage_id
         return (

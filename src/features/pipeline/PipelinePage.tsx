@@ -170,6 +170,39 @@ export function PipelinePage() {
     }
   }
 
+  const applyMoveOptimistic = useCallback(
+    (leadId: string, fromStageId: string, toStageId: string, prevStageChangedAt: string | null) => {
+      dispatch({
+        type: 'MOVE_OPTIMISTIC',
+        payload: { leadId, fromStageId, toStageId, prevStageChangedAt },
+      })
+    },
+    [dispatch]
+  )
+
+  const applyMoveRollback = useCallback(
+    (leadId: string, fromStageId: string, prevStageChangedAt: string | null) => {
+      dispatch({
+        type: 'MOVE_ROLLBACK',
+        payload: { leadId, fromStageId, prevStageChangedAt },
+      })
+    },
+    [dispatch]
+  )
+
+  /** Refetch sin loading global. Mantiene la UI visible durante actualizaciones inline. */
+  const refreshDataSilent = useCallback(async () => {
+    try {
+      const [stages, leads] = await Promise.all([
+        pipelineApi.getStages(),
+        pipelineApi.getLeads('activos'),
+      ])
+      dispatch({ type: 'LOAD_SUCCESS', payload: { stages, leads } })
+    } catch (err: unknown) {
+      dispatch({ type: 'LOAD_ERROR', payload: err instanceof Error ? err.message : 'Error al cargar datos' })
+    }
+  }, [dispatch])
+
   const handleCreateLead = async (data: CreateLeadInput) => {
     const newLead = await pipelineApi.createLead(data)
     dispatch({ type: 'CREATE_LEAD', payload: newLead })
@@ -223,7 +256,7 @@ export function PipelinePage() {
       )
       try {
         await pipelineApi.moveLeadStage(draggedLead.id, toStageId, idempotencyKey)
-        await loadData()
+        await refreshDataSilent()
       } catch {
         dispatch({
           type: 'MOVE_ROLLBACK',
@@ -241,7 +274,7 @@ export function PipelinePage() {
         setDraggedLead(null)
       }
     },
-    [draggedLead, dispatch]
+    [draggedLead, dispatch, refreshDataSilent]
   )
 
   /**
@@ -275,7 +308,7 @@ export function PipelinePage() {
     const idempotencyKey = generateIdempotencyKey(leadId, fromStageId, toStageId)
     try {
       await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
-      await loadData()
+      await refreshDataSilent()
       setPipelineToast({
         type: 'success',
         message: stageName ? `Movido a ${displayStageName(stageName)}` : 'Etapa actualizada',
@@ -300,7 +333,7 @@ export function PipelinePage() {
         })
       })
     }
-  }, [state.leads, state.stages, dispatch])
+  }, [state.leads, state.stages, dispatch, refreshDataSilent])
 
   const handleViewInKanban = (leadId?: string) => {
     setActiveTab('kanban')
@@ -582,6 +615,9 @@ export function PipelinePage() {
           pipelineMode={pipelineMode}
           groupByStage={groupByStage}
           onCountsChange={setTableCounts}
+          onRefreshActivos={refreshDataSilent}
+          onMoveStageOptimistic={applyMoveOptimistic}
+          onMoveStageRollback={applyMoveRollback}
           weeklyFilterLeadIds={weeklyMode ? weeklyLeadIds : null}
           weeklyStageLabel={weeklyMode && stageSlug ? WEEKLY_STAGE_LABELS[stageSlug] : null}
           weeklyWeekRange={weeklyMode && weekStartYmd ? formatWeekRangeLabel(weekStartYmd) : null}
@@ -618,7 +654,7 @@ export function PipelinePage() {
             onMoveStage={handleMoveStage}
             onCreateLead={handleCreateLeadFromStage}
             onToast={(msg) => setPipelineToast({ type: 'success', message: msg })}
-            onUpdated={loadData}
+            onUpdated={refreshDataSilent}
           />
         </div>
       )}
@@ -679,10 +715,10 @@ export function PipelinePage() {
               message:
                 'Se guardó la próxima acción pero no se pudo mover la etapa. Intenta mover de nuevo.',
             })
-            await loadData()
+            await refreshDataSilent()
             return
           }
-          await loadData()
+          await refreshDataSilent()
           const stageName = state.stages.find((s) => s.id === pendingMove.toStageId)?.name
           setPipelineToast({
             type: 'success',

@@ -28,6 +28,9 @@ export function PipelineTableView({
   pipelineMode = 'activos',
   groupByStage = true,
   onCountsChange,
+  onRefreshActivos,
+  onMoveStageOptimistic,
+  onMoveStageRollback,
   weeklyFilterLeadIds = null,
   weeklyLoadError = null,
   onClearWeekly,
@@ -38,6 +41,12 @@ export function PipelineTableView({
   pipelineMode?: 'activos' | 'archivados'
   groupByStage?: boolean
   onCountsChange?: (counts: { activos: number; archivados: number }) => void
+  /** Cuando la tabla activa recibe activosLeads del padre, usa esto para refrescar el source of truth. */
+  onRefreshActivos?: () => Promise<void>
+  /** Optimistic update: mueve el lead visualmente antes del API. */
+  onMoveStageOptimistic?: (leadId: string, fromStageId: string, toStageId: string, prevStageChangedAt: string | null) => void
+  /** Rollback si el API falla. */
+  onMoveStageRollback?: (leadId: string, fromStageId: string, prevStageChangedAt: string | null) => void
   weeklyFilterLeadIds?: Set<string> | null
   weeklyStageLabel?: string | null
   weeklyWeekRange?: string | null
@@ -146,25 +155,39 @@ export function PipelineTableView({
     }
   }
 
+  const refreshCurrentMode = async () => {
+    if (pipelineMode === 'activos' && onRefreshActivos) {
+      await onRefreshActivos()
+    } else {
+      await loadData()
+    }
+  }
+
   const handleCreateLead = async (data: CreateLeadInput) => {
     const newLead = await pipelineApi.createLead(data)
     setIsCreateModalOpen(false)
     setCollapsedStages((prev) => ({ ...prev, [newLead.stage_id]: false }))
     setHighlightLeadId(newLead.id)
     setTimeout(() => setHighlightLeadId(null), 3000)
-    await loadData()
+    await refreshCurrentMode()
     setToast({ type: 'success', message: 'Lead creado' })
   }
 
   const handleMoveStage = async (leadId: string, toStageId: string) => {
-    const lead = leads.find((l) => l.id === leadId)
+    const lead = leads.find((l) => l.id === leadId) ?? activosLeads?.find((l) => l.id === leadId)
     if (!lead || lead.stage_id === toStageId) return
-    const idempotencyKey = generateIdempotencyKey(leadId, lead.stage_id, toStageId)
+    const fromStageId = lead.stage_id
+    const prevStageChangedAt = lead.stage_changed_at ?? null
+    const idempotencyKey = generateIdempotencyKey(leadId, fromStageId, toStageId)
+
+    onMoveStageOptimistic?.(leadId, fromStageId, toStageId, prevStageChangedAt)
+
     try {
       await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
-      await loadData()
+      await refreshCurrentMode()
       setToast({ type: 'success', message: 'Etapa actualizada' })
     } catch (err) {
+      onMoveStageRollback?.(leadId, fromStageId, prevStageChangedAt)
       setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al mover' })
     }
   }
@@ -365,7 +388,7 @@ export function PipelineTableView({
               onRowClick={(l) => navigate(`/leads/${l.id}`)}
               onMoveStage={handleMoveStage}
               onToast={onToast ?? ((msg) => setToast({ type: 'success', message: msg }))}
-              onUpdated={loadData}
+              onUpdated={refreshCurrentMode}
             />
         </div>
       )}
