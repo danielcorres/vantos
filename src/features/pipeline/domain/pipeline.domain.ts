@@ -1,39 +1,20 @@
 /**
- * Dominio Pipeline: reglas de Momento y Próximo paso en un solo lugar.
+ * Dominio Pipeline: reglas de Próximo paso en un solo lugar.
  * Los componentes no reimplementan estas reglas.
  */
 
-import { daysOverdue, isSinRespuesta } from '../../../shared/utils/nextAction'
+import { daysOverdue } from '../../../shared/utils/nextAction'
 import {
   TZ,
   toYmdInMonterrey,
   getTodayYmd,
 } from '../../../shared/utils/nextAction'
 
-export type Momento = 'avanzando' | 'por_definir' | 'sin_respuesta'
-
 export type NextActionType = 'contact' | 'meeting'
 
 export interface LeadLike {
   next_action_at?: string | null
-  momento_override?: string | null
   next_action_type?: string | null
-}
-
-/**
- * Reglas:
- * - por_definir si momento_override = 'por_definir'
- * - sin_respuesta si next_action_at vencido >= 7 días y no hay fecha futura (la única fecha es next_action_at)
- * - avanzando en todo lo demás
- */
-export function computeMomento(
-  lead: LeadLike,
-  now: Date = new Date()
-): Momento {
-  if (lead.momento_override === 'por_definir') return 'por_definir'
-  if (lead.next_action_at && isSinRespuesta(lead.next_action_at, now))
-    return 'sin_respuesta'
-  return 'avanzando'
 }
 
 /**

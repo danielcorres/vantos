@@ -13,16 +13,29 @@ const TYPE_CONFIG: Record<NextActionType, { icon: string; label: string }> = {
 
 const DATE_LABEL_NONE = 'Sin fecha'
 
+/** Clase de color para la fecha según bucket (tabla desktop). */
+function getDateStatusClass(
+  bucket: ReturnType<typeof getNextActionBucket>,
+  hasDate: boolean
+): string {
+  if (!hasDate) return 'text-neutral-400'
+  if (bucket === 'overdue') return 'text-red-600'
+  if (bucket === 'today') return 'text-emerald-600 font-medium'
+  return 'text-neutral-500'
+}
+
 export function NextActionChip({
   nextActionAt,
   nextActionType,
   onClick,
   className = '',
+  variant = 'default',
 }: {
   nextActionAt: string | null
   nextActionType: string | null
   onClick?: () => void
   className?: string
+  variant?: 'default' | 'table'
 }) {
   const type = getNextActionType({ next_action_type: nextActionType })
   const config = type ? TYPE_CONFIG[type] : null
@@ -69,6 +82,40 @@ export function NextActionChip({
         : 'bg-neutral-50 border-neutral-200 text-neutral-800 hover:bg-neutral-100/60'
 
   const chipClass = `inline-flex items-center gap-1 rounded-full border font-medium text-sm leading-none min-w-0 max-w-full truncate ${chipStyle} cursor-pointer transition-colors ${overdue ? 'text-red-700' : ''}`
+
+  // Variant "table": layout 2 líneas, acción principal + fecha semántica
+  if (variant === 'table') {
+    const bucket = getNextActionBucket(nextActionAt)
+    const dateStatusClass = getDateStatusClass(bucket, hasDate)
+    const baseClass =
+      'inline-flex flex-col items-start gap-0.5 min-w-0 max-w-full cursor-pointer rounded-lg px-2 py-1.5 -mx-0.5 -my-0.5 hover:bg-neutral-50 transition-colors text-left'
+    const btnClass = onClick ? baseClass : baseClass.replace('cursor-pointer', 'cursor-default')
+
+    const content = (
+      <>
+        <span className="font-semibold text-neutral-900 text-sm truncate max-w-full">
+          {config.icon} {typeLabel}
+        </span>
+        <span className={`text-xs ${dateStatusClass} truncate max-w-full`}>
+          {dateLabel}
+        </span>
+      </>
+    )
+
+    if (onClick) {
+      return (
+        <button
+          type="button"
+          data-stop-rowclick="true"
+          onClick={handleClick}
+          className={`${btnClass} ${className}`}
+        >
+          {content}
+        </button>
+      )
+    }
+    return <span className={`${btnClass} ${className}`}>{content}</span>
+  }
 
   if (onClick) {
     return (

@@ -14,16 +14,6 @@ type Stage = PipelineStageLite & { slug?: string }
 
 export type GroupedSection = { stage: Stage; leads: Lead[] }
 
-const MOMENTO_HELP = {
-  title: 'Momento (automático)',
-  bullets: [
-    'Avanzando (verde): todo en curso.',
-    'Por definir (amarillo): lo marcas manualmente cuando el cliente no decide.',
-    'Sin respuesta (rojo): Próximo paso vencido ≥ 7 días.',
-  ],
-  tip: 'Momento no cambia la etapa; solo te ayuda a priorizar tu día.',
-}
-
 type PipelineTableProps = {
   leads: Lead[]
   stages: Stage[]
@@ -47,16 +37,6 @@ function HeaderRow() {
       <th className={TH_BASE}>Teléfono</th>
       <th className={`${TH_BASE} hidden xl:table-cell`}>Email</th>
       <th className={`${TH_BASE} hidden lg:table-cell`}>Próximo paso</th>
-      <th className={TH_BASE}>
-        <span className="inline-flex items-center gap-1">
-          Momento
-          <InfoPopover
-            title={MOMENTO_HELP.title}
-            bullets={MOMENTO_HELP.bullets}
-            tip={MOMENTO_HELP.tip}
-          />
-        </span>
-      </th>
       <th className={`${TH_BASE} text-right`}>Acción</th>
     </tr>
   )
@@ -222,7 +202,7 @@ export function PipelineTable({
                     <Fragment key={stage.id}>
                       {!isFirst ? (
                         <tr aria-hidden="true">
-                          <td colSpan={6} className="h-3 bg-neutral-50" />
+                          <td colSpan={5} className="h-3 bg-neutral-50" />
                         </tr>
                       ) : null}
 
@@ -240,7 +220,7 @@ export function PipelineTable({
                         style={getStageAccentStyle(stage.slug)}
                         aria-expanded={!isCollapsed}
                       >
-                        <td colSpan={6} className="border-y border-neutral-200 bg-neutral-50 hover:bg-neutral-100">
+                        <td colSpan={5} className="border-y border-neutral-200 bg-neutral-50 hover:bg-neutral-100">
                           <div className="flex items-center justify-between gap-3 px-4 py-2">
                             <div className="flex items-center gap-2 min-w-0">
                               <span
@@ -268,7 +248,7 @@ export function PipelineTable({
                       {!isCollapsed ? (
                         sectionLeads.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="px-4 py-6">
+                            <td colSpan={5} className="px-4 py-6">
                               <EmptyState title="No hay leads en esta etapa." variant="plain" />
                             </td>
                           </tr>

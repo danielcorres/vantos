@@ -7,7 +7,6 @@ import { LeadContactLine } from './LeadContactLine'
 import type { PipelineStageLite } from './LeadProgressDots'
 import { LeadSourceTag } from './LeadSourceTag'
 import { MoveStageButton } from './MoveStageButton'
-import { MomentoChip } from './MomentoChip'
 import { NextActionActions } from './NextActionActions'
 
 export function LeadRowDesktop({
@@ -118,24 +117,14 @@ export function LeadRowDesktop({
       </td>
 
       {/* Próximo paso */}
-      <td className="hidden lg:table-cell px-4 py-2 align-middle border-b border-dashed border-neutral-200/60 whitespace-nowrap">
+      <td className="hidden lg:table-cell px-4 py-2 align-middle border-b border-dashed border-neutral-200/60">
         <NextActionActions
           leadId={lead.id}
           nextActionAt={lead.next_action_at}
           nextActionType={lead.next_action_type}
           onUpdated={onUpdated}
           onToast={onToast}
-        />
-      </td>
-
-      {/* Momento */}
-      <td className="px-4 py-2 align-middle border-b border-dashed border-neutral-200/60 whitespace-nowrap">
-        <MomentoChip
-          leadId={lead.id}
-          next_action_at={lead.next_action_at}
-          momento_override={lead.momento_override}
-          onUpdated={onUpdated}
-          onToast={onToast}
+          variant="table"
         />
       </td>
 

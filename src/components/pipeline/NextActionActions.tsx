@@ -10,6 +10,7 @@ export function NextActionActions({
   onUpdated,
   onToast,
   className = '',
+  variant = 'default',
 }: {
   leadId: string
   nextActionAt: string | null
@@ -17,6 +18,8 @@ export function NextActionActions({
   onUpdated?: () => void | Promise<void>
   onToast?: (msg: string) => void
   className?: string
+  /** "table" = layout de 2 líneas con jerarquía visual (acción + fecha semántica). */
+  variant?: 'default' | 'table'
 }) {
   const [openModal, setOpenModal] = useState(false)
 
@@ -44,6 +47,7 @@ export function NextActionActions({
         nextActionAt={nextActionAt}
         nextActionType={nextActionType}
         onClick={() => setOpenModal(true)}
+        variant={variant}
       />
       <NextActionModal
         isOpen={openModal}

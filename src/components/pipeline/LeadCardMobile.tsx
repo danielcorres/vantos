@@ -2,12 +2,10 @@ import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
-import { computeMomento } from '../../features/pipeline/domain/pipeline.domain'
 import type { PipelineStageLite } from './LeadProgressDots'
 import { LeadCardContent } from './LeadCardContent'
 import { LeadSourceTag } from './LeadSourceTag'
 import { MoveStageButton } from './MoveStageButton'
-import { MomentoChip } from './MomentoChip'
 import { NextActionActions } from './NextActionActions'
 
 export type LeadCardMobileVariant = 'default' | 'kanban' | 'table'
@@ -37,27 +35,6 @@ export function LeadCardMobile({
   variant?: LeadCardMobileVariant
 }) {
   const navigate = useNavigate()
-
-  const momento = computeMomento(lead)
-  const kanbanCardBorderClass =
-    variant === 'kanban'
-      ? momento === 'sin_respuesta'
-        ? 'border-l-4 border-red-200 bg-white'
-        : momento === 'por_definir'
-          ? 'border-l-4 border-amber-200 bg-white'
-          : 'border-neutral-200 bg-white'
-      : 'border-neutral-200 bg-white'
-
-  const kanbanMomentoLabel =
-    variant === 'kanban' && momento === 'por_definir' ? (
-      <span className="shrink-0 text-xs rounded-full border border-amber-200 bg-amber-50/80 px-2 py-0.5 text-amber-800">
-        Por definir
-      </span>
-    ) : variant === 'kanban' && momento === 'sin_respuesta' ? (
-      <span className="shrink-0 text-xs rounded-full border border-red-200 bg-red-50/50 px-2 py-0.5 text-red-700">
-        Sin respuesta
-      </span>
-    ) : null
 
   const handleClick = (e?: React.MouseEvent | React.KeyboardEvent) => {
     if (e && (e.target as HTMLElement).closest('[data-stop-rowclick="true"]')) return
@@ -96,7 +73,7 @@ export function LeadCardMobile({
           handleClick(e)
         }
       }}
-      className={`rounded-xl border shadow-sm active:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 ${kanbanCardBorderClass} ${paddingClass} ${
+      className={`rounded-xl border border-neutral-200 shadow-sm active:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200 ${paddingClass} ${
         isHighlight ? 'ring-2 ring-primary/40 bg-primary/5' : ''
       }`}
       style={getStageAccentStyle(stageSlug)}
@@ -118,7 +95,6 @@ export function LeadCardMobile({
                 </span>
               )}
             </div>
-            {kanbanMomentoLabel}
           </div>
           <div className="mt-1 flex items-center min-w-0">
             <NextActionActions
@@ -156,13 +132,6 @@ export function LeadCardMobile({
               leadId={lead.id}
               nextActionAt={lead.next_action_at}
               nextActionType={lead.next_action_type}
-              onUpdated={onUpdated}
-              onToast={onToast}
-            />
-            <MomentoChip
-              leadId={lead.id}
-              next_action_at={lead.next_action_at}
-              momento_override={lead.momento_override}
               onUpdated={onUpdated}
               onToast={onToast}
             />

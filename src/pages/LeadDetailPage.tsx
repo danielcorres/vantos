@@ -9,7 +9,6 @@ import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
 import { getStageTagClasses, displayStageName } from '../shared/utils/stageStyles'
 import { NextActionActions } from '../components/pipeline/NextActionActions'
-import { MomentoChip } from '../components/pipeline/MomentoChip'
 
 type LeadData = {
   id: string
@@ -29,7 +28,6 @@ type LeadData = {
   lead_condition: string | null
   next_action_at: string | null
   next_action_type: string | null
-  momento_override: string | null
 }
 
 const TOAST_CLEAR_MS = 2800
@@ -218,7 +216,7 @@ export function LeadDetailPage() {
         supabase
           .from('leads')
           .select(
-            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition,next_action_at,next_action_type,momento_override'
+            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition,next_action_at,next_action_type'
           )
           .eq('id', id)
           .single(),
@@ -910,34 +908,6 @@ export function LeadDetailPage() {
                   leadId={id!}
                   nextActionAt={lead.next_action_at}
                   nextActionType={lead.next_action_type}
-                  onUpdated={loadData}
-                  onToast={(msg) => {
-                    setToast({ kind: 'success', text: msg })
-                    setTimeout(() => setToast(null), TOAST_CLEAR_MS)
-                  }}
-                />
-              )}
-            </div>
-            {/* Momento */}
-            <div className="mt-3">
-              <label className="block text-xs font-medium text-muted mb-1">
-                Momento
-              </label>
-              {lead.archived_at ? (
-                <MomentoChip
-                  leadId={id!}
-                  next_action_at={lead.next_action_at}
-                  momento_override={lead.momento_override}
-                  onToast={(msg) => {
-                    setToast({ kind: 'success', text: msg })
-                    setTimeout(() => setToast(null), TOAST_CLEAR_MS)
-                  }}
-                />
-              ) : (
-                <MomentoChip
-                  leadId={id!}
-                  next_action_at={lead.next_action_at}
-                  momento_override={lead.momento_override}
                   onUpdated={loadData}
                   onToast={(msg) => {
                     setToast({ kind: 'success', text: msg })
