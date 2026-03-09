@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { pipelineApi, type Lead, type PipelineStage, type CreateLeadInput } from '../pipeline.api'
 import { generateIdempotencyKey } from '../pipeline.store'
 import { LeadCreateModal } from '../components/LeadCreateModal'
+import { NextActionModal } from '../../../components/pipeline/NextActionModal'
 import { PipelineTable } from '../components/PipelineTable'
 import { Toast } from '../../../shared/components/Toast'
 import { formatDateMX } from '../../../shared/utils/dates'
@@ -66,19 +67,20 @@ export function PipelineTableView({
   const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
+  const [restoreLeadPending, setRestoreLeadPending] = useState<Lead | null>(null)
 
   const weeklyMode = weeklyFilterLeadIds != null && weeklyLoadError == null
 
+  const baseLeads = useMemo(
+    () => (pipelineMode === 'activos' ? (activosLeads ?? []) : leads),
+    [pipelineMode, activosLeads, leads]
+  )
+
   const filteredLeads = useMemo(() => {
     if (pipelineMode !== 'activos') return []
-    let list: Lead[]
-    if (activosLeads != null) {
-      list = activosLeads
-    } else {
-      list = leads
-      if (weeklyMode && weeklyFilterLeadIds?.size) {
-        list = list.filter((l) => weeklyFilterLeadIds.has(l.id))
-      }
+    let list = baseLeads
+    if (weeklyMode && weeklyFilterLeadIds?.size) {
+      list = list.filter((l) => weeklyFilterLeadIds.has(l.id))
     }
     const q = searchQuery.trim().toLowerCase()
     if (q) {
@@ -95,7 +97,7 @@ export function PipelineTableView({
       list = list.filter((l) => (l.source?.toLowerCase().trim() || '') === srcLower)
     }
     return list
-  }, [pipelineMode, activosLeads, leads, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds])
+  }, [pipelineMode, baseLeads, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds])
 
   useEffect(() => {
     onVisibleCountChange?.(filteredLeads.length)
@@ -146,8 +148,14 @@ export function PipelineTableView({
         pipelineApi.getLeads('archivados'),
       ])
       setStages(stagesData)
-      onCountsChange?.({ activos: activosData.length, archivados: archivadosData.length })
-      setLeads(pipelineMode === 'activos' ? activosData : archivadosData)
+      const activosCount =
+        pipelineMode === 'activos' && activosLeads != null
+          ? activosLeads.length
+          : activosData.length
+      onCountsChange?.({ activos: activosCount, archivados: archivadosData.length })
+      if (pipelineMode === 'archivados') {
+        setLeads(archivadosData)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar datos')
     } finally {
@@ -174,7 +182,7 @@ export function PipelineTableView({
   }
 
   const handleMoveStage = async (leadId: string, toStageId: string) => {
-    const lead = leads.find((l) => l.id === leadId) ?? activosLeads?.find((l) => l.id === leadId)
+    const lead = baseLeads.find((l) => l.id === leadId)
     if (!lead || lead.stage_id === toStageId) return
     const fromStageId = lead.stage_id
     const prevStageChangedAt = lead.stage_changed_at ?? null
@@ -230,8 +238,7 @@ export function PipelineTableView({
     )
   }
 
-  const activosListLength = activosLeads != null ? activosLeads.length : leads.length
-  const showActivosEmptyState = pipelineMode === 'activos' && activosListLength === 0 && activosLeads == null
+  const showActivosEmptyState = pipelineMode === 'activos' && baseLeads.length === 0
   if (showActivosEmptyState) {
     return (
       <div className="space-y-4">
@@ -348,18 +355,36 @@ export function PipelineTableView({
                         {isArchived ? (
                           <button
                             type="button"
-                            onClick={async (e) => {
+                            onClick={(e) => {
                               e.stopPropagation()
-                              try {
-                                await pipelineApi.updateLead(lead.id, {
-                                  archived_at: null,
-                                  archived_by: null,
-                                  archive_reason: null,
-                                })
-                                await loadData()
-                                setToast({ type: 'success', message: 'Restaurado. Ya aparece en Activos.' })
-                              } catch (err) {
-                                setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al restaurar' })
+                              const hasNextAction =
+                                lead.next_action_at != null && lead.next_action_at.trim() !== ''
+                              if (hasNextAction) {
+                                pipelineApi
+                                  .updateLead(lead.id, {
+                                    archived_at: null,
+                                    archived_by: null,
+                                    archive_reason: null,
+                                  })
+                                  .then(async () => {
+                                    await loadData()
+                                    await onRefreshActivos?.()
+                                    setToast({ type: 'success', message: 'Restaurado. Ya aparece en Activos.' })
+                                  })
+                                  .catch((err) => {
+                                    console.error('Error al restaurar lead:', err)
+                                    const msg =
+                                      err instanceof Error &&
+                                      (err.message.includes('23514') ||
+                                        err.message.includes('Próxima Acción'))
+                                        ? 'Para restaurar este lead necesitas definir un Próximo paso.'
+                                        : err instanceof Error
+                                          ? err.message
+                                          : 'Error al restaurar'
+                                    setToast({ type: 'error', message: msg })
+                                  })
+                              } else {
+                                setRestoreLeadPending(lead)
                               }
                             }}
                             className="btn btn-ghost text-xs"
@@ -398,6 +423,37 @@ export function PipelineTableView({
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateLead}
+      />
+
+      <NextActionModal
+        isOpen={restoreLeadPending != null}
+        onClose={() => setRestoreLeadPending(null)}
+        onSave={async (next_action_at, next_action_type) => {
+          const lead = restoreLeadPending
+          if (!lead) return
+          try {
+            await pipelineApi.updateLead(lead.id, {
+              next_action_at,
+              next_action_type,
+              archived_at: null,
+              archived_by: null,
+              archive_reason: null,
+            })
+            setRestoreLeadPending(null)
+            await loadData()
+            await onRefreshActivos?.()
+            setToast({ type: 'success', message: 'Restaurado. Ya aparece en Activos.' })
+          } catch (err) {
+            console.error('Error al restaurar lead (NextActionModal):', err)
+            const msg = err instanceof Error ? err.message : 'Error al restaurar'
+            setToast({ type: 'error', message: msg })
+            throw err
+          }
+        }}
+        title="Define el próximo paso para restaurar"
+        initialNextActionAt={restoreLeadPending?.next_action_at}
+        initialNextActionType={restoreLeadPending?.next_action_type}
+        allowNoDate={false}
       />
 
       {toast && (
