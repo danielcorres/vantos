@@ -3,6 +3,8 @@ import { chipBase, chipSizeSm, chipTint } from '../../shared/utils/chips'
 import {
   getNextActionType,
   formatNextActionDateLabel,
+  formatNextActionTimeOnly,
+  getNextActionUrgencyLabel,
   type NextActionType,
 } from '../../features/pipeline/domain/pipeline.domain'
 
@@ -16,12 +18,22 @@ const DATE_LABEL_NONE = 'Sin fecha'
 /** Clase de color para la fecha según bucket (tabla desktop). */
 function getDateStatusClass(
   bucket: ReturnType<typeof getNextActionBucket>,
-  hasDate: boolean
+  hasDate: boolean,
+  isTomorrow: boolean
 ): string {
   if (!hasDate) return 'text-neutral-400'
-  if (bucket === 'overdue') return 'text-red-600'
+  if (bucket === 'overdue') return 'text-red-500'
   if (bucket === 'today') return 'text-emerald-600 font-medium'
+  if (isTomorrow) return 'text-neutral-600 font-medium'
   return 'text-neutral-500'
+}
+
+/** Clase para urgencia en línea 1 (kanban): "Atrasado" destaca, resto sobrio. */
+function getKanbanUrgencyLineClass(bucket: ReturnType<typeof getNextActionBucket>, urgencyLabel: string): string {
+  if (bucket === 'overdue' && urgencyLabel === 'Atrasado') return 'font-medium text-red-600'
+  if (urgencyLabel === 'Hoy') return 'font-medium text-emerald-600'
+  if (urgencyLabel === 'Mañana') return 'font-medium text-neutral-600'
+  return 'text-neutral-600'
 }
 
 export function NextActionChip({
@@ -35,7 +47,7 @@ export function NextActionChip({
   nextActionType: string | null
   onClick?: () => void
   className?: string
-  variant?: 'default' | 'table'
+  variant?: 'default' | 'table' | 'kanban'
 }) {
   const type = getNextActionType({ next_action_type: nextActionType })
   const config = type ? TYPE_CONFIG[type] : null
@@ -83,20 +95,69 @@ export function NextActionChip({
 
   const chipClass = `inline-flex items-center gap-1 rounded-full border font-medium text-sm leading-none min-w-0 max-w-full truncate ${chipStyle} cursor-pointer transition-colors ${overdue ? 'text-red-700' : ''}`
 
-  // Variant "table": layout 2 líneas, acción principal + fecha semántica
-  if (variant === 'table') {
+  // Variant "kanban": línea 1 = urgencia · acción | línea 2 = hora o fecha. Sin íconos para consistencia.
+  if (variant === 'kanban') {
     const bucket = getNextActionBucket(nextActionAt)
-    const dateStatusClass = getDateStatusClass(bucket, hasDate)
+    const urgencyLabel = getNextActionUrgencyLabel(nextActionAt)
+    const isTodayOrTomorrow = urgencyLabel === 'Hoy' || urgencyLabel === 'Mañana'
+    const line2 = hasDate
+      ? isTodayOrTomorrow
+        ? formatNextActionTimeOnly(nextActionAt)
+        : dateLabel
+      : DATE_LABEL_NONE
+    const urgencyClass = getKanbanUrgencyLineClass(bucket, urgencyLabel)
+    const dateStatusClass = getDateStatusClass(bucket, hasDate, urgencyLabel === 'Mañana')
     const baseClass =
-      'inline-flex flex-col items-start gap-0.5 min-w-0 max-w-full cursor-pointer rounded-lg px-2 py-1.5 -mx-0.5 -my-0.5 hover:bg-neutral-50 transition-colors text-left'
+      'inline-flex flex-col items-start gap-0.5 min-w-0 max-w-full cursor-pointer rounded-md px-1.5 py-0.5 -mx-0.5 -my-0.5 hover:bg-neutral-50/80 transition-colors text-left'
     const btnClass = onClick ? baseClass : baseClass.replace('cursor-pointer', 'cursor-default')
 
     const content = (
       <>
-        <span className="font-semibold text-neutral-900 text-sm truncate max-w-full">
+        <span className="text-xs leading-tight">
+          {urgencyLabel && (
+            <>
+              <span className={urgencyClass}>{urgencyLabel}</span>
+              <span className="text-neutral-500"> · </span>
+            </>
+          )}
+          <span className="text-neutral-700">{typeLabel}</span>
+        </span>
+        <span className={`text-[11px] leading-tight whitespace-nowrap ${dateStatusClass}`}>
+          {line2}
+        </span>
+      </>
+    )
+
+    if (onClick) {
+      return (
+        <button
+          type="button"
+          data-stop-rowclick="true"
+          onClick={handleClick}
+          className={`${btnClass} ${className}`}
+        >
+          {content}
+        </button>
+      )
+    }
+    return <span className={`${btnClass} ${className}`}>{content}</span>
+  }
+
+  // Variant "table": layout 2 líneas, acción principal + fecha semántica
+  if (variant === 'table') {
+    const bucket = getNextActionBucket(nextActionAt)
+    const isTomorrow = hasDate && dateLabel.startsWith('Mañana')
+    const dateStatusClass = getDateStatusClass(bucket, hasDate, !!isTomorrow)
+    const baseClass =
+      'inline-flex flex-col items-start gap-1 min-w-0 max-w-full cursor-pointer rounded-lg px-2 py-1.5 -mx-0.5 -my-0.5 hover:bg-neutral-50 transition-colors text-left'
+    const btnClass = onClick ? baseClass : baseClass.replace('cursor-pointer', 'cursor-default')
+
+    const content = (
+      <>
+        <span className="font-semibold text-neutral-900 text-sm leading-tight">
           {config.icon} {typeLabel}
         </span>
-        <span className={`text-xs ${dateStatusClass} truncate max-w-full`}>
+        <span className={`text-xs leading-tight whitespace-nowrap ${dateStatusClass}`}>
           {dateLabel}
         </span>
       </>

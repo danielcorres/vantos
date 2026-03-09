@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
@@ -9,7 +10,7 @@ import { LeadSourceTag } from './LeadSourceTag'
 import { MoveStageButton } from './MoveStageButton'
 import { NextActionActions } from './NextActionActions'
 
-export function LeadRowDesktop({
+function LeadRowDesktopInner({
   lead,
   stages,
   stageName,
@@ -117,7 +118,7 @@ export function LeadRowDesktop({
       </td>
 
       {/* Próximo paso */}
-      <td className="hidden lg:table-cell px-4 py-2 align-middle border-b border-dashed border-neutral-200/60">
+      <td className="hidden lg:table-cell px-4 py-2 align-middle border-b border-dashed border-neutral-200/60 min-w-[165px]">
         <NextActionActions
           leadId={lead.id}
           nextActionAt={lead.next_action_at}
@@ -141,3 +142,5 @@ export function LeadRowDesktop({
     </tr>
   )
 }
+
+export const LeadRowDesktop = memo(LeadRowDesktopInner)

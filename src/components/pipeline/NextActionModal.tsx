@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useReducedMotion } from '../../shared/hooks/useReducedMotion'
 import {
   TZ,
@@ -254,18 +255,25 @@ export function NextActionModal({
 
   const typeConfig = ACTION_TYPES.find((a) => a.value === actionType) ?? ACTION_TYPES[0]
 
-  return (
+  const modalContent = (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4"
+      className="fixed inset-0 flex items-center justify-center p-4 z-50"
       onClick={onClose}
       style={{ animation: prefersReducedMotion ? 'none' : 'fadeIn 150ms ease-out' }}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="next-action-modal-title"
     >
       <div
-        className="card w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="absolute inset-0 bg-black/50 z-[40]"
+        aria-hidden
+      />
+      <div
+        className="card w-full max-w-md max-h-[90vh] overflow-y-auto relative z-[50] bg-white"
         onClick={(e) => e.stopPropagation()}
         style={{ animation: prefersReducedMotion ? 'none' : 'slideUp 200ms ease-out' }}
       >
-        <h2 className="text-lg font-semibold text-neutral-900 mb-4">{title}</h2>
+        <h2 id="next-action-modal-title" className="text-lg font-semibold text-neutral-900 mb-4">{title}</h2>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Tipo: 2 botones grandes */}
@@ -470,6 +478,8 @@ export function NextActionModal({
       </div>
     </div>
   )
+
+  return createPortal(modalContent, document.body)
 }
 
 function DayChip({

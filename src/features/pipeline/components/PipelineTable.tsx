@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Lead } from '../pipeline.api'
 import { displayStageName, getStageAccentStyle } from '../../../shared/utils/stageStyles'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
@@ -36,7 +36,7 @@ function HeaderRow() {
       <th className={TH_BASE}>Nombre</th>
       <th className={TH_BASE}>Teléfono</th>
       <th className={`${TH_BASE} hidden xl:table-cell`}>Email</th>
-      <th className={`${TH_BASE} hidden lg:table-cell`}>Próximo paso</th>
+      <th className={`${TH_BASE} hidden lg:table-cell min-w-[165px]`}>Próximo paso</th>
       <th className={`${TH_BASE} text-right`}>Acción</th>
     </tr>
   )
@@ -63,6 +63,12 @@ export function PipelineTable({
   const isControlled = controlledCollapsed != null && onCollapsedStagesChange != null
   const collapsedStages = isControlled ? controlledCollapsed : internalCollapsed
   const setCollapsedStages = isControlled ? onCollapsedStagesChange : setInternalCollapsed
+
+  const stageById = useMemo(() => {
+    const m = new Map<string, Stage>()
+    for (const s of stages) m.set(s.id, s)
+    return m
+  }, [stages])
 
   // Estado inicial (solo modo no controlado): etapas con 0 leads colapsadas (seed intencional; no re-arquitectar)
   useEffect(() => {
@@ -164,14 +170,14 @@ export function PipelineTable({
             )
           })
         : leads.map((lead) => {
-            const sectionStage = groupedSections.find((s) => s.stage.id === lead.stage_id)?.stage
+            const stage = stageById.get(lead.stage_id)
             return (
-              <LeadCardMobile
-                key={lead.id}
-                lead={lead}
-                stages={stages}
-                stageName={sectionStage?.name}
-                stageSlug={sectionStage?.slug}
+            <LeadCardMobile
+              key={lead.id}
+              lead={lead}
+              stages={stages}
+              stageName={stage?.name}
+              stageSlug={stage?.slug}
                 isHighlight={highlightLeadId === lead.id}
                 onRowClick={onRowClick}
                 onMoveStage={onMoveStage}
@@ -275,20 +281,23 @@ export function PipelineTable({
                     </Fragment>
                   )
                 })
-              : leads.map((lead) => (
+              : leads.map((lead) => {
+                  const stage = stageById.get(lead.stage_id)
+                  return (
                   <LeadRowDesktop
                     key={lead.id}
                     lead={lead}
                     stages={stages}
-                    stageName={groupedSections.find((s) => s.stage.id === lead.stage_id)?.stage.name}
-                    stageSlug={groupedSections.find((s) => s.stage.id === lead.stage_id)?.stage.slug}
+                    stageName={stage?.name}
+                    stageSlug={stage?.slug}
                     isHighlight={highlightLeadId === lead.id}
                     onRowClick={onRowClick}
                     onMoveStage={onMoveStage}
                     onToast={onToast}
                     onUpdated={onUpdated}
                   />
-                ))}
+                  )
+                })}
           </tbody>
         </table>
       </div>

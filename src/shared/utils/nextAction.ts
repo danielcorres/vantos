@@ -170,3 +170,71 @@ export function countLeadsByNextAction(
   }
   return counts
 }
+
+/** Categoría operativa para Kanban: mañana como grupo propio. */
+export type NextActionUrgency = 'overdue' | 'today' | 'tomorrow' | 'future' | 'none'
+
+export function getNextActionUrgency(
+  next_action_at: string | null | undefined,
+  now: Date = new Date()
+): NextActionUrgency {
+  if (!next_action_at || !next_action_at.trim()) return 'none'
+  const d = new Date(next_action_at)
+  if (isNaN(d.getTime())) return 'none'
+  const leadYmd = toYmdInMonterrey(d)
+  const todayYmd = getTodayYmd(now)
+  const tomorrowYmd = addDaysToYmd(todayYmd, 1)
+  if (leadYmd < todayYmd) return 'overdue'
+  if (leadYmd === todayYmd) return 'today'
+  if (leadYmd === tomorrowYmd) return 'tomorrow'
+  return 'future'
+}
+
+/** Orden de prioridad (menor = más urgente). */
+const URGENCY_RANK: Record<NextActionUrgency, number> = {
+  overdue: 0,
+  today: 1,
+  tomorrow: 2,
+  future: 3,
+  none: 4,
+}
+
+/**
+ * Ordena leads por prioridad operativa: atrasados → hoy → mañana → futuros → sin fecha.
+ * Dentro del mismo grupo, por next_action_at ascendente.
+ */
+export function sortLeadsByNextActionPriority<T extends { next_action_at?: string | null }>(
+  leads: T[],
+  now: Date = new Date()
+): T[] {
+  return [...leads].sort((a, b) => {
+    const ua = getNextActionUrgency(a.next_action_at, now)
+    const ub = getNextActionUrgency(b.next_action_at, now)
+    if (URGENCY_RANK[ua] !== URGENCY_RANK[ub]) return URGENCY_RANK[ua] - URGENCY_RANK[ub]
+    const ta = a.next_action_at ? new Date(a.next_action_at).getTime() : Infinity
+    const tb = b.next_action_at ? new Date(b.next_action_at).getTime() : Infinity
+    return ta - tb
+  })
+}
+
+/** Conteos para resumen de columna Kanban. */
+export type NextActionColumnCounts = {
+  total: number
+  overdue: number
+  today: number
+  tomorrow: number
+  future: number
+  none: number
+}
+
+export function aggregateNextActionColumnCounts(
+  leads: { next_action_at?: string | null }[],
+  now: Date = new Date()
+): NextActionColumnCounts {
+  const c: NextActionColumnCounts = { total: leads.length, overdue: 0, today: 0, tomorrow: 0, future: 0, none: 0 }
+  for (const lead of leads) {
+    const u = getNextActionUrgency(lead.next_action_at, now)
+    c[u]++
+  }
+  return c
+}

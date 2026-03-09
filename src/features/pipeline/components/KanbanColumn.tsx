@@ -4,9 +4,9 @@ import { EmptyState } from '../../../components/pipeline/EmptyState'
 import { InfoPopover } from '../../../shared/components/InfoPopover'
 import { LeadCard } from './LeadCard'
 import {
-  aggregateColumnCounts,
-  sortLeadsBySla,
-} from '../utils/slaHelpers'
+  sortLeadsByNextActionPriority,
+  aggregateNextActionColumnCounts,
+} from '../../../shared/utils/nextAction'
 import { getStageHelp } from '../utils/stageHelp'
 import { displayStageName } from '../../../shared/utils/stageStyles'
 
@@ -35,8 +35,8 @@ function KanbanColumnInner({
 }: KanbanColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
-  const sortedLeads = useMemo(() => sortLeadsBySla(leads), [leads])
-  const counts = useMemo(() => aggregateColumnCounts(leads), [leads])
+  const sortedLeads = useMemo(() => sortLeadsByNextActionPriority(leads), [leads])
+  const counts = useMemo(() => aggregateNextActionColumnCounts(leads), [leads])
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -80,35 +80,27 @@ function KanbanColumnInner({
             tip={getStageHelp(stage.slug ?? stage.name).tip}
           />
         </div>
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-neutral-500 tabular-nums">
-            Total: {counts.total}
-          </span>
+        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
+          <span className="tabular-nums text-neutral-400">{counts.total} leads</span>
           {counts.overdue > 0 && (
-            <span
-              className="inline-flex items-center rounded-md bg-red-50 px-2 py-0.5 font-semibold text-red-700"
-              title="Vencidos"
-            >
-              Vencidos: {counts.overdue}
+            <span className="tabular-nums text-red-600 font-medium" title="Atrasados">
+              {counts.overdue} atrasados
             </span>
           )}
-          {counts.warn > 0 && (
-            <span
-              className="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 font-semibold text-amber-700"
-              title="Por vencer"
-            >
-              Por vencer: {counts.warn}
+          {counts.today > 0 && (
+            <span className="tabular-nums text-emerald-600 font-medium" title="Hoy">
+              {counts.today} hoy
             </span>
           )}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto min-h-[200px] p-3">
+      <div className="flex-1 overflow-y-auto min-h-[200px] p-2">
         {sortedLeads.length === 0 ? (
-          <div className="py-6">
+          <div className="py-4">
             <EmptyState title="Sin leads" variant="dashed" />
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {sortedLeads.map((lead) => (
               <LeadCard
                 key={lead.id}

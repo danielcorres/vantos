@@ -44,7 +44,7 @@ export function LeadSourceTag({
   if (abbreviated) {
     return (
       <span
-        className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 ${className}`}
+        className={`inline-flex items-center text-[10px] px-1.5 py-0.5 rounded bg-neutral-50 text-neutral-500 ${className}`}
         title={label}
       >
         {abbrev}

@@ -11,6 +11,8 @@ export function NextActionActions({
   onToast,
   className = '',
   variant = 'default',
+  openExternally = false,
+  onExternalClose,
 }: {
   leadId: string
   nextActionAt: string | null
@@ -18,10 +20,14 @@ export function NextActionActions({
   onUpdated?: () => void | Promise<void>
   onToast?: (msg: string) => void
   className?: string
-  /** "table" = layout de 2 líneas con jerarquía visual (acción + fecha semántica). */
-  variant?: 'default' | 'table'
+  /** "table" = layout de 2 líneas. "kanban" = ligero, 2 líneas. */
+  variant?: 'default' | 'table' | 'kanban'
+  /** Permite abrir el modal desde fuera (ej. menú de acciones). */
+  openExternally?: boolean
+  onExternalClose?: () => void
 }) {
   const [openModal, setOpenModal] = useState(false)
+  const isOpen = openModal || openExternally
 
   const handleSave = async (next_action_at: string | null, next_action_type: string | null) => {
     try {
@@ -31,9 +37,15 @@ export function NextActionActions({
       onToast?.('Actualizado')
       await onUpdated?.()
       setOpenModal(false)
+      onExternalClose?.()
     } catch {
       onToast?.('No se pudo guardar')
     }
+  }
+
+  const handleClose = () => {
+    setOpenModal(false)
+    onExternalClose?.()
   }
 
   return (
@@ -50,8 +62,8 @@ export function NextActionActions({
         variant={variant}
       />
       <NextActionModal
-        isOpen={openModal}
-        onClose={() => setOpenModal(false)}
+        isOpen={isOpen}
+        onClose={handleClose}
         onSave={handleSave}
         title="Define el próximo paso"
         initialNextActionAt={nextActionAt}

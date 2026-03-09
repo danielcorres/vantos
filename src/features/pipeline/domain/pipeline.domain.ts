@@ -53,8 +53,12 @@ function addDaysToYmd(ymd: string, n: number): string {
 }
 
 /**
- * Etiqueta de fecha para próximo paso: "Hoy · 6:30 p.m.", "Mañana · 10:00 a.m.", "Mié 18 · 12:00 p.m." (es-MX, TZ).
- * Si date es null/undefined o inválido, devuelve string vacío (el chip puede mostrar "Sin fecha" aparte).
+ * Etiqueta de fecha para próximo paso (es-MX, America/Monterrey).
+ * - Hoy: "Hoy · 9:00 a. m."
+ * - Mañana: "Mañana · 11:00 a. m."
+ * - Otro día: "Vie 27 mar · 6:06 p. m."
+ * - Año distinto: "Vie 27 mar 2027 · 6:06 p. m."
+ * Si date es null/undefined o inválido, devuelve string vacío (el chip muestra "Sin fecha" aparte).
  */
 export function formatNextActionDateLabel(
   date: string | null | undefined,
@@ -68,30 +72,67 @@ export function formatNextActionDateLabel(
   const todayYmd = getTodayYmd(now)
   const tomorrowYmd = addDaysToYmd(todayYmd, 1)
 
+  const opts = { timeZone: TZ } as const
+  let timeStr = new Intl.DateTimeFormat('es-MX', {
+    ...opts,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  }).format(d)
+  timeStr = timeStr
+    .replace(/\b(a\.?m\.?)\b/gi, 'a. m.')
+    .replace(/\b(p\.?m\.?)\b/gi, 'p. m.')
+
   let prefix: string
   if (leadYmd === todayYmd) {
     prefix = 'Hoy'
   } else if (leadYmd === tomorrowYmd) {
     prefix = 'Mañana'
   } else {
-    const weekday = new Intl.DateTimeFormat('es-MX', {
-      timeZone: TZ,
-      weekday: 'short',
-    }).format(d)
-    const day = new Intl.DateTimeFormat('es-MX', {
-      timeZone: TZ,
-      day: 'numeric',
-    }).format(d)
-    prefix = `${weekday.charAt(0).toUpperCase() + weekday.slice(1)} ${day}`
+    const weekday = new Intl.DateTimeFormat('es-MX', { ...opts, weekday: 'short' }).format(d)
+    const day = new Intl.DateTimeFormat('es-MX', { ...opts, day: 'numeric' }).format(d)
+    const month = new Intl.DateTimeFormat('es-MX', { ...opts, month: 'short' }).format(d)
+    const w = weekday.charAt(0).toUpperCase() + weekday.slice(1)
+    const m = month.charAt(0).toLowerCase() + month.slice(1)
+    const [leadYear] = leadYmd.split('-').map(Number)
+    const [currentYear] = todayYmd.split('-').map(Number)
+    prefix = leadYear !== currentYear ? `${w} ${day} ${m} ${leadYear}` : `${w} ${day} ${m}`
   }
 
-  const time = new Intl.DateTimeFormat('es-MX', {
-    timeZone: TZ,
+  return `${prefix} · ${timeStr}`
+}
+
+/** Solo la hora para Kanban (línea 2 cuando es hoy/mañana): "9:00 a. m." */
+export function formatNextActionTimeOnly(date: string | null | undefined): string {
+  if (date == null || date.trim() === '') return ''
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return ''
+  const opts = { timeZone: TZ } as const
+  let timeStr = new Intl.DateTimeFormat('es-MX', {
+    ...opts,
     hour: 'numeric',
     minute: '2-digit',
     hour12: true,
-  })
-    .format(d)
-    .replace(/\s*\.\s*\./g, '.')
-  return `${prefix} · ${time}`
+  }).format(d)
+  timeStr = timeStr
+    .replace(/\b(a\.?m\.?)\b/gi, 'a. m.')
+    .replace(/\b(p\.?m\.?)\b/gi, 'p. m.')
+  return timeStr
+}
+
+/** Etiqueta de urgencia para Kanban línea 1: "Atrasado", "Hoy", "Mañana" o "" (futuro). */
+export function getNextActionUrgencyLabel(
+  date: string | null | undefined,
+  now: Date = new Date()
+): string {
+  if (date == null || date.trim() === '') return ''
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return ''
+  const leadYmd = toYmdInMonterrey(d)
+  const todayYmd = getTodayYmd(now)
+  const tomorrowYmd = addDaysToYmd(todayYmd, 1)
+  if (leadYmd < todayYmd) return 'Atrasado'
+  if (leadYmd === todayYmd) return 'Hoy'
+  if (leadYmd === tomorrowYmd) return 'Mañana'
+  return ''
 }

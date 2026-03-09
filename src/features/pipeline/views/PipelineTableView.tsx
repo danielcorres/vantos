@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { pipelineApi, type Lead, type PipelineStage, type CreateLeadInput } from '../pipeline.api'
 import { generateIdempotencyKey } from '../pipeline.store'
@@ -76,6 +76,11 @@ export function PipelineTableView({
     [pipelineMode, activosLeads, leads]
   )
 
+  const stagesLite = useMemo(
+    () => stages.map((s) => ({ id: s.id, name: s.name, position: s.position, slug: s.slug })),
+    [stages]
+  )
+
   const filteredLeads = useMemo(() => {
     if (pipelineMode !== 'activos') return []
     let list = baseLeads
@@ -109,10 +114,16 @@ export function PipelineTableView({
   )
 
   const groupedSections = useMemo(() => {
-    if (pipelineMode !== 'activos') return []
+    if (pipelineMode !== 'activos' || stages.length === 0) return []
+    const byStage = new Map<string, Lead[]>()
+    for (const lead of sortedLeads) {
+      const list = byStage.get(lead.stage_id)
+      if (list) list.push(lead)
+      else byStage.set(lead.stage_id, [lead])
+    }
     return stages.map((stage) => ({
       stage: { id: stage.id, name: stage.name, position: stage.position, slug: stage.slug },
-      leads: sortedLeads.filter((l) => l.stage_id === stage.id),
+      leads: byStage.get(stage.id) ?? [],
     }))
   }, [pipelineMode, stages, sortedLeads])
 
@@ -181,6 +192,11 @@ export function PipelineTableView({
     setToast({ type: 'success', message: 'Lead creado' })
   }
 
+  const handleRowClick = useCallback(
+    (l: Lead) => navigate(`/leads/${l.id}`),
+    [navigate]
+  )
+
   const handleMoveStage = async (leadId: string, toStageId: string) => {
     const lead = baseLeads.find((l) => l.id === leadId)
     if (!lead || lead.stage_id === toStageId) return
@@ -189,12 +205,17 @@ export function PipelineTableView({
     const idempotencyKey = generateIdempotencyKey(leadId, fromStageId, toStageId)
 
     onMoveStageOptimistic?.(leadId, fromStageId, toStageId, prevStageChangedAt)
+    setCollapsedStages((prev) => ({ ...prev, [toStageId]: false }))
+    setHighlightLeadId(leadId)
+    const highlightTimeout = setTimeout(() => setHighlightLeadId(null), 2500)
 
     try {
       await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
       await refreshCurrentMode()
       setToast({ type: 'success', message: 'Etapa actualizada' })
     } catch (err) {
+      clearTimeout(highlightTimeout)
+      setHighlightLeadId(null)
       onMoveStageRollback?.(leadId, fromStageId, prevStageChangedAt)
       setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al mover' })
     }
@@ -404,13 +425,13 @@ export function PipelineTableView({
         <div className="space-y-3">
             <PipelineTable
               leads={sortedLeads}
-              stages={stages.map((s) => ({ id: s.id, name: s.name, position: s.position }))}
+              stages={stagesLite}
               groupedSections={groupByStage ? sectionsToRender : undefined}
               groupByStage={groupByStage}
               collapsedStages={collapsedStages}
               onCollapsedStagesChange={setCollapsedStages}
               highlightLeadId={highlightLeadId}
-              onRowClick={(l) => navigate(`/leads/${l.id}`)}
+              onRowClick={handleRowClick}
               onMoveStage={handleMoveStage}
               onToast={onToast ?? ((msg) => setToast({ type: 'success', message: msg }))}
               onUpdated={refreshCurrentMode}
