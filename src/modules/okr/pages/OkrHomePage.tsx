@@ -1,5 +1,6 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
+import confetti from 'canvas-confetti'
 import { okrQueries, type PointsProgress } from '../data/okrQueries'
 import { DailySummaryCompact } from '../components/DailySummaryCompact'
 import { isNetworkError, isAuthError, getErrorMessage } from '../../../lib/supabaseErrorHandler'
@@ -8,16 +9,63 @@ import { todayLocalYmd } from '../../../shared/utils/dates'
 import { useAuth } from '../../../shared/auth/AuthProvider'
 import { useUserRole } from '../../../shared/hooks/useUserRole'
 import { AdvisorMilestonesSection } from '../../advisors/ui/AdvisorMilestonesSection'
+import { getMyProfile, type Profile } from '../../../lib/profile'
+
+function deriveWelcomeName(profile: Profile | null, emailFallback?: string | null): string {
+  const first = profile?.first_name?.trim()
+  if (first) return first
+  const full = profile?.full_name?.trim()
+  if (full) {
+    const part = full.split(/\s+/)[0]
+    return part || full
+  }
+  const disp = profile?.display_name?.trim()
+  if (disp) {
+    const part = disp.split(/\s+/)[0]
+    return part || disp
+  }
+  if (emailFallback) {
+    const local = emailFallback.split('@')[0]?.trim()
+    if (local) return local
+  }
+  return 'allí'
+}
+
+function isBirthdayToday(birthDate: string | null | undefined, todayYmd: string): boolean {
+  if (!birthDate || birthDate.length < 10) return false
+  return birthDate.slice(5, 10) === todayYmd.slice(5, 10)
+}
+
+function WelcomeHeader({ name, isBirthday }: { name: string; isBirthday: boolean }) {
+  if (!name) return null
+  return (
+    <div className="space-y-3">
+      <h1 className="text-xl font-semibold text-text tracking-tight">Hola, {name}</h1>
+      {isBirthday && (
+        <div
+          className="rounded-xl border border-amber-200/80 bg-gradient-to-br from-amber-50 via-rose-50 to-violet-50 px-4 py-4 shadow-sm"
+          role="status"
+          aria-live="polite"
+        >
+          <p className="text-center text-lg font-bold text-text">¡Feliz Cumpleaños! {name}</p>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function OkrHomePage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const { role, loading: roleLoading } = useUserRole()
+  const confettiFiredRef = useRef(false)
 
   const showAdvisorMilestones = useMemo(
     () => Boolean(user?.id) && role === 'advisor' && !roleLoading,
     [user?.id, role, roleLoading]
   )
+  const [welcomeName, setWelcomeName] = useState('')
+  const [isBirthday, setIsBirthday] = useState(false)
   const [progress, setProgress] = useState<PointsProgress | null>(null)
   const [streak, setStreak] = useState<{
     streak_days: number
@@ -32,14 +80,21 @@ export function OkrHomePage() {
     setLoading(true)
     setError(null)
 
-    try {
-      const today = todayLocalYmd()
+    const today = todayLocalYmd()
 
-      // Cargar progreso de hoy
+    let prof: Profile | null = null
+    try {
+      prof = await getMyProfile()
+    } catch {
+      // No bloquear inicio si el perfil falla
+    }
+    setWelcomeName(deriveWelcomeName(prof, user?.email ?? null))
+    setIsBirthday(isBirthdayToday(prof?.birth_date, today))
+
+    try {
       const progressData = await okrQueries.getPointsProgress(today)
       setProgress(progressData)
 
-      // Cargar racha
       try {
         const streakData = await okrQueries.getOkrStreakWithGrace()
         setStreak({
@@ -52,7 +107,6 @@ export function OkrHomePage() {
         setStreak({ streak_days: 0, is_alive: false, grace_days_left: 0 })
       }
 
-      // Verificar si hay scoring configurado
       const scores = await okrQueries.getMetricScores()
       setScoresCount(scores.length)
     } catch (err: unknown) {
@@ -67,16 +121,28 @@ export function OkrHomePage() {
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [user?.email])
 
   useEffect(() => {
     loadData()
   }, [loadData])
 
-  // Auto-refresh al hacer focus o cuando el documento se vuelve visible
+  useEffect(() => {
+    if (!isBirthday || !welcomeName || confettiFiredRef.current) return
+    confettiFiredRef.current = true
+    const prefersReduced =
+      typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (prefersReduced) return
+    void confetti({
+      particleCount: 130,
+      spread: 72,
+      origin: { y: 0.65 },
+      ticks: 200,
+    })
+  }, [isBirthday, welcomeName])
+
   useAutoRefresh(loadData, { enabled: !loading })
 
-  // Loading skeleton
   if (loading) {
     return (
       <div className="space-y-4">
@@ -89,25 +155,28 @@ export function OkrHomePage() {
     )
   }
 
-  // Error state
   if (error) {
     return (
-      <div className="card p-4 bg-red-50 border border-red-200">
-        <div className="text-sm text-red-700 mb-3">{error}</div>
-        <button
-          onClick={() => window.location.reload()}
-          className="btn btn-primary text-sm"
-        >
-          Reintentar
-        </button>
+      <div className="space-y-4">
+        <WelcomeHeader name={welcomeName} isBirthday={isBirthday} />
+        <div className="card p-4 bg-red-50 border border-red-200">
+          <div className="text-sm text-red-700 mb-3">{error}</div>
+          <button
+            onClick={() => window.location.reload()}
+            className="btn btn-primary text-sm"
+          >
+            Reintentar
+          </button>
+        </div>
       </div>
     )
   }
 
-  // Empty state: no hay scoring configurado
   if (scoresCount === 0) {
     return (
       <div className="space-y-4">
+        <WelcomeHeader name={welcomeName} isBirthday={isBirthday} />
+
         {progress && (
           <DailySummaryCompact progress={progress} streak={streak} />
         )}
@@ -138,9 +207,10 @@ export function OkrHomePage() {
     )
   }
 
-  // Normal state
   return (
     <div className="space-y-4">
+      <WelcomeHeader name={welcomeName} isBirthday={isBirthday} />
+
       {progress && (
         <DailySummaryCompact progress={progress} streak={streak} />
       )}
@@ -153,7 +223,6 @@ export function OkrHomePage() {
         />
       )}
 
-      {/* CTA Principal */}
       <div className="card p-4">
         <button
           onClick={() => navigate('/okr/daily?date=today')}
@@ -163,7 +232,6 @@ export function OkrHomePage() {
         </button>
       </div>
 
-      {/* Cards informativas */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="card p-4">
           <div className="font-semibold mb-1">OKR Diario</div>

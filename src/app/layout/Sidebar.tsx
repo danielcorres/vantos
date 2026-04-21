@@ -85,18 +85,6 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
           icon: IconCalendarRange,
           visible: () => true,
         },
-        {
-          label: 'Calendario',
-          path: '/calendar',
-          icon: IconCalendarDays,
-          visible: () => true,
-        },
-        {
-          label: 'Productividad',
-          path: '/productividad',
-          icon: IconTarget,
-          visible: () => true,
-        },
       ],
     },
     {
