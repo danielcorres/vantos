@@ -1,13 +1,23 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { okrQueries, type PointsProgress } from '../data/okrQueries'
 import { DailySummaryCompact } from '../components/DailySummaryCompact'
 import { isNetworkError, isAuthError, getErrorMessage } from '../../../lib/supabaseErrorHandler'
 import { useAutoRefresh } from '../../../shared/hooks/useAutoRefresh'
 import { todayLocalYmd } from '../../../shared/utils/dates'
+import { useAuth } from '../../../shared/auth/AuthProvider'
+import { useUserRole } from '../../../shared/hooks/useUserRole'
+import { AdvisorMilestonesSection } from '../../advisors/ui/AdvisorMilestonesSection'
 
 export function OkrHomePage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const { role, loading: roleLoading } = useUserRole()
+
+  const showAdvisorMilestones = useMemo(
+    () => Boolean(user?.id) && role === 'advisor' && !roleLoading,
+    [user?.id, role, roleLoading]
+  )
   const [progress, setProgress] = useState<PointsProgress | null>(null)
   const [streak, setStreak] = useState<{
     streak_days: number
@@ -102,6 +112,14 @@ export function OkrHomePage() {
           <DailySummaryCompact progress={progress} streak={streak} />
         )}
 
+        {showAdvisorMilestones && user && (
+          <AdvisorMilestonesSection
+            advisorIds={[user.id]}
+            title="Tus hitos"
+            linkToDetail={false}
+          />
+        )}
+
         <div className="card p-6 text-center">
           <div className="text-lg font-semibold mb-2">
             Configura tus puntajes primero
@@ -125,6 +143,14 @@ export function OkrHomePage() {
     <div className="space-y-4">
       {progress && (
         <DailySummaryCompact progress={progress} streak={streak} />
+      )}
+
+      {showAdvisorMilestones && user && (
+        <AdvisorMilestonesSection
+          advisorIds={[user.id]}
+          title="Tus hitos"
+          linkToDetail={false}
+        />
       )}
 
       {/* CTA Principal */}
