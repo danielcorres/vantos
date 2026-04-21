@@ -4,6 +4,7 @@ import { IconMail, IconPhone, IconUser } from '../../app/layout/icons'
 import { LeadContactLine } from './LeadContactLine'
 import { LeadProgressDots, type PipelineStageLite } from './LeadProgressDots'
 import { LeadSourceTag } from './LeadSourceTag'
+import { LeadTemperatureChip } from './LeadTemperatureChip'
 
 /**
  * Contenido reutilizable de card de lead (sin contenedor).
@@ -76,9 +77,12 @@ export function LeadCardContent({
       )}
 
       {/* Fuente (oculta en móvil) + Progreso siempre visible */}
-      <div className="mt-2 sm:mt-3 flex items-center justify-between gap-2">
-        <span className="hidden sm:inline-flex">
-          <LeadSourceTag source={lead.source} />
+      <div className="mt-2 sm:mt-3 flex items-center justify-between gap-2 flex-wrap">
+        <span className="inline-flex items-center gap-1.5 min-w-0">
+          <span className="hidden sm:inline-flex">
+            <LeadSourceTag source={lead.source} />
+          </span>
+          <LeadTemperatureChip temperature={lead.temperature} />
         </span>
         <LeadProgressDots stages={stages} currentStageId={lead.stage_id} />
       </div>

@@ -10,6 +10,8 @@ import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
 import { getStageTagClasses, displayStageName } from '../shared/utils/stageStyles'
 import { NextActionActions } from '../components/pipeline/NextActionActions'
+import { LeadTemperatureChip } from '../components/pipeline/LeadTemperatureChip'
+import type { LeadTemperature } from '../features/pipeline/pipeline.api'
 
 type LeadData = {
   id: string
@@ -32,6 +34,7 @@ type LeadData = {
   estimated_value: number | null
   expected_close_at: string | null
   owner_user_id: string | null
+  temperature: LeadTemperature | null
 }
 
 const TOAST_CLEAR_MS = 2800
@@ -122,6 +125,7 @@ export function LeadDetailPage() {
   const [source, setSource] = useState('')
   const [notes, setNotes] = useState('')
   const [referralName, setReferralName] = useState('')
+  const [temperature, setTemperature] = useState('')
 
   // Stage change state
   const [selectedStageId, setSelectedStageId] = useState<string>('')
@@ -157,6 +161,7 @@ export function LeadDetailPage() {
       source: lead.source || '',
       notes: lead.notes || '',
       referral_name: lead.referral_name || '',
+      temperature: lead.temperature ?? '',
     }
   }, [lead])
   const currentSnapshot = useMemo(
@@ -167,8 +172,9 @@ export function LeadDetailPage() {
       source,
       notes,
       referral_name: referralName,
+      temperature,
     }),
-    [fullName, phone, email, source, notes, referralName]
+    [fullName, phone, email, source, notes, referralName, temperature]
   )
   // useDirtyState se ejecuta SIEMPRE (Rules of Hooks); la condición solo aplica al valor derivado
   const isDirty = useDirtyState(originalSnapshot, currentSnapshot)
@@ -210,6 +216,7 @@ export function LeadDetailPage() {
       setSource(lead.source || '')
       setNotes(lead.notes || '')
       setReferralName(lead.referral_name || '')
+      setTemperature(lead.temperature ?? '')
       setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '')
       setExpectedCloseAt(
         lead.expected_close_at
@@ -263,7 +270,7 @@ export function LeadDetailPage() {
         supabase
           .from('leads')
           .select(
-            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition,next_action_at,next_action_type,estimated_value,expected_close_at,owner_user_id'
+            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition,next_action_at,next_action_type,estimated_value,expected_close_at,owner_user_id,temperature'
           )
           .eq('id', id)
           .single(),
@@ -304,6 +311,7 @@ export function LeadDetailPage() {
     setSource(lead.source || '')
     setNotes(lead.notes || '')
     setReferralName(lead.referral_name || '')
+    setTemperature(lead.temperature ?? '')
   }, [lead])
 
   const handleDiscard = useCallback(() => {
@@ -360,6 +368,7 @@ export function LeadDetailPage() {
         source: source.trim() || null,
         notes: notes.trim() || null,
         referral_name: referralName.trim() || null,
+        temperature: temperature === '' ? null : (temperature as LeadTemperature),
       })
 
       await loadData()
@@ -583,6 +592,7 @@ export function LeadDetailPage() {
                 {displayStageName(currentStage.name)}
               </span>
             )}
+            <LeadTemperatureChip temperature={lead.temperature} />
           </div>
           {/* Fila 2: teléfono / email + acciones de contacto (WhatsApp, Llamar, Email) como chips */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
@@ -863,6 +873,26 @@ export function LeadDetailPage() {
                   ))}
                 </select>
               </div>
+              <div>
+                <label htmlFor="temperature" className="block text-xs font-medium text-muted mb-1">
+                  Temperatura (interés)
+                </label>
+                <p className="text-[11px] text-muted mb-1">
+                  Nivel de interés del lead; no es la fuente de captación.
+                </p>
+                <select
+                  id="temperature"
+                  value={temperature}
+                  onChange={(e) => setTemperature(e.target.value)}
+                  disabled={saving}
+                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                >
+                  <option value="">Sin clasificar</option>
+                  <option value="frio">Frío</option>
+                  <option value="tibio">Tibio</option>
+                  <option value="caliente">Caliente</option>
+                </select>
+              </div>
               {source && source.trim().toLowerCase() === 'referido' && (
                 <div>
                   <label htmlFor="referral_name" className="block text-xs font-medium text-muted mb-1">
@@ -910,6 +940,16 @@ export function LeadDetailPage() {
               <div>
                 <span className="text-xs text-muted block mb-0.5">Fuente</span>
                 <span className="text-text">{source || '—'}</span>
+              </div>
+              <div>
+                <span className="text-xs text-muted block mb-0.5">Temperatura</span>
+                <span className="text-text inline-flex items-center gap-2">
+                  {lead.temperature ? (
+                    <LeadTemperatureChip temperature={lead.temperature} />
+                  ) : (
+                    'Sin clasificar'
+                  )}
+                </span>
               </div>
               {source && source.trim().toLowerCase() === 'referido' && (
                 <div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import type { Lead, PipelineStage } from '../pipeline.api'
 import { formatCurrencyMXN } from '../../../shared/utils/format'
 import { displayStageName, getStageAccentStyle } from '../../../shared/utils/stageStyles'
+import { LeadTemperatureChip } from '../../../components/pipeline/LeadTemperatureChip'
 function sortByEstimatedValueDesc(leads: Lead[]): Lead[] {
   return [...leads].sort((a, b) => {
     const aVal = a.estimated_value ?? 0
@@ -41,7 +42,7 @@ export function PipelineHighValueView({
         <table className="w-full text-sm">
           <thead className="bg-neutral-50 border-b border-neutral-200">
             <tr>
-              <th className="px-4 py-2.5 text-left text-xs font-medium text-neutral-500">Nombre</th>
+              <th className="px-4 py-2.5 text-left text-xs font-medium text-neutral-500">Lead</th>
               <th className="px-4 py-2.5 text-left text-xs font-medium text-neutral-500 hidden lg:table-cell">Etapa</th>
               <th className="px-4 py-2.5 text-right text-xs font-medium text-neutral-500">Valor estimado</th>
               <th className="px-4 py-2.5 text-left text-xs font-medium text-neutral-500 hidden xl:table-cell">
@@ -69,7 +70,12 @@ export function PipelineHighValueView({
                     }
                   }}
                 >
-                  <td className="px-4 py-2.5 font-medium text-neutral-900">{lead.full_name}</td>
+                  <td className="px-4 py-2.5 font-medium text-neutral-900">
+                    <div className="flex flex-wrap items-center gap-2 min-w-0">
+                      <span className="truncate">{lead.full_name}</span>
+                      <LeadTemperatureChip temperature={lead.temperature} />
+                    </div>
+                  </td>
                   <td className="px-4 py-2.5 text-neutral-600 hidden lg:table-cell">
                     {displayStageName(stage?.name) ?? '—'}
                   </td>

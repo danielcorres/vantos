@@ -7,6 +7,7 @@ import { IconMail, IconPhone, IconUser } from '../../app/layout/icons'
 import { LeadContactLine } from './LeadContactLine'
 import type { PipelineStageLite } from './LeadProgressDots'
 import { LeadSourceTag } from './LeadSourceTag'
+import { LeadTemperatureChip } from './LeadTemperatureChip'
 import { MoveStageButton } from './MoveStageButton'
 import { NextActionActions } from './NextActionActions'
 
@@ -91,6 +92,7 @@ function LeadRowDesktopInner({
                 Nuevo
               </span>
             )}
+            <LeadTemperatureChip temperature={lead.temperature} />
           </div>
         </div>
       </td>

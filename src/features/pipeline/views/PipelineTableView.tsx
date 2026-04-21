@@ -8,6 +8,7 @@ import { PipelineTable } from '../components/PipelineTable'
 import { Toast } from '../../../shared/components/Toast'
 import { formatDateMX } from '../../../shared/utils/dates'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
+import { LeadTemperatureChip } from '../../../components/pipeline/LeadTemperatureChip'
 
 const BTN_PRIMARY =
   'h-9 rounded-xl bg-neutral-900 text-white px-4 text-sm font-semibold gap-2 hover:bg-neutral-800 active:scale-[0.98] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-1 flex-shrink-0 inline-flex items-center justify-center'
@@ -67,6 +68,8 @@ export function PipelineTableView({
   const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
+  /** '' = todas; '__null__' = sin clasificar; frio|tibio|caliente */
+  const [temperatureFilter, setTemperatureFilter] = useState('')
   const [restoreLeadPending, setRestoreLeadPending] = useState<Lead | null>(null)
 
   const weeklyMode = weeklyFilterLeadIds != null && weeklyLoadError == null
@@ -101,8 +104,14 @@ export function PipelineTableView({
       const srcLower = src.toLowerCase()
       list = list.filter((l) => (l.source?.toLowerCase().trim() || '') === srcLower)
     }
+    const temp = temperatureFilter.trim()
+    if (temp === '__null__') {
+      list = list.filter((l) => l.temperature == null)
+    } else if (temp === 'frio' || temp === 'tibio' || temp === 'caliente') {
+      list = list.filter((l) => l.temperature === temp)
+    }
     return list
-  }, [pipelineMode, baseLeads, searchQuery, sourceFilter, weeklyMode, weeklyFilterLeadIds])
+  }, [pipelineMode, baseLeads, searchQuery, sourceFilter, temperatureFilter, weeklyMode, weeklyFilterLeadIds])
 
   useEffect(() => {
     onVisibleCountChange?.(filteredLeads.length)
@@ -279,7 +288,7 @@ export function PipelineTableView({
   return (
     <div className="space-y-4">
       <div className="md:sticky md:top-0 z-20 border-b border-neutral-200/70 md:pb-4 md:pt-1 supports-[backdrop-filter]:backdrop-blur-sm supports-[backdrop-filter]:bg-white/50">
-        {/* FILA 3: Search, Source */}
+        {/* FILA 3: Search, Source, Temperatura */}
         <div className="flex flex-col gap-2 md:flex-row md:flex-wrap md:gap-3 md:items-center pt-1">
           <input
             type="search"
@@ -315,6 +324,42 @@ export function PipelineTableView({
                 </button>
               </span>
             )}
+            <select
+              value={temperatureFilter}
+              onChange={(e) => setTemperatureFilter(e.target.value)}
+              className="flex-1 min-w-0 h-9 rounded-xl border border-neutral-200 bg-white px-3 text-sm text-neutral-700 focus:border-neutral-300 focus:outline-none focus:ring-2 focus:ring-neutral-300 focus:ring-offset-1 md:w-[200px] md:flex-none"
+              aria-label="Filtrar por temperatura de interés"
+            >
+              <option value="">Todas las temperaturas</option>
+              <option value="__null__">Sin clasificar</option>
+              <option value="frio">Frío</option>
+              <option value="tibio">Tibio</option>
+              <option value="caliente">Caliente</option>
+            </select>
+            {temperatureFilter.trim() !== '' && (
+              <span className="hidden md:inline-flex items-center gap-1.5 h-9 rounded-xl border border-neutral-200 bg-neutral-50 px-3 text-sm text-neutral-700 flex-shrink-0">
+                Temperatura:{' '}
+                <span className="font-medium">
+                  {temperatureFilter === '__null__'
+                    ? 'Sin clasificar'
+                    : temperatureFilter === 'frio'
+                      ? 'Frío'
+                      : temperatureFilter === 'tibio'
+                        ? 'Tibio'
+                        : temperatureFilter === 'caliente'
+                          ? 'Caliente'
+                          : temperatureFilter}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setTemperatureFilter('')}
+                  className="rounded-lg p-0.5 text-neutral-500 hover:bg-neutral-200 hover:text-neutral-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
+                  aria-label="Quitar filtro de temperatura"
+                >
+                  ×
+                </button>
+              </span>
+            )}
             {pipelineMode === 'activos' && (
               <button onClick={() => setIsCreateModalOpen(true)} className={BTN_PRIMARY}>
                 <span className="md:hidden">Nuevo</span>
@@ -333,6 +378,7 @@ export function PipelineTableView({
                 <th className="py-2 pr-4 font-medium">Lead</th>
                 <th className="py-2 pr-4 font-medium">Etapa</th>
                 <th className="py-2 pr-4 font-medium">Fuente</th>
+                <th className="py-2 pr-4 font-medium">Temperatura</th>
                 <th className="py-2 pr-4 font-medium">Archivado el</th>
                 <th className="py-2 font-medium">Acción</th>
               </tr>
@@ -340,7 +386,7 @@ export function PipelineTableView({
             <tbody>
               {leads.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-muted">
+                  <td colSpan={6} className="py-8 text-center text-muted">
                     No hay leads archivados.
                   </td>
                 </tr>
@@ -369,6 +415,13 @@ export function PipelineTableView({
                         <span className={getStageTagClasses(stageSlug)}>{displayStageName(stageName)}</span>
                       </td>
                       <td className="py-2.5 pr-4 text-muted">{lead.source ?? '—'}</td>
+                      <td className="py-2.5 pr-4 text-muted">
+                        {lead.temperature ? (
+                          <LeadTemperatureChip temperature={lead.temperature} />
+                        ) : (
+                          '—'
+                        )}
+                      </td>
                       <td className="py-2.5 pr-4 text-muted tabular-nums">
                         {isArchived ? formatDateMX(lead.archived_at) : '—'}
                       </td>

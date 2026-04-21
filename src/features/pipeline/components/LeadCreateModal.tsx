@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { PipelineStage, CreateLeadInput } from '../pipeline.api'
+import type { PipelineStage, CreateLeadInput, LeadTemperature } from '../pipeline.api'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 import { displayStageName } from '../../../shared/utils/stageStyles'
 import { NextActionModal } from '../../../components/pipeline/NextActionModal'
@@ -40,6 +40,7 @@ export function LeadCreateModal({
   const [source, setSource] = useState(DEFAULT_SOURCE)
   const [stageId, setStageId] = useState(stages[0]?.id ?? '')
   const [notes, setNotes] = useState('')
+  const [temperature, setTemperature] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showNextAction, setShowNextAction] = useState(false)
@@ -53,6 +54,7 @@ export function LeadCreateModal({
       const validDefault = defaultStageId && stages.some((s) => s.id === defaultStageId)
       setStageId(validDefault ? defaultStageId : (stages.find((s) => s.slug === 'contactos_nuevos')?.id ?? stages[0].id))
       setSource(DEFAULT_SOURCE)
+      setTemperature('')
     }
   }, [isOpen, stages, defaultStageId])
 
@@ -72,6 +74,8 @@ export function LeadCreateModal({
       source: source || undefined,
       notes: notes.trim() || undefined,
       stage_id: stageId,
+      temperature:
+        temperature === '' ? undefined : (temperature as LeadTemperature),
     })
     setShowNextAction(true)
   }
@@ -109,6 +113,7 @@ export function LeadCreateModal({
     setFullName('')
     setSource(DEFAULT_SOURCE)
     setNotes('')
+    setTemperature('')
     setError(null)
     setPendingCreateData(null)
     setShowNextAction(false)
@@ -189,6 +194,24 @@ export function LeadCreateModal({
                   {opt.label}
                 </option>
               ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="create_temperature" className="block text-xs font-medium text-muted mb-1">
+              Temperatura (interés, opcional)
+            </label>
+            <select
+              id="create_temperature"
+              value={temperature}
+              onChange={(e) => setTemperature(e.target.value)}
+              disabled={loading}
+              className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
+            >
+              <option value="">Sin clasificar</option>
+              <option value="frio">Frío</option>
+              <option value="tibio">Tibio</option>
+              <option value="caliente">Caliente</option>
             </select>
           </div>
 
