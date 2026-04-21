@@ -92,7 +92,7 @@ function LeadRowDesktopInner({
                 Nuevo
               </span>
             )}
-            <LeadTemperatureChip temperature={lead.temperature} />
+            <LeadTemperatureChip temperature={lead.temperature} showPlaceholder />
           </div>
         </div>
       </td>

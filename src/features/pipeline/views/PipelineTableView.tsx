@@ -416,11 +416,7 @@ export function PipelineTableView({
                       </td>
                       <td className="py-2.5 pr-4 text-muted">{lead.source ?? '—'}</td>
                       <td className="py-2.5 pr-4 text-muted">
-                        {lead.temperature ? (
-                          <LeadTemperatureChip temperature={lead.temperature} />
-                        ) : (
-                          '—'
-                        )}
+                        <LeadTemperatureChip temperature={lead.temperature} showPlaceholder />
                       </td>
                       <td className="py-2.5 pr-4 text-muted tabular-nums">
                         {isArchived ? formatDateMX(lead.archived_at) : '—'}

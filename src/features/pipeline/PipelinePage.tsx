@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState, useRef, useMemo, useCallback, lazy, Suspense } from 'react'
+import { useEffect, useReducer, useState, useRef, useMemo, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { pipelineApi, type Lead } from './pipeline.api'
 import {
@@ -9,12 +9,8 @@ import {
 import { KanbanBoard } from './components/KanbanBoard'
 import { LeadCreateModal } from './components/LeadCreateModal'
 import { PipelineRecordsView } from './views/PipelineRecordsView'
-import { PipelineHighValueView } from './views/PipelineHighValueView'
 import { getWeeklyEntryLeads } from '../productivity/api/drilldown.api'
 
-const PipelineInsightsPage = lazy(() =>
-  import('./insights/PipelineInsightsPage').then((m) => ({ default: m.PipelineInsightsPage }))
-)
 import type { StageSlug } from '../productivity/types/productivity.types'
 import { STAGE_SLUGS_ORDER } from '../productivity/types/productivity.types'
 import { Toast } from '../../shared/components/Toast'
@@ -47,14 +43,14 @@ function formatWeekRangeLabel(weekStartYmd: string): string {
 }
 
 const STORAGE_KEY_VIEW = 'pipeline:viewMode'
-type ViewMode = 'pipeline' | 'records' | 'dashboard' | 'highvalue'
+type ViewMode = 'pipeline' | 'records'
 
 type PipelineToast = { type: 'error' | 'success' | 'info'; message: string } | null
 
 function getStoredViewMode(): ViewMode {
   try {
     const v = localStorage.getItem(STORAGE_KEY_VIEW)
-    if (v === 'pipeline' || v === 'records' || v === 'dashboard' || v === 'highvalue') return v
+    if (v === 'pipeline' || v === 'records') return v
   } catch {
     /* intentionally ignored */
   }
@@ -336,15 +332,6 @@ export function PipelinePage() {
     }
   }, [state.leads, state.stages, dispatch, refreshDataSilent])
 
-  const handleViewInKanban = (leadId?: string) => {
-    setActiveTab('pipeline')
-    if (leadId && kanbanRef.current) {
-      setTimeout(() => {
-        kanbanRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-      }, 100)
-    }
-  }
-
   if (state.loading) {
     return (
       <div className="space-y-4">
@@ -512,7 +499,7 @@ export function PipelinePage() {
         </div>
       )}
 
-      {/* FILA 1: Pipeline | Records | Dashboard | High Value */}
+      {/* FILA 1: Kanban | Lista */}
       <div className="flex flex-wrap items-center gap-2">
         <div
           className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5 gap-0.5"
@@ -527,7 +514,7 @@ export function PipelinePage() {
               activeTab === 'pipeline' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
             }`}
           >
-            Pipeline
+            Kanban
           </button>
           <button
             role="tab"
@@ -537,27 +524,7 @@ export function PipelinePage() {
               activeTab === 'records' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
             }`}
           >
-            Records
-          </button>
-          <button
-            role="tab"
-            aria-selected={activeTab === 'dashboard'}
-            onClick={() => setActiveTab('dashboard')}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-              activeTab === 'dashboard' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
-            }`}
-          >
-            Dashboard
-          </button>
-          <button
-            role="tab"
-            aria-selected={activeTab === 'highvalue'}
-            onClick={() => setActiveTab('highvalue')}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-              activeTab === 'highvalue' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
-            }`}
-          >
-            High Value
+            Lista
           </button>
         </div>
       </div>
@@ -668,28 +635,6 @@ export function PipelinePage() {
             onUpdated={refreshDataSilent}
           />
         </div>
-      )}
-
-      {activeTab === 'highvalue' && (
-        <PipelineHighValueView
-          leads={state.leads}
-          stages={state.stages}
-        />
-      )}
-
-      {activeTab === 'dashboard' && (
-        <Suspense
-          fallback={
-            <div className="rounded-lg border border-border bg-bg/50 p-6 flex items-center justify-center min-h-[200px]">
-              <div className="flex flex-col items-center gap-2">
-                <div className="h-2 w-32 rounded-full bg-black/10 animate-pulse" />
-                <span className="text-sm text-muted">Cargando insights…</span>
-              </div>
-            </div>
-          }
-        >
-          <PipelineInsightsPage onViewInKanban={handleViewInKanban} />
-        </Suspense>
       )}
 
       {activeTab === 'pipeline' && (

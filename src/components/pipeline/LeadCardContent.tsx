@@ -82,7 +82,7 @@ export function LeadCardContent({
           <span className="hidden sm:inline-flex">
             <LeadSourceTag source={lead.source} />
           </span>
-          <LeadTemperatureChip temperature={lead.temperature} />
+          <LeadTemperatureChip temperature={lead.temperature} showPlaceholder />
         </span>
         <LeadProgressDots stages={stages} currentStageId={lead.stage_id} />
       </div>

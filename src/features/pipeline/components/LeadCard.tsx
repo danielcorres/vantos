@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Lead, PipelineStage } from '../pipeline.api'
 import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
+import { LeadTemperatureChip } from '../../../components/pipeline/LeadTemperatureChip'
 import { NextActionActions } from '../../../components/pipeline/NextActionActions'
 import { LeadCardMenu } from '../../../components/pipeline/LeadCardMenu'
 import { isLikelyNeverMoved } from '../../../shared/utils/leadUtils'
@@ -81,6 +82,7 @@ export function LeadCard({ lead, stages, onDragStart, onMoveStage, onToast, onUp
         {lead.source && (
           <LeadSourceTag source={lead.source} abbreviated className="shrink-0" />
         )}
+        <LeadTemperatureChip temperature={lead.temperature} showPlaceholder />
         {isLikelyNeverMoved(lead) && (
           <span className="shrink-0 text-[10px] font-medium uppercase tracking-wide text-emerald-600 bg-emerald-50/80 px-1.5 py-0.5 rounded">
             Nuevo

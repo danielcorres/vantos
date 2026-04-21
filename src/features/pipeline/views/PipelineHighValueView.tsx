@@ -73,7 +73,7 @@ export function PipelineHighValueView({
                   <td className="px-4 py-2.5 font-medium text-neutral-900">
                     <div className="flex flex-wrap items-center gap-2 min-w-0">
                       <span className="truncate">{lead.full_name}</span>
-                      <LeadTemperatureChip temperature={lead.temperature} />
+                      <LeadTemperatureChip temperature={lead.temperature} showPlaceholder />
                     </div>
                   </td>
                   <td className="px-4 py-2.5 text-neutral-600 hidden lg:table-cell">

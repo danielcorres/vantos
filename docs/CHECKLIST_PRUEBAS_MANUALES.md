@@ -89,7 +89,6 @@ Flujo de creación de lead, weeklyMode, conectividad Productividad ↔ Pipeline 
 ## FASE 6 — Performance (code-splitting)
 
 - [ ] **Lazy loading:** CalendarPage, ProductivityPage, PipelinePage y LeadDetailPage cargan bajo demanda (Suspense + fallback skeleton).
-- [ ] **Insights:** La pestaña Insights del Pipeline carga PipelineInsightsPage bajo demanda (skeleton "Cargando insights…").
 - [ ] **Rutas protegidas:** RoleGuard sigue funcionando con rutas lazy (acceso según rol).
 - [ ] **Build:** `npm run build` termina sin errores; warning de chunks >500kb resuelto o mejorado (vendor-react, vendor-router, vendor-supabase separados).
 

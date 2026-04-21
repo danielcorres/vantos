@@ -5,6 +5,7 @@ import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
 import type { PipelineStageLite } from './LeadProgressDots'
 import { LeadCardContent } from './LeadCardContent'
 import { LeadSourceTag } from './LeadSourceTag'
+import { LeadTemperatureChip } from './LeadTemperatureChip'
 import { MoveStageButton } from './MoveStageButton'
 import { NextActionActions } from './NextActionActions'
 
@@ -94,6 +95,7 @@ export function LeadCardMobile({
                   Nuevo
                 </span>
               )}
+              <LeadTemperatureChip temperature={lead.temperature} showPlaceholder />
             </div>
           </div>
           <div className="mt-1 flex items-center min-w-0">
@@ -125,6 +127,7 @@ export function LeadCardMobile({
                   Nuevo
                 </span>
               )}
+              <LeadTemperatureChip temperature={lead.temperature} showPlaceholder />
             </div>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">

@@ -138,6 +138,7 @@ export function LeadDetailPage() {
 
   // Action states
   const [saving, setSaving] = useState(false)
+  const [savingTemperature, setSavingTemperature] = useState(false)
   const [moving, setMoving] = useState(false)
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
   const [isEditingDatos, setIsEditingDatos] = useState(false)
@@ -385,6 +386,31 @@ export function LeadDetailPage() {
     }
   }
 
+  const handlePipelineTemperatureChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    if (!id || !lead || lead.archived_at) return
+    const v = e.target.value
+    const next: LeadTemperature | null = v === '' ? null : (v as LeadTemperature)
+    if (next === lead.temperature) return
+
+    setSavingTemperature(true)
+    setError(null)
+    setToast(null)
+    try {
+      await pipelineApi.updateLead(id, { temperature: next })
+      await loadData()
+      setTemperature(next ?? '')
+      setToast({ kind: 'success', text: 'Temperatura actualizada' })
+      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al guardar temperatura'
+      setError(msg)
+      setToast({ kind: 'error', text: msg })
+      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
+    } finally {
+      setSavingTemperature(false)
+    }
+  }
+
   const handleMoveStage = async (targetStageId?: string) => {
     const stageId = targetStageId ?? selectedStageId
     if (!id || !lead || !stageId) return
@@ -592,7 +618,7 @@ export function LeadDetailPage() {
                 {displayStageName(currentStage.name)}
               </span>
             )}
-            <LeadTemperatureChip temperature={lead.temperature} />
+            <LeadTemperatureChip temperature={lead.temperature} showPlaceholder />
           </div>
           {/* Fila 2: teléfono / email + acciones de contacto (WhatsApp, Llamar, Email) como chips */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
@@ -944,11 +970,7 @@ export function LeadDetailPage() {
               <div>
                 <span className="text-xs text-muted block mb-0.5">Temperatura</span>
                 <span className="text-text inline-flex items-center gap-2">
-                  {lead.temperature ? (
-                    <LeadTemperatureChip temperature={lead.temperature} />
-                  ) : (
-                    'Sin clasificar'
-                  )}
+                  <LeadTemperatureChip temperature={lead.temperature} showPlaceholder />
                 </span>
               </div>
               {source && source.trim().toLowerCase() === 'referido' && (
@@ -1008,6 +1030,33 @@ export function LeadDetailPage() {
                   ))}
                 </select>
               )}
+            </div>
+            <div className="mt-3">
+              <label htmlFor="pipeline_temperature" className="block text-xs font-medium text-muted mb-1">
+                Temperatura (interés)
+              </label>
+              <p className="text-[11px] text-muted mb-1.5">
+                Independiente de la fuente de captación. También puedes editarla en «Editar datos».
+              </p>
+              {lead.archived_at ? (
+                <p className="text-sm text-muted py-1">—</p>
+              ) : (
+                <select
+                  id="pipeline_temperature"
+                  value={lead.temperature ?? ''}
+                  onChange={handlePipelineTemperatureChange}
+                  disabled={moving || saving || savingTemperature || stages.length === 0}
+                  className="w-full rounded-md border border-border px-3 py-2 text-sm"
+                >
+                  <option value="">Sin clasificar</option>
+                  <option value="frio">Frío</option>
+                  <option value="tibio">Tibio</option>
+                  <option value="caliente">Caliente</option>
+                </select>
+              )}
+              {savingTemperature ? (
+                <p className="text-xs text-muted mt-1">Guardando…</p>
+              ) : null}
             </div>
             {/* Próximo paso */}
             <div className="mt-3">
