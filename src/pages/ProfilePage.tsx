@@ -5,7 +5,6 @@ import { useUserRole } from '../shared/hooks/useUserRole'
 
 export function ProfilePage() {
   const { role, loading: roleLoading } = useUserRole()
-  const isAdvisor = !roleLoading && role === 'advisor'
 
   const [profile, setProfile] = useState<Profile | null>(null)
   const [firstName, setFirstName] = useState('')
@@ -14,6 +13,10 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  // Rol desde el perfil (BD) en cuanto existe fila; evita ocultar el campo mientras useUserRole sigue en loading.
+  const isAdvisor =
+    profile !== null ? profile.role === 'advisor' : !roleLoading && role === 'advisor'
 
   useEffect(() => {
     loadProfile()
