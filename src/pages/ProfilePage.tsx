@@ -3,7 +3,7 @@ import { getMyProfile, upsertMyProfile, type Profile } from '../lib/profile'
 import { Toast } from '../shared/components/Toast'
 import { useUserRole } from '../shared/hooks/useUserRole'
 
-/** Quién puede editar código de asesor, conexión, estatus y firma de contrato en Mi perfil. */
+/** Quién puede editar datos de hitos de asesor en Mi perfil. */
 const ROLES_EDIT_PROFILE_MILESTONE = new Set(['developer', 'recruiter', 'manager'])
 
 function canEditMilestoneFields(role: string | null | undefined): boolean {
@@ -32,24 +32,6 @@ function formatBirthDisplay(ymd: string): string {
   return `${d}/${m}/${y}`
 }
 
-function contractSignedToDateInput(iso: string | null | undefined): string {
-  if (!iso) return ''
-  const s = iso.trim()
-  if (s.length >= 10 && s[4] === '-' && s[7] === '-') return s.slice(0, 10)
-  const d = new Date(s)
-  if (Number.isNaN(d.getTime())) return ''
-  const y = d.getFullYear()
-  const mo = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${mo}-${day}`
-}
-
-function dateInputToContractSignedIso(ymd: string): string | null {
-  const t = ymd.trim()
-  if (!t) return null
-  return new Date(`${t}T12:00:00`).toISOString()
-}
-
 const VALID_ADVISOR_STATUS = new Set(['asesor_12_meses', 'nueva_generacion', 'consolidado'])
 
 export function ProfilePage() {
@@ -60,9 +42,9 @@ export function ProfilePage() {
   const [lastName, setLastName] = useState('')
   const [birthDate, setBirthDate] = useState('')
   const [advisorCode, setAdvisorCode] = useState('')
+  const [keyActivationDate, setKeyActivationDate] = useState('')
   const [connectionDate, setConnectionDate] = useState('')
   const [advisorStatus, setAdvisorStatus] = useState<AdvisorStatusValue>('')
-  const [contractSignedDate, setContractSignedDate] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -89,9 +71,9 @@ export function ProfilePage() {
         setLastName(data.last_name || '')
         setBirthDate(data.birth_date ?? '')
         setAdvisorCode(data.advisor_code ?? '')
+        setKeyActivationDate(data.key_activation_date ?? '')
         setConnectionDate(data.connection_date ?? '')
         setAdvisorStatus((data.advisor_status as AdvisorStatusValue) ?? '')
-        setContractSignedDate(contractSignedToDateInput(data.contract_signed_at))
       }
     } catch (err) {
       console.error('Error al cargar perfil:', err)
@@ -109,9 +91,9 @@ export function ProfilePage() {
     const hasBirth = Boolean(birthDate.trim())
     const hasMilestone =
       Boolean(advisorCode.trim()) ||
+      Boolean(keyActivationDate.trim()) ||
       Boolean(connectionDate.trim()) ||
-      Boolean(advisorStatus.trim()) ||
-      Boolean(contractSignedDate.trim())
+      Boolean(advisorStatus.trim())
 
     if (!hasName && !hasBirth && !(canEditMilestone && hasMilestone)) {
       setToast({
@@ -131,6 +113,16 @@ export function ProfilePage() {
       return
     }
 
+    if (canEditMilestone && keyActivationDate.trim() && connectionDate.trim()) {
+      if (keyActivationDate.trim() > connectionDate.trim()) {
+        setToast({
+          type: 'error',
+          message: 'La fecha de alta de clave no puede ser posterior a la fecha de conexión',
+        })
+        return
+      }
+    }
+
     setSaving(true)
     setToast(null)
 
@@ -143,9 +135,9 @@ export function ProfilePage() {
           ? {
               milestone: {
                 advisor_code: advisorCode.trim() || null,
+                key_activation_date: keyActivationDate.trim() || null,
                 connection_date: connectionDate.trim() || null,
                 advisor_status: advisorStatus.trim() || null,
-                contract_signed_at: dateInputToContractSignedIso(contractSignedDate),
               },
             }
           : {}),
@@ -153,9 +145,9 @@ export function ProfilePage() {
       setProfile(updated)
       setBirthDate(updated.birth_date ?? '')
       setAdvisorCode(updated.advisor_code ?? '')
+      setKeyActivationDate(updated.key_activation_date ?? '')
       setConnectionDate(updated.connection_date ?? '')
       setAdvisorStatus((updated.advisor_status as AdvisorStatusValue) ?? '')
-      setContractSignedDate(contractSignedToDateInput(updated.contract_signed_at))
       setToast({
         type: 'success',
         message: 'Perfil guardado ✅',
@@ -252,8 +244,8 @@ export function ProfilePage() {
               <h2 className="text-sm font-semibold text-text">Datos de asesor (hitos)</h2>
               {canEditMilestone ? (
                 <p className="text-xs text-muted mt-1">
-                  Código de asesor, conexión, estatus y firma de contrato. Visible para todos; solo manager, reclutador o
-                  desarrollador pueden editarlos aquí.
+                  Código, alta de clave, conexión y estatus. Visible para todos; solo manager, reclutador o desarrollador
+                  pueden editarlos aquí.
                 </p>
               ) : (
                 <p className="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
@@ -278,6 +270,25 @@ export function ProfilePage() {
               ) : (
                 <div id="advisorCode" className={inputReadOnlyClass}>
                   {advisorCode.trim() || '—'}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label htmlFor="keyActivationDate" className="block text-sm font-medium text-text mb-1.5">
+                Fecha de alta de clave
+              </label>
+              {canEditMilestone ? (
+                <input
+                  id="keyActivationDate"
+                  type="date"
+                  value={keyActivationDate}
+                  onChange={(e) => setKeyActivationDate(e.target.value)}
+                  className={inputClass}
+                />
+              ) : (
+                <div id="keyActivationDate" className={inputReadOnlyClass}>
+                  {formatBirthDisplay(keyActivationDate)}
                 </div>
               )}
             </div>
@@ -320,30 +331,6 @@ export function ProfilePage() {
               ) : (
                 <div id="advisorStatus" className={inputReadOnlyClass}>
                   {advisorStatusLabel(advisorStatus)}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label htmlFor="contractSigned" className="block text-sm font-medium text-text mb-1.5">
-                Firma de contrato (fecha)
-              </label>
-              {canEditMilestone ? (
-                <>
-                  <input
-                    id="contractSigned"
-                    type="date"
-                    value={contractSignedDate}
-                    onChange={(e) => setContractSignedDate(e.target.value)}
-                    className={inputClass}
-                  />
-                  <p className="text-xs text-muted mt-1.5">
-                    La hora se guarda como 12:00 local del día seleccionado (igual que en ajustes de asesores).
-                  </p>
-                </>
-              ) : (
-                <div id="contractSigned" className={inputReadOnlyClass}>
-                  {formatBirthDisplay(contractSignedDate)}
                 </div>
               )}
             </div>

@@ -1,7 +1,7 @@
 import type {
   AdvisorMilestoneStatus,
   MilestoneState,
-  PhaseStatus,
+  Phase1Status,
   Phase2Status,
 } from '../domain/advisorMilestones'
 
@@ -60,7 +60,7 @@ function formatAdvisorStatus(s: string | null): string {
   return ADVISOR_STATUS_LABEL[s] ?? s
 }
 
-function formatCountdown(phase: PhaseStatus): string {
+function formatCountdown(phase: { state: MilestoneState; days_remaining: number | null; days_overdue: number | null }): string {
   if (phase.state === 'completed') return 'Completado'
   if (phase.state === 'not_started') return 'Pendiente de iniciar'
   if (phase.state === 'overdue') {
@@ -84,7 +84,6 @@ export function AdvisorMilestoneCard({
   const isPhase2 = status.current_phase === 2
   const isDone = status.current_phase === 'done'
 
-  // Fase visible en la tarjeta: current si existe, o Fase 2 si done.
   const phase1 = status.phase1
   const phase2 = status.phase2
 
@@ -117,14 +116,8 @@ export function AdvisorMilestoneCard({
         </span>
       </div>
 
-      {/* Fase 1 */}
-      <PhaseRow
-        label="Fase 1 · Firma de contrato"
-        phase={phase1}
-        highlighted={isPhase1}
-      />
+      <Phase1Row phase={phase1} highlighted={isPhase1} />
 
-      {/* Fase 2 */}
       {!compact && (
         <>
           <div className="h-px bg-border my-2" />
@@ -135,20 +128,26 @@ export function AdvisorMilestoneCard({
   )
 }
 
-function PhaseRow({
-  label,
-  phase,
-  highlighted,
-}: {
-  label: string
-  phase: PhaseStatus
-  highlighted: boolean
-}) {
+function Phase1Row({ phase, highlighted }: { phase: Phase1Status; highlighted: boolean }) {
   const styles = STATE_STYLES[phase.state]
+  const pct = Math.round(phase.progress_ratio * 100)
   return (
-    <div className={`flex items-center justify-between gap-2 ${highlighted ? '' : 'opacity-70'}`}>
-      <div className="text-xs text-muted">{label}</div>
-      <div className={`text-xs font-medium ${styles.text}`}>{formatCountdown(phase)}</div>
+    <div className={highlighted ? '' : 'opacity-70'}>
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <div className="text-xs text-muted">Fase 1 · 6 pólizas (90 días desde alta de clave)</div>
+        <div className={`text-xs font-medium ${styles.text}`}>{formatCountdown(phase)}</div>
+      </div>
+      <div className="flex items-center gap-2">
+        <div className="flex-1 h-2 bg-black/10 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${styles.bar}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <div className="text-xs font-semibold text-text tabular-nums shrink-0">
+          {phase.policies_count}/{phase.policies_target}
+        </div>
+      </div>
     </div>
   )
 }
@@ -159,7 +158,7 @@ function Phase2Row({ phase, highlighted }: { phase: Phase2Status; highlighted: b
   return (
     <div className={highlighted ? '' : 'opacity-70'}>
       <div className="flex items-center justify-between gap-2 mb-1">
-        <div className="text-xs text-muted">Fase 2 · 12 pólizas de vida pagadas</div>
+        <div className="text-xs text-muted">Fase 2 · 12 pólizas acumuladas (90 días desde conexión)</div>
         <div className={`text-xs font-medium ${styles.text}`}>{formatCountdown(phase)}</div>
       </div>
       <div className="flex items-center gap-2">

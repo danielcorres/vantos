@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   fetchAdvisorMilestoneProfiles,
-  fetchLifePolicyCountsForPhase2,
+  fetchMilestonePolicyCounts,
   type AdvisorMilestoneProfile,
 } from '../data/advisorMilestones.api'
 import {
@@ -62,7 +62,7 @@ export function useAdvisorMilestones(advisorIds: string[]): UseAdvisorMilestones
     const run = async () => {
       try {
         const profiles = await fetchAdvisorMilestoneProfiles(ids)
-        const counts = await fetchLifePolicyCountsForPhase2(profiles)
+        const counts = await fetchMilestonePolicyCounts(profiles)
 
         if (cancelled || !mountedRef.current) return
 
@@ -70,12 +70,14 @@ export function useAdvisorMilestones(advisorIds: string[]): UseAdvisorMilestones
         const next = new Map<string, AdvisorMilestoneEntry>()
 
         for (const profile of profiles) {
+          const c = counts.get(profile.user_id) ?? { phase1: 0, phase2Cumulative: 0 }
           const status = getAdvisorMilestoneStatus(
             {
               advisor_status: profile.advisor_status,
+              key_activation_date: profile.key_activation_date,
               connection_date: profile.connection_date,
-              contract_signed_at: profile.contract_signed_at,
-              life_policies_paid_in_phase2: counts.get(profile.user_id) ?? 0,
+              life_policies_paid_in_phase1: c.phase1,
+              life_policies_cumulative_phase2: c.phase2Cumulative,
             },
             now
           )

@@ -14,19 +14,21 @@ export interface Profile {
   /** YYYY-MM-DD desde Postgres; puede faltar si la migración aún no está aplicada */
   birth_date?: string | null
   advisor_code?: string | null
+  key_activation_date?: string | null
   connection_date?: string | null
   advisor_status?: string | null
+  /** Conservado en BD; no se edita desde Mi perfil (hitos usan alta de clave + conexión). */
   contract_signed_at?: string | null
   created_at: string
   updated_at: string
 }
 
-/** Campos de hitos en profiles; si se pasa a upsertMyProfile, se persisten los cuatro juntos. */
+/** Campos de hitos en profiles; si se pasa a upsertMyProfile, se persisten juntos. */
 export type MilestoneProfilePayload = {
   advisor_code: string | null
+  key_activation_date: string | null
   connection_date: string | null
   advisor_status: string | null
-  contract_signed_at: string | null
 }
 
 /**
@@ -71,7 +73,7 @@ export async function upsertMyProfile({
   last_name: string
   /** Si se omite, no se envía y Postgres conserva el valor actual de birth_date */
   birth_date?: string | null
-  /** Si se omite, no se tocan advisor_code / connection_date / advisor_status / contract_signed_at */
+  /** Si se omite, no se tocan columnas de hitos de asesor */
   milestone?: MilestoneProfilePayload
 }): Promise<Profile> {
   const {
@@ -93,10 +95,12 @@ export async function upsertMyProfile({
   }
   if (milestone !== undefined) {
     row.advisor_code = milestone.advisor_code?.trim() ? milestone.advisor_code.trim() : null
+    row.key_activation_date = milestone.key_activation_date?.trim()
+      ? milestone.key_activation_date.trim()
+      : null
     row.connection_date = milestone.connection_date?.trim() ? milestone.connection_date.trim() : null
     const st = milestone.advisor_status?.trim() ? milestone.advisor_status.trim() : null
     row.advisor_status = st
-    row.contract_signed_at = milestone.contract_signed_at
   }
 
   const { data, error } = await supabase

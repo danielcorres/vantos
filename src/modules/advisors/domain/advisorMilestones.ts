@@ -1,15 +1,13 @@
 /**
  * Dominio puro de hitos para asesores.
  *
- * Fase 1: Firma de contrato
- *   - start = connection_date
- *   - duración = 90 días
- *   - completed cuando contract_signed_at no es null
+ * Fase 1: 6 pólizas de vida en 90 días desde fecha de alta de clave (key_activation_date).
+ *   - Conteo inyectado: pólizas con paid_at en [key_activation, key_activation + 90d).
+ *   - Incluye precontrato si las pólizas caen en esa ventana.
  *
- * Fase 2: 12 pólizas de vida pagadas
- *   - start = contract_signed_at
- *   - duración = 90 días
- *   - completed cuando policies_count >= 12
+ * Fase 2: 12 pólizas acumuladas hasta el fin de los 90 días posteriores a connection_date.
+ *   - Conteo inyectado: paid_at >= key_activation y paid_at < connection_date + 91 días.
+ *   - Countdown en UI: 90 días desde connection_date.
  *
  * Aplica únicamente a advisor_status = 'asesor_12_meses'.
  *
@@ -17,7 +15,7 @@
  * apoyándose en utilidades de src/shared/utils/dates.ts.
  */
 
-import { TZ_MTY, formatYmdInTz, addDaysYmd, daysBetweenYmd, timestampToYmdInTz } from '../../../shared/utils/dates'
+import { TZ_MTY, formatYmdInTz, addDaysYmd, daysBetweenYmd } from '../../../shared/utils/dates'
 
 export type AdvisorStatus = 'asesor_12_meses' | 'nueva_generacion' | 'consolidado'
 
@@ -30,13 +28,18 @@ export type MilestoneState =
 
 export const PHASE_DURATION_DAYS = 90
 export const AT_RISK_THRESHOLD_DAYS = 15
+export const PHASE1_POLICIES_TARGET = 6
 export const PHASE2_POLICIES_TARGET = 12
 
 export interface AdvisorMilestoneInput {
   advisor_status: AdvisorStatus | string | null
-  connection_date: string | null       // 'YYYY-MM-DD'
-  contract_signed_at: string | null    // ISO timestamp
-  life_policies_paid_in_phase2: number // conteo inyectado por la capa de datos
+  /** YYYY-MM-DD; inicio ventana 6 pólizas */
+  key_activation_date: string | null
+  connection_date: string | null
+  /** Pólizas en [key_activation, key_activation + 91d) */
+  life_policies_paid_in_phase1: number
+  /** Acumulado desde key_activation hasta fin de 90d post-conexión (exclusivo en to) */
+  life_policies_cumulative_phase2: number
 }
 
 export interface PhaseStatus {
@@ -47,6 +50,12 @@ export interface PhaseStatus {
   days_overdue: number | null
 }
 
+export interface Phase1Status extends PhaseStatus {
+  policies_count: number
+  policies_target: typeof PHASE1_POLICIES_TARGET
+  progress_ratio: number
+}
+
 export interface Phase2Status extends PhaseStatus {
   policies_count: number
   policies_target: typeof PHASE2_POLICIES_TARGET
@@ -55,7 +64,7 @@ export interface Phase2Status extends PhaseStatus {
 
 export interface AdvisorMilestoneStatus {
   applies: boolean
-  phase1: PhaseStatus
+  phase1: Phase1Status
   phase2: Phase2Status
   current_phase: 1 | 2 | 'done'
 }
@@ -66,6 +75,13 @@ const EMPTY_PHASE: PhaseStatus = {
   deadline_ymd: null,
   days_remaining: null,
   days_overdue: null,
+}
+
+const EMPTY_PHASE1: Phase1Status = {
+  ...EMPTY_PHASE,
+  policies_count: 0,
+  policies_target: PHASE1_POLICIES_TARGET,
+  progress_ratio: 0,
 }
 
 const EMPTY_PHASE2: Phase2Status = {
@@ -84,9 +100,36 @@ export function isAdvisorStatus(value: unknown): value is AdvisorStatus {
 }
 
 /**
+ * Ventana [from, to) para contar pólizas hacia la meta de Fase 1 (6 en 90 días).
+ */
+export function getPhase1PolicyWindow(keyActivationDate: string | null): {
+  from_ymd: string
+  to_ymd: string
+} | null {
+  if (!keyActivationDate) return null
+  const from = keyActivationDate
+  const to = addDaysYmd(from, PHASE_DURATION_DAYS + 1)
+  return { from_ymd: from, to_ymd: to }
+}
+
+/**
+ * Ventana [from, to) para conteo acumulativo hacia la meta de Fase 2 (12 pólizas).
+ * Desde alta de clave hasta el día siguiente al último día del periodo de 90 días post-conexión.
+ */
+export function getPhase2CumulativeWindow(
+  keyActivationDate: string | null,
+  connectionDate: string | null
+): { from_ymd: string; to_ymd: string } | null {
+  if (!keyActivationDate || !connectionDate) return null
+  const from = keyActivationDate
+  const to = addDaysYmd(connectionDate, PHASE_DURATION_DAYS + 1)
+  return { from_ymd: from, to_ymd: to }
+}
+
+/**
  * Calcula el estado de los hitos del asesor.
  *
- * @param input Datos mínimos del asesor (perfil + conteo de pólizas)
+ * @param input Datos mínimos del asesor (perfil + conteos de pólizas)
  * @param now Fecha/hora actual (inyectable para tests). Default: new Date()
  */
 export function getAdvisorMilestoneStatus(
@@ -100,29 +143,29 @@ export function getAdvisorMilestoneStatus(
   if (!applies) {
     return {
       applies: false,
-      phase1: EMPTY_PHASE,
+      phase1: EMPTY_PHASE1,
       phase2: EMPTY_PHASE2,
       current_phase: 1,
     }
   }
 
-  // ---------------- FASE 1 ----------------
-  const phase1 = computePhase1(input.connection_date, input.contract_signed_at, todayYmd)
-
-  // ---------------- FASE 2 ----------------
-  const phase2 = computePhase2(
-    input.contract_signed_at,
-    input.life_policies_paid_in_phase2,
-    todayYmd,
-    phase1.state
+  const phase1 = computePhase1(
+    input.key_activation_date,
+    input.life_policies_paid_in_phase1,
+    todayYmd
   )
 
+  const phase2 = computePhase2(
+    input.key_activation_date,
+    input.connection_date,
+    input.life_policies_cumulative_phase2,
+    todayYmd
+  )
+
+  const phase1Closed = phase1.state === 'completed' || phase1.state === 'overdue'
+
   const current_phase: 1 | 2 | 'done' =
-    phase2.state === 'completed'
-      ? 'done'
-      : phase1.state === 'completed'
-        ? 2
-        : 1
+    phase2.state === 'completed' ? 'done' : !phase1Closed ? 1 : 2
 
   return {
     applies: true,
@@ -133,36 +176,48 @@ export function getAdvisorMilestoneStatus(
 }
 
 function computePhase1(
-  connectionDate: string | null,
-  contractSignedAt: string | null,
+  keyActivation: string | null,
+  policiesCount: number,
   todayYmd: string
-): PhaseStatus {
-  if (contractSignedAt) {
-    const startYmd = connectionDate
-    const deadlineYmd = startYmd ? addDaysYmd(startYmd, PHASE_DURATION_DAYS) : null
+): Phase1Status {
+  const count = Math.max(0, Math.floor(policiesCount || 0))
+  const progress_ratio = Math.min(count / PHASE1_POLICIES_TARGET, 1)
+
+  if (!keyActivation) {
     return {
-      state: 'completed',
-      start_ymd: startYmd,
-      deadline_ymd: deadlineYmd,
-      days_remaining: null,
-      days_overdue: null,
+      ...EMPTY_PHASE1,
+      policies_count: count,
+      progress_ratio,
     }
   }
 
-  if (!connectionDate) {
-    return EMPTY_PHASE
+  const deadlineYmd = addDaysYmd(keyActivation, PHASE_DURATION_DAYS)
+
+  if (count >= PHASE1_POLICIES_TARGET) {
+    return {
+      state: 'completed',
+      start_ymd: keyActivation,
+      deadline_ymd: deadlineYmd,
+      days_remaining: null,
+      days_overdue: null,
+      policies_count: count,
+      policies_target: PHASE1_POLICIES_TARGET,
+      progress_ratio: 1,
+    }
   }
 
-  const deadlineYmd = addDaysYmd(connectionDate, PHASE_DURATION_DAYS)
-  const diff = daysBetweenYmd(todayYmd, deadlineYmd) // deadline - today
+  const diff = daysBetweenYmd(todayYmd, deadlineYmd)
 
   if (diff < 0) {
     return {
       state: 'overdue',
-      start_ymd: connectionDate,
+      start_ymd: keyActivation,
       deadline_ymd: deadlineYmd,
       days_remaining: 0,
       days_overdue: Math.abs(diff),
+      policies_count: count,
+      policies_target: PHASE1_POLICIES_TARGET,
+      progress_ratio,
     }
   }
 
@@ -170,39 +225,40 @@ function computePhase1(
 
   return {
     state,
-    start_ymd: connectionDate,
+    start_ymd: keyActivation,
     deadline_ymd: deadlineYmd,
     days_remaining: diff,
     days_overdue: 0,
+    policies_count: count,
+    policies_target: PHASE1_POLICIES_TARGET,
+    progress_ratio,
   }
 }
 
 function computePhase2(
-  contractSignedAt: string | null,
-  policiesCount: number,
-  todayYmd: string,
-  phase1State: MilestoneState
+  keyActivation: string | null,
+  connectionDate: string | null,
+  policiesCumulative: number,
+  todayYmd: string
 ): Phase2Status {
-  const count = Math.max(0, Math.floor(policiesCount || 0))
+  const count = Math.max(0, Math.floor(policiesCumulative || 0))
   const progress_ratio = Math.min(count / PHASE2_POLICIES_TARGET, 1)
 
-  if (!contractSignedAt) {
-    // La Fase 2 depende de haber completado la Fase 1
+  if (!connectionDate || !keyActivation) {
     return {
       ...EMPTY_PHASE2,
-      state: phase1State === 'completed' ? 'in_progress' : 'not_started',
+      state: 'not_started',
       policies_count: count,
       progress_ratio,
     }
   }
 
-  const startYmd = timestampToYmdInTz(contractSignedAt, TZ_MTY)
-  const deadlineYmd = addDaysYmd(startYmd, PHASE_DURATION_DAYS)
+  const deadlineYmd = addDaysYmd(connectionDate, PHASE_DURATION_DAYS)
 
   if (count >= PHASE2_POLICIES_TARGET) {
     return {
       state: 'completed',
-      start_ymd: startYmd,
+      start_ymd: connectionDate,
       deadline_ymd: deadlineYmd,
       days_remaining: null,
       days_overdue: null,
@@ -217,7 +273,7 @@ function computePhase2(
   if (diff < 0) {
     return {
       state: 'overdue',
-      start_ymd: startYmd,
+      start_ymd: connectionDate,
       deadline_ymd: deadlineYmd,
       days_remaining: 0,
       days_overdue: Math.abs(diff),
@@ -231,7 +287,7 @@ function computePhase2(
 
   return {
     state,
-    start_ymd: startYmd,
+    start_ymd: connectionDate,
     deadline_ymd: deadlineYmd,
     days_remaining: diff,
     days_overdue: 0,
@@ -239,20 +295,4 @@ function computePhase2(
     policies_target: PHASE2_POLICIES_TARGET,
     progress_ratio,
   }
-}
-
-/**
- * Rango [from, to) en formato YYYY-MM-DD de la ventana de Fase 2
- * correspondiente a `contract_signed_at`. Útil para queries/RPC.
- */
-export function getPhase2Window(contractSignedAt: string | null): {
-  from_ymd: string
-  to_ymd: string
-} | null {
-  if (!contractSignedAt) return null
-  const from = timestampToYmdInTz(contractSignedAt, TZ_MTY)
-  // `to` es exclusivo: start + 90 + 1 día para incluir el último día completo
-  // (RPC usa `paid_at < p_to`, así que +91 garantiza incluir el día 90).
-  const to = addDaysYmd(from, PHASE_DURATION_DAYS + 1)
-  return { from_ymd: from, to_ymd: to }
 }

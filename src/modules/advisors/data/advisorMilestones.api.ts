@@ -1,5 +1,5 @@
 import { supabase } from '../../../lib/supabaseClient'
-import { getPhase2Window } from '../domain/advisorMilestones'
+import { getPhase1PolicyWindow, getPhase2CumulativeWindow } from '../domain/advisorMilestones'
 
 export interface AdvisorMilestoneProfile {
   user_id: string
@@ -9,9 +9,9 @@ export interface AdvisorMilestoneProfile {
   last_name: string | null
   birth_date: string | null
   advisor_code: string | null
+  key_activation_date: string | null
   connection_date: string | null
   advisor_status: string | null
-  contract_signed_at: string | null
 }
 
 export interface AdvisorLifePolicy {
@@ -26,7 +26,12 @@ export interface AdvisorLifePolicy {
 }
 
 const PROFILE_COLUMNS =
-  'user_id, full_name, display_name, first_name, last_name, birth_date, advisor_code, connection_date, advisor_status, contract_signed_at'
+  'user_id, full_name, display_name, first_name, last_name, birth_date, advisor_code, key_activation_date, connection_date, advisor_status'
+
+export type MilestonePolicyCounts = {
+  phase1: number
+  phase2Cumulative: number
+}
 
 export async function fetchAdvisorMilestoneProfiles(
   advisorIds: string[]
@@ -56,37 +61,51 @@ export async function fetchAdvisorMilestoneProfileById(
 }
 
 /**
- * Conteo eficiente por asesor usando la RPC get_advisor_life_policy_count.
- * Devuelve 0 para asesores sin contract_signed_at (no aplica aún Fase 2).
+ * Conteos por asesor: ventana Fase 1 (6 pólizas) y acumulado Fase 2 (12), vía RPC.
  */
-export async function fetchLifePolicyCountsForPhase2(
+export async function fetchMilestonePolicyCounts(
   profiles: AdvisorMilestoneProfile[]
-): Promise<Map<string, number>> {
-  const result = new Map<string, number>()
+): Promise<Map<string, MilestonePolicyCounts>> {
+  const result = new Map<string, MilestonePolicyCounts>()
 
-  const targets = profiles.filter(
-    (p) => p.advisor_status === 'asesor_12_meses' && p.contract_signed_at
-  )
+  const targets = profiles.filter((p) => p.advisor_status === 'asesor_12_meses' && p.key_activation_date)
 
   if (targets.length === 0) return result
 
-  const counts = await Promise.all(
+  const rows = await Promise.all(
     targets.map(async (p) => {
-      const window = getPhase2Window(p.contract_signed_at)
-      if (!window) return [p.user_id, 0] as const
-      const { data, error } = await supabase.rpc('get_advisor_life_policy_count', {
-        p_advisor: p.user_id,
-        p_from: window.from_ymd,
-        p_to: window.to_ymd,
-      })
-      if (error) throw error
-      const n = typeof data === 'number' ? data : Number(data ?? 0)
-      return [p.user_id, Number.isFinite(n) ? n : 0] as const
+      const w1 = getPhase1PolicyWindow(p.key_activation_date)
+      let phase1 = 0
+      if (w1) {
+        const { data, error } = await supabase.rpc('get_advisor_life_policy_count', {
+          p_advisor: p.user_id,
+          p_from: w1.from_ymd,
+          p_to: w1.to_ymd,
+        })
+        if (error) throw error
+        const n = typeof data === 'number' ? data : Number(data ?? 0)
+        phase1 = Number.isFinite(n) ? n : 0
+      }
+
+      const w2 = getPhase2CumulativeWindow(p.key_activation_date, p.connection_date)
+      let phase2Cumulative = 0
+      if (w2) {
+        const { data, error } = await supabase.rpc('get_advisor_life_policy_count', {
+          p_advisor: p.user_id,
+          p_from: w2.from_ymd,
+          p_to: w2.to_ymd,
+        })
+        if (error) throw error
+        const n = typeof data === 'number' ? data : Number(data ?? 0)
+        phase2Cumulative = Number.isFinite(n) ? n : 0
+      }
+
+      return [p.user_id, { phase1, phase2Cumulative }] as const
     })
   )
 
-  for (const [id, n] of counts) {
-    result.set(id, n)
+  for (const [id, counts] of rows) {
+    result.set(id, counts)
   }
 
   return result
@@ -132,7 +151,11 @@ export async function updateAdvisorProfile(
   payload: Partial<
     Pick<
       AdvisorMilestoneProfile,
-      'birth_date' | 'advisor_code' | 'connection_date' | 'advisor_status' | 'contract_signed_at'
+      | 'birth_date'
+      | 'advisor_code'
+      | 'key_activation_date'
+      | 'connection_date'
+      | 'advisor_status'
     >
   >
 ): Promise<AdvisorMilestoneProfile> {

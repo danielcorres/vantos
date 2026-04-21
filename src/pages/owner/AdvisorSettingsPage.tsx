@@ -19,9 +19,9 @@ type AdvisorStatusOption = 'asesor_12_meses' | 'nueva_generacion' | 'consolidado
 type EditState = {
   birth_date: string
   advisor_code: string
+  key_activation_date: string
   connection_date: string
   advisor_status: AdvisorStatusOption
-  contract_signed_at: string // 'YYYY-MM-DD'
 }
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
@@ -30,9 +30,9 @@ function toEditState(p: AdvisorMilestoneProfile): EditState {
   return {
     birth_date: p.birth_date ?? '',
     advisor_code: p.advisor_code ?? '',
+    key_activation_date: p.key_activation_date ?? '',
     connection_date: p.connection_date ?? '',
     advisor_status: (p.advisor_status as AdvisorStatusOption) ?? '',
-    contract_signed_at: p.contract_signed_at ? p.contract_signed_at.slice(0, 10) : '',
   }
 }
 
@@ -40,9 +40,9 @@ function equalsEdit(a: EditState, b: EditState): boolean {
   return (
     a.birth_date === b.birth_date &&
     a.advisor_code === b.advisor_code &&
+    a.key_activation_date === b.key_activation_date &&
     a.connection_date === b.connection_date &&
-    a.advisor_status === b.advisor_status &&
-    a.contract_signed_at === b.contract_signed_at
+    a.advisor_status === b.advisor_status
   )
 }
 
@@ -90,7 +90,7 @@ export function AdvisorSettingsPage() {
       const { data, error } = await supabase
         .from('profiles')
         .select(
-          'user_id, full_name, display_name, first_name, last_name, birth_date, advisor_code, connection_date, advisor_status, contract_signed_at, role'
+          'user_id, full_name, display_name, first_name, last_name, birth_date, advisor_code, key_activation_date, connection_date, advisor_status, role'
         )
         .in('role', ['advisor'])
         .order('full_name', { ascending: true, nullsFirst: false })
@@ -158,18 +158,15 @@ export function AdvisorSettingsPage() {
       const payload = {
         birth_date: edit.birth_date || null,
         advisor_code: edit.advisor_code.trim() || null,
+        key_activation_date: edit.key_activation_date || null,
         connection_date: edit.connection_date || null,
         advisor_status: edit.advisor_status || null,
-        contract_signed_at: edit.contract_signed_at
-          ? new Date(`${edit.contract_signed_at}T12:00:00`).toISOString()
-          : null,
       } as const
 
-      // Validación: connection_date debe ser <= contract_signed_at si ambos existen
-      if (edit.connection_date && edit.contract_signed_at) {
-        if (edit.contract_signed_at < edit.connection_date) {
+      if (edit.key_activation_date && edit.connection_date) {
+        if (edit.key_activation_date > edit.connection_date) {
           setSaveState('error')
-          setSaveError('La fecha de contrato no puede ser anterior a la fecha de conexión.')
+          setSaveError('La fecha de alta de clave no puede ser posterior a la fecha de conexión.')
           return
         }
       }
@@ -372,6 +369,18 @@ export function AdvisorSettingsPage() {
                     />
                   </Field>
 
+                  <Field label="Fecha de alta de clave">
+                    <input
+                      type="date"
+                      value={edit.key_activation_date}
+                      onChange={(e) => setEdit({ ...edit, key_activation_date: e.target.value })}
+                      className="w-full px-3 py-2 text-sm border border-border rounded bg-bg text-text"
+                    />
+                    <div className="text-[11px] text-muted mt-1">
+                      Inicia la ventana de 90 días para al menos 6 pólizas (incluye precontrato en ese rango).
+                    </div>
+                  </Field>
+
                   <Field label="Fecha de conexión">
                     <input
                       type="date"
@@ -394,20 +403,6 @@ export function AdvisorSettingsPage() {
                       <option value="nueva_generacion">Nueva generación</option>
                       <option value="consolidado">Consolidado</option>
                     </select>
-                  </Field>
-
-                  <Field label="Firma de contrato (fecha)">
-                    <input
-                      type="date"
-                      value={edit.contract_signed_at}
-                      onChange={(e) =>
-                        setEdit({ ...edit, contract_signed_at: e.target.value })
-                      }
-                      className="w-full px-3 py-2 text-sm border border-border rounded bg-bg text-text"
-                    />
-                    <div className="text-[11px] text-muted mt-1">
-                      La hora se guarda como 12:00 local de la fecha seleccionada.
-                    </div>
                   </Field>
                 </div>
 
