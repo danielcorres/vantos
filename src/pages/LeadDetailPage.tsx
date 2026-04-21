@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { flushSync } from 'react-dom'
+import { useParams, useNavigate, useBlocker } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { pipelineApi, type LeadStageHistoryRow } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
@@ -10,7 +11,6 @@ import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
 import { getStageTagClasses, displayStageName } from '../shared/utils/stageStyles'
 import { NextActionActions } from '../components/pipeline/NextActionActions'
-import { LeadTemperatureChip } from '../components/pipeline/LeadTemperatureChip'
 import type { LeadTemperature } from '../features/pipeline/pipeline.api'
 
 type LeadData = {
@@ -38,6 +38,16 @@ type LeadData = {
 }
 
 const TOAST_CLEAR_MS = 2800
+
+/** Superficies compactas tipo card (minimal, claro/oscuro). */
+const CARD_SURFACE =
+  'rounded-xl border border-neutral-200/90 dark:border-neutral-700/80 bg-white dark:bg-neutral-950/50 shadow-sm'
+const CARD_PAD = 'p-3 sm:p-4'
+const SECTION_LABEL =
+  'text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400'
+const FIELD_LABEL = 'block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1'
+const CONTROL =
+  'w-full rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-2.5 py-1.5 text-sm text-neutral-900 dark:text-neutral-100 transition-[border-color,box-shadow] duration-150 focus-visible:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200/70 dark:focus-visible:ring-neutral-600/40 disabled:opacity-50'
 
 const SOURCE_OPTIONS = [
   { value: 'Referido', label: 'Referido' },
@@ -125,7 +135,6 @@ export function LeadDetailPage() {
   const [source, setSource] = useState('')
   const [notes, setNotes] = useState('')
   const [referralName, setReferralName] = useState('')
-  const [temperature, setTemperature] = useState('')
 
   // Stage change state
   const [selectedStageId, setSelectedStageId] = useState<string>('')
@@ -141,7 +150,6 @@ export function LeadDetailPage() {
   const [savingTemperature, setSavingTemperature] = useState(false)
   const [moving, setMoving] = useState(false)
   const [toast, setToast] = useState<{ kind: 'success' | 'error'; text: string } | null>(null)
-  const [isEditingDatos, setIsEditingDatos] = useState(false)
   const [actividadExpanded, setActividadExpanded] = useState(false)
   // Archivar: modal + motivo
   const [showArchiveModal, setShowArchiveModal] = useState(false)
@@ -149,6 +157,8 @@ export function LeadDetailPage() {
   // Dropdown Acciones (Archivar/Restaurar)
   const [actionsOpen, setActionsOpen] = useState(false)
   const actionsRef = useRef<HTMLDivElement>(null)
+  /** Evita marcar dirty hasta que el formulario refleje el lead de la ruta (evita bloqueo fantasma al cargar). */
+  const [leadFormHydrated, setLeadFormHydrated] = useState(false)
 
   // Reduced motion
   const prefersReducedMotion = useReducedMotion()
@@ -162,7 +172,6 @@ export function LeadDetailPage() {
       source: lead.source || '',
       notes: lead.notes || '',
       referral_name: lead.referral_name || '',
-      temperature: lead.temperature ?? '',
     }
   }, [lead])
   const currentSnapshot = useMemo(
@@ -173,13 +182,13 @@ export function LeadDetailPage() {
       source,
       notes,
       referral_name: referralName,
-      temperature,
     }),
-    [fullName, phone, email, source, notes, referralName, temperature]
+    [fullName, phone, email, source, notes, referralName]
   )
   // useDirtyState se ejecuta SIEMPRE (Rules of Hooks); la condición solo aplica al valor derivado
   const isDirty = useDirtyState(originalSnapshot, currentSnapshot)
-  const dirty = lead != null && isDirty
+  const dirty =
+    lead != null && lead.id === id && leadFormHydrated && isDirty
 
   const stageNameById = useMemo(() => {
     const m = new Map<string, string>()
@@ -208,25 +217,28 @@ export function LeadDetailPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: run only when id changes
   }, [id])
 
+  useEffect(() => {
+    setLeadFormHydrated(false)
+  }, [id])
+
   // Initialize form when lead loads; do not overwrite selectedStageId while moving
   useEffect(() => {
-    if (lead) {
-      setFullName(lead.full_name || '')
-      setPhone(lead.phone || '')
-      setEmail(lead.email || '')
-      setSource(lead.source || '')
-      setNotes(lead.notes || '')
-      setReferralName(lead.referral_name || '')
-      setTemperature(lead.temperature ?? '')
-      setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '')
-      setExpectedCloseAt(
-        lead.expected_close_at
-          ? new Date(lead.expected_close_at).toISOString().slice(0, 10)
-          : ''
-      )
-      if (!moving) setSelectedStageId(lead.stage_id)
-    }
-  }, [lead, moving])
+    if (!lead || lead.id !== id) return
+    setFullName(lead.full_name || '')
+    setPhone(lead.phone || '')
+    setEmail(lead.email || '')
+    setSource(lead.source || '')
+    setNotes(lead.notes || '')
+    setReferralName(lead.referral_name || '')
+    setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '')
+    setExpectedCloseAt(
+      lead.expected_close_at
+        ? new Date(lead.expected_close_at).toISOString().slice(0, 10)
+        : ''
+    )
+    if (!moving) setSelectedStageId(lead.stage_id)
+    setLeadFormHydrated(true)
+  }, [lead, moving, id])
 
   // Load owner display name from profiles
   useEffect(() => {
@@ -312,24 +324,40 @@ export function LeadDetailPage() {
     setSource(lead.source || '')
     setNotes(lead.notes || '')
     setReferralName(lead.referral_name || '')
-    setTemperature(lead.temperature ?? '')
   }, [lead])
 
-  const handleDiscard = useCallback(() => {
-    discardChanges()
-    setIsEditingDatos(false)
-  }, [discardChanges])
+  const handleGoBack = useCallback(() => {
+    if (dirty) {
+      if (!window.confirm('Tienes cambios sin guardar. ¿Salir sin guardar?')) return
+      flushSync(() => {
+        discardChanges()
+      })
+    }
+    void navigate(-1)
+  }, [dirty, discardChanges, navigate])
+
+  const blocker = useBlocker(dirty)
 
   useEffect(() => {
-    if (!isEditingDatos) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        handleDiscard()
-      }
+    if (blocker.state !== 'blocked') return
+    const ok = window.confirm('Tienes cambios sin guardar. ¿Salir sin guardar?')
+    if (ok) {
+      discardChanges()
+      blocker.proceed()
+    } else {
+      blocker.reset()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [isEditingDatos, handleDiscard])
+  }, [blocker.state, blocker.proceed, blocker.reset, discardChanges])
+
+  useEffect(() => {
+    if (!dirty) return
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', onBeforeUnload)
+    return () => window.removeEventListener('beforeunload', onBeforeUnload)
+  }, [dirty])
 
   useEffect(() => {
     const close = (e: MouseEvent) => {
@@ -342,6 +370,18 @@ export function LeadDetailPage() {
       return () => document.removeEventListener('click', close)
     }
   }, [actionsOpen])
+
+  useEffect(() => {
+    if (!showArchiveModal) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowArchiveModal(false)
+        setArchiveReasonInput('')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showArchiveModal])
 
   const handleSave = async () => {
     if (!id || !lead) return
@@ -369,13 +409,11 @@ export function LeadDetailPage() {
         source: source.trim() || null,
         notes: notes.trim() || null,
         referral_name: referralName.trim() || null,
-        temperature: temperature === '' ? null : (temperature as LeadTemperature),
       })
 
       await loadData()
       setToast({ kind: 'success', text: 'Guardado' })
       setTimeout(() => setToast(null), TOAST_CLEAR_MS)
-      setIsEditingDatos(false)
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error al guardar'
       setError(msg)
@@ -398,7 +436,6 @@ export function LeadDetailPage() {
     try {
       await pipelineApi.updateLead(id, { temperature: next })
       await loadData()
-      setTemperature(next ?? '')
       setToast({ kind: 'success', text: 'Temperatura actualizada' })
       setTimeout(() => setToast(null), TOAST_CLEAR_MS)
     } catch (err) {
@@ -516,26 +553,15 @@ export function LeadDetailPage() {
 
   if (loading) {
     return (
-      <div>
-        <div className="row space-between" style={{ marginBottom: '24px' }}>
-          <h2 className="title">Detalle del Lead</h2>
-        </div>
-        <div className="card" style={{ padding: '24px' }}>
-          <div
-            style={{
-              height: '24px',
-              background: 'var(--bg)',
-              borderRadius: '8px',
-              marginBottom: '16px',
-            }}
-          />
-          <div
-            style={{
-              height: '200px',
-              background: 'var(--bg)',
-              borderRadius: '8px',
-            }}
-          />
+      <div className="mx-auto max-w-6xl px-2 sm:px-4 py-4 space-y-4">
+        <div className="h-8 w-44 rounded-lg bg-neutral-200/90 dark:bg-neutral-800 animate-pulse motion-reduce:animate-none" />
+        <div className={`${CARD_SURFACE} ${CARD_PAD} space-y-3`}>
+          <div className="h-10 max-w-md rounded-lg bg-neutral-100 dark:bg-neutral-800/90 animate-pulse motion-reduce:animate-none" />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="h-16 rounded-lg bg-neutral-100 dark:bg-neutral-800/90 animate-pulse motion-reduce:animate-none" />
+            <div className="h-16 rounded-lg bg-neutral-100 dark:bg-neutral-800/90 animate-pulse motion-reduce:animate-none" />
+            <div className="h-16 rounded-lg bg-neutral-100 dark:bg-neutral-800/90 sm:col-span-2 animate-pulse motion-reduce:animate-none" />
+          </div>
         </div>
       </div>
     )
@@ -543,21 +569,19 @@ export function LeadDetailPage() {
 
   if (notFound) {
     return (
-      <div>
-        <div className="row space-between" style={{ marginBottom: '24px' }}>
-          <h2 className="title">Detalle del Lead</h2>
-          <button onClick={() => navigate(-1)} className="btn btn-ghost">
-            Volver
+      <div className="mx-auto max-w-6xl px-2 sm:px-4 py-6">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Detalle del lead</h2>
+          <button type="button" onClick={handleGoBack} className="btn btn-ghost border border-border text-sm">
+            Regresar
           </button>
         </div>
-        <div className="card" style={{ textAlign: 'center', padding: '48px 24px' }}>
-          <p style={{ margin: '0 0 16px 0', fontSize: '16px' }}>
-            Lead no encontrado
-          </p>
-          <p className="muted" style={{ margin: '0 0 24px 0' }}>
+        <div className={`${CARD_SURFACE} ${CARD_PAD} text-center`}>
+          <p className="mb-2 text-base font-medium text-neutral-900 dark:text-neutral-100">Lead no encontrado</p>
+          <p className="mb-6 text-sm text-neutral-600 dark:text-neutral-400">
             El lead que buscas no existe o no tienes permisos para verlo.
           </p>
-          <button onClick={() => navigate('/pipeline')} className="btn btn-primary">
+          <button type="button" onClick={() => navigate('/pipeline')} className="btn btn-primary text-sm">
             Ir al Pipeline
           </button>
         </div>
@@ -567,16 +591,16 @@ export function LeadDetailPage() {
 
   if (error && !lead) {
     return (
-      <div>
-        <div className="row space-between" style={{ marginBottom: '24px' }}>
-          <h2 className="title">Detalle del Lead</h2>
-          <button onClick={() => navigate(-1)} className="btn btn-ghost">
-            Volver
+      <div className="mx-auto max-w-6xl px-2 sm:px-4 py-6">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">Detalle del lead</h2>
+          <button type="button" onClick={handleGoBack} className="btn btn-ghost border border-border text-sm">
+            Regresar
           </button>
         </div>
-        <div className="error-box">
-          <p style={{ margin: '0 0 12px 0' }}>{error}</p>
-          <button onClick={loadData} className="btn btn-primary">
+        <div className="rounded-xl border border-red-200/80 bg-red-50/40 dark:bg-red-950/20 dark:border-red-800/60 p-4">
+          <p className="mb-3 text-sm text-red-900 dark:text-red-200">{error}</p>
+          <button type="button" onClick={loadData} className="btn btn-primary text-sm">
             Reintentar
           </button>
         </div>
@@ -591,16 +615,15 @@ export function LeadDetailPage() {
   const waNumber = normalizeWhatsAppNumber(phoneDigits(lead.phone || ''))
 
   return (
-    <div style={{ paddingBottom: dirty ? UNSAVED_BAR_HEIGHT : 0 }}>
-      {/* Header: fila 1 = nombre + chips; fila 2 = muted (tel/email); derecha = nav + acciones rápidas */}
-      <div
-        className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3"
-        style={{ marginBottom: '16px' }}
-      >
-        <div className="flex flex-col gap-1.5 min-w-0">
-          {/* Fila 1: Nombre + chips; link discreto a Pipeline */}
+    <div
+      className={`mx-auto max-w-6xl px-2 sm:px-4 ${dirty ? '' : 'pb-6'}`}
+      style={{ paddingBottom: dirty ? UNSAVED_BAR_HEIGHT : undefined }}
+    >
+      {/* Header: nombre + chips; contacto; acciones */}
+      <div className="mb-5 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-bold">
+            <h1 className="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-50 sm:text-2xl">
               {lead.full_name || 'Lead sin nombre'}
             </h1>
             {lead.archived_at && (
@@ -618,10 +641,9 @@ export function LeadDetailPage() {
                 {displayStageName(currentStage.name)}
               </span>
             )}
-            <LeadTemperatureChip temperature={lead.temperature} showPlaceholder />
           </div>
           {/* Fila 2: teléfono / email + acciones de contacto (WhatsApp, Llamar, Email) como chips */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm text-neutral-600 dark:text-neutral-400">
             {lead.phone && (
               <span className="flex items-center gap-1">
                 <span>{lead.phone}</span>
@@ -632,11 +654,10 @@ export function LeadDetailPage() {
                     setToast({ kind: 'success', text: 'Teléfono copiado' })
                     setTimeout(() => setToast(null), TOAST_CLEAR_MS)
                   }}
-                  className="btn btn-ghost p-0.5 min-w-0 h-auto text-xs opacity-70 hover:opacity-100"
-                  aria-label="Copiar teléfono"
-                  title="Copiar"
+                  className="btn btn-ghost px-1.5 py-0.5 min-w-0 h-auto text-xs opacity-80 hover:opacity-100"
+                  aria-label="Copiar teléfono al portapapeles"
                 >
-                  ⎘
+                  Copiar
                 </button>
               </span>
             )}
@@ -650,11 +671,10 @@ export function LeadDetailPage() {
                     setToast({ kind: 'success', text: 'Email copiado' })
                     setTimeout(() => setToast(null), TOAST_CLEAR_MS)
                   }}
-                  className="btn btn-ghost p-0.5 min-w-0 h-auto text-xs opacity-70 hover:opacity-100"
-                  aria-label="Copiar email"
-                  title="Copiar"
+                  className="btn btn-ghost px-1.5 py-0.5 min-w-0 h-auto text-xs opacity-80 hover:opacity-100"
+                  aria-label="Copiar email al portapapeles"
                 >
-                  ⎘
+                  Copiar
                 </button>
               </span>
             )}
@@ -690,14 +710,14 @@ export function LeadDetailPage() {
             )}
           </div>
         </div>
-        {/* Derecha: solo Volver + Acciones */}
+        {/* Derecha: solo Regresar + Acciones */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
           <button
             type="button"
-            onClick={() => navigate(-1)}
-            className="btn btn-primary text-xs"
+            onClick={handleGoBack}
+            className="btn btn-ghost border border-border text-xs"
           >
-            Volver
+            Regresar
           </button>
           <div className="relative" ref={actionsRef}>
             <button
@@ -752,18 +772,21 @@ export function LeadDetailPage() {
 
       {/* Error Message */}
       {error && (
-        <div className="error-box" style={{ marginBottom: '16px' }}>
+        <div className="mb-4 rounded-lg border border-red-200/80 bg-red-50/50 px-3 py-2 text-sm text-red-900 dark:border-red-800/50 dark:bg-red-950/25 dark:text-red-200">
           {error}
         </div>
       )}
 
-      {/* Toast — success: neutro; error: borde/ fondo rojo suave */}
+      {/* Toast — success: verde claro; error: rojo suave */}
       {toast && (
         <div
-          className={`py-2 px-3 text-sm rounded-lg mb-4 ${
-            toast.kind === 'error' ? 'border border-red-200 bg-red-50/50 text-red-800' : 'border border-border bg-bg text-muted'
+          className={`mb-4 rounded-lg px-3 py-2 text-sm ${
+            toast.kind === 'error'
+              ? 'border border-red-200 bg-red-50/60 text-red-900 dark:border-red-800/60 dark:bg-red-950/30 dark:text-red-100'
+              : 'border border-emerald-200/90 bg-emerald-50 text-emerald-900 dark:border-emerald-800/50 dark:bg-emerald-950/35 dark:text-emerald-100'
           }`}
           role="status"
+          aria-live={toast.kind === 'error' ? 'assertive' : 'polite'}
         >
           {toast.text}
         </div>
@@ -772,7 +795,7 @@ export function LeadDetailPage() {
       <UnsavedChangesBar
         open={dirty}
         onSave={handleSave}
-        onDiscard={handleDiscard}
+        onDiscard={discardChanges}
         isSaving={saving}
       />
 
@@ -783,12 +806,15 @@ export function LeadDetailPage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="archive-modal-title"
+          aria-describedby="archive-modal-description"
         >
           <div className="bg-bg border border-border rounded-lg shadow-lg max-w-sm w-full p-4">
             <h3 id="archive-modal-title" className="text-base font-semibold mb-2">
               Archivar lead
             </h3>
-            <p className="text-sm text-muted mb-3">¿Archivar este lead? Puedes agregar un motivo opcional.</p>
+            <p id="archive-modal-description" className="text-sm text-muted mb-3">
+              ¿Archivar este lead? Puedes agregar un motivo opcional.
+            </p>
             <div className="mb-4">
               <label htmlFor="archive_reason" className="block text-xs font-medium text-muted mb-1">
                 Motivo (opcional)
@@ -814,34 +840,18 @@ export function LeadDetailPage() {
         </div>
       )}
 
-      {/* Grid: col izquierda Datos + Actividad (8); col derecha Fechas clave + Pipeline (4) */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* Columna izquierda: Datos */}
-        <div
-          className="lg:col-span-8 rounded-lg border border-border bg-bg/30 p-4 order-1"
-          style={{
-            transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
-          }}
-        >
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <h3 className="text-sm font-medium text-muted">
-              Datos
-            </h3>
-            {!isEditingDatos ? (
-              <button
-                type="button"
-                onClick={() => setIsEditingDatos(true)}
-                className="btn btn-ghost text-xs px-2 py-1"
-                aria-label="Editar datos"
-              >
-                <span aria-hidden>✏️</span> Editar datos
-              </button>
-            ) : null}
-          </div>
-          {isEditingDatos ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {/* Grid: columna izq. Datos+Actividad (8) | Pipeline + Oportunidad (4) */}
+      <div
+        className={`grid grid-cols-1 gap-3 lg:grid-cols-12 lg:gap-x-4 lg:gap-y-2 ${prefersReducedMotion ? '' : 'motion-safe:transition-[gap] duration-150'}`}
+      >
+        <div className="order-1 flex flex-col gap-2 lg:col-span-8">
+          <div className={`${CARD_SURFACE} ${CARD_PAD} ${prefersReducedMotion ? '' : 'motion-safe:transition-shadow duration-150'}`}>
+            <div className="mb-3 flex items-center justify-between gap-2 border-b border-neutral-100 pb-2.5 dark:border-neutral-800/80">
+              <h3 className={SECTION_LABEL}>Datos</h3>
+            </div>
+            <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2 md:gap-x-3 md:gap-y-2.5">
               <div>
-                <label htmlFor="full_name" className="block text-xs font-medium text-muted mb-1">
+                <label htmlFor="full_name" className={FIELD_LABEL}>
                   Nombre completo *
                 </label>
                 <input
@@ -850,12 +860,12 @@ export function LeadDetailPage() {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   disabled={saving}
-                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                  className={CONTROL}
                   required
                 />
               </div>
               <div>
-                <label htmlFor="phone" className="block text-xs font-medium text-muted mb-1">
+                <label htmlFor="phone" className={FIELD_LABEL}>
                   Teléfono
                 </label>
                 <input
@@ -864,11 +874,11 @@ export function LeadDetailPage() {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   disabled={saving}
-                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                  className={CONTROL}
                 />
               </div>
               <div>
-                <label htmlFor="email" className="block text-xs font-medium text-muted mb-1">
+                <label htmlFor="email" className={FIELD_LABEL}>
                   Email
                 </label>
                 <input
@@ -877,11 +887,11 @@ export function LeadDetailPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={saving}
-                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                  className={CONTROL}
                 />
               </div>
               <div>
-                <label htmlFor="source" className="block text-xs font-medium text-muted mb-1">
+                <label htmlFor="source" className={FIELD_LABEL}>
                   Fuente
                 </label>
                 <select
@@ -889,7 +899,7 @@ export function LeadDetailPage() {
                   value={source}
                   onChange={(e) => setSource(e.target.value)}
                   disabled={saving}
-                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                  className={CONTROL}
                 >
                   <option value="">Seleccionar fuente</option>
                   {SOURCE_OPTIONS.map((opt) => (
@@ -899,29 +909,9 @@ export function LeadDetailPage() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label htmlFor="temperature" className="block text-xs font-medium text-muted mb-1">
-                  Temperatura (interés)
-                </label>
-                <p className="text-[11px] text-muted mb-1">
-                  Nivel de interés del lead; no es la fuente de captación.
-                </p>
-                <select
-                  id="temperature"
-                  value={temperature}
-                  onChange={(e) => setTemperature(e.target.value)}
-                  disabled={saving}
-                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
-                >
-                  <option value="">Sin clasificar</option>
-                  <option value="frio">Frío</option>
-                  <option value="tibio">Tibio</option>
-                  <option value="caliente">Caliente</option>
-                </select>
-              </div>
               {source && source.trim().toLowerCase() === 'referido' && (
                 <div>
-                  <label htmlFor="referral_name" className="block text-xs font-medium text-muted mb-1">
+                  <label htmlFor="referral_name" className={FIELD_LABEL}>
                     Referido por
                   </label>
                   <input
@@ -930,13 +920,13 @@ export function LeadDetailPage() {
                     value={referralName}
                     onChange={(e) => setReferralName(e.target.value)}
                     disabled={saving}
-                    className="w-full rounded-md border border-border px-2 py-1.5 text-sm"
+                    className={CONTROL}
                     placeholder="Nombre de quien refirió"
                   />
                 </div>
               )}
               <div className="md:col-span-2">
-                <label htmlFor="notes" className="block text-xs font-medium text-muted mb-1">
+                <label htmlFor="notes" className={FIELD_LABEL}>
                   Notas
                 </label>
                 <textarea
@@ -944,73 +934,93 @@ export function LeadDetailPage() {
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   disabled={saving}
-                  rows={3}
-                  className="w-full rounded-md border border-border px-2 py-1.5 text-sm resize-y"
+                  rows={2}
+                  className={`${CONTROL} resize-y min-h-[4.5rem]`}
                 />
               </div>
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
-              <div>
-                <span className="text-xs text-muted block mb-0.5">Nombre completo</span>
-                <span className="text-text">{fullName || '—'}</span>
+          </div>
+
+          <div className={`${CARD_SURFACE} ${CARD_PAD}`}>
+            <button
+              type="button"
+              onClick={() => setActividadExpanded((e) => !e)}
+              className="flex w-full cursor-pointer items-center justify-between gap-2 rounded-lg border-0 bg-transparent py-2 text-left hover:bg-neutral-50 dark:hover:bg-neutral-900/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-neutral-400"
+              aria-expanded={actividadExpanded}
+              aria-controls="actividad-content"
+            >
+              <h3 className={SECTION_LABEL}>Actividad</h3>
+              <span className="flex items-center gap-1.5 text-xs text-neutral-500 dark:text-neutral-400" aria-hidden>
+                {!actividadExpanded && stageHistory.length > 0 && (
+                  <span>{stageHistory.length} movimiento(s) de etapa</span>
+                )}
+                {actividadExpanded ? '▼' : '▶'}
+              </span>
+            </button>
+            {!actividadExpanded && stageHistory.length > 0 && (
+              <div className="mt-2 space-y-1 border-t border-neutral-100 pt-2 dark:border-neutral-800/80">
+                {stageHistory.slice(-3).reverse().map((h) => {
+                  const fromName = h.from_stage_id ? displayStageName(stageNameById.get(h.from_stage_id)) ?? '—' : 'Inicio'
+                  const toName = displayStageName(stageNameById.get(h.to_stage_id)) ?? '—'
+                  const when = h.occurred_at ?? h.moved_at
+                  return (
+                    <div key={h.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm text-neutral-800 dark:text-neutral-200">
+                      <span className="tabular-nums text-neutral-500 dark:text-neutral-400">{formatDateMX(when)}</span>
+                      <span>De {fromName} → {toName}</span>
+                    </div>
+                  )
+                })}
+                <button
+                  type="button"
+                  onClick={() => setActividadExpanded(true)}
+                  className="mt-1 text-xs font-medium text-neutral-700 underline-offset-2 hover:underline dark:text-neutral-300"
+                >
+                  Ver todo
+                </button>
               </div>
-              <div>
-                <span className="text-xs text-muted block mb-0.5">Teléfono</span>
-                <span className="text-text">{phone || '—'}</span>
+            )}
+            {actividadExpanded && (
+              <div id="actividad-content" className="mt-2 border-t border-neutral-100 pt-3 dark:border-neutral-800/80">
+                {stageHistory.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className={`${SECTION_LABEL} mb-2`}>Historial de etapas</p>
+                    {stageHistory.map((h) => {
+                      const fromName = h.from_stage_id ? displayStageName(stageNameById.get(h.from_stage_id)) ?? '—' : 'Inicio'
+                      const toName = displayStageName(stageNameById.get(h.to_stage_id)) ?? '—'
+                      const when = h.occurred_at ?? h.moved_at
+                      return (
+                        <div key={h.id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 text-sm text-neutral-800 dark:text-neutral-200">
+                          <span className="tabular-nums text-neutral-500 dark:text-neutral-400">{formatDateMX(when)}</span>
+                          <span>De {fromName} → {toName}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-neutral-500 dark:text-neutral-400">
+                    Sin historial de etapas aún.
+                  </p>
+                )}
               </div>
-              <div>
-                <span className="text-xs text-muted block mb-0.5">Email</span>
-                <span className="text-text">{email || '—'}</span>
-              </div>
-              <div>
-                <span className="text-xs text-muted block mb-0.5">Fuente</span>
-                <span className="text-text">{source || '—'}</span>
-              </div>
-              <div>
-                <span className="text-xs text-muted block mb-0.5">Temperatura</span>
-                <span className="text-text inline-flex items-center gap-2">
-                  <LeadTemperatureChip temperature={lead.temperature} showPlaceholder />
-                </span>
-              </div>
-              {source && source.trim().toLowerCase() === 'referido' && (
-                <div>
-                  <span className="text-xs text-muted block mb-0.5">Referido por</span>
-                  <span className="text-text">{referralName || '—'}</span>
-                </div>
-              )}
-              <div className="md:col-span-2">
-                <span className="text-xs text-muted block mb-0.5">Notas</span>
-                <span className="text-text whitespace-pre-wrap">{notes || '—'}</span>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Columna derecha: Pipeline */}
-        <div className="lg:col-span-4 flex flex-col gap-3 lg:sticky lg:top-4 self-start order-2">
-          {/* Pipeline — etapa + tiempos */}
-          <div
-            className="rounded-lg border border-border bg-bg/30 p-3.5"
-            style={{
-              transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
-            }}
-          >
-            <h3 className="text-xs font-medium text-muted mb-1.5">
+        <div className="order-2 flex flex-col gap-3 self-start lg:sticky lg:top-4 lg:col-span-4">
+          <div className={`${CARD_SURFACE} ${CARD_PAD}`}>
+            <h3 className={`${SECTION_LABEL} mb-3 border-b border-neutral-100 pb-2 dark:border-neutral-800/80`}>
               Pipeline
             </h3>
             {moving && (
-              <p className="text-xs text-muted mb-2">Guardando…</p>
+              <p className="mb-2 text-xs text-neutral-500 dark:text-neutral-400">Guardando etapa…</p>
             )}
             <div>
-              <label
-                htmlFor="stage_select"
-                className="block text-xs font-medium text-muted mb-1"
-              >
+              <label htmlFor="stage_select" className={FIELD_LABEL}>
                 Etapa actual
               </label>
               {lead.archived_at ? (
-                <p className="text-sm text-muted py-2">Restaura para editar</p>
+                <p className="py-1.5 text-sm text-neutral-500 dark:text-neutral-400">Restaura el lead para editar la etapa.</p>
               ) : (
                 <select
                   id="stage_select"
@@ -1021,7 +1031,7 @@ export function LeadDetailPage() {
                     else setSelectedStageId(v)
                   }}
                   disabled={moving || stages.length === 0}
-                  className="w-full rounded-md border border-border px-3 py-2 text-sm"
+                  className={CONTROL}
                 >
                   {stages.map((stage) => (
                     <option key={stage.id} value={stage.id}>
@@ -1032,21 +1042,22 @@ export function LeadDetailPage() {
               )}
             </div>
             <div className="mt-3">
-              <label htmlFor="pipeline_temperature" className="block text-xs font-medium text-muted mb-1">
+              <label htmlFor="pipeline_temperature" className={FIELD_LABEL}>
                 Temperatura (interés)
               </label>
-              <p className="text-[11px] text-muted mb-1.5">
-                Independiente de la fuente de captación. También puedes editarla en «Editar datos».
+              <p className="mb-1.5 text-[11px] leading-snug text-neutral-500 dark:text-neutral-400">
+                Interés del lead; distinto de la fuente de captación.
               </p>
               {lead.archived_at ? (
-                <p className="text-sm text-muted py-1">—</p>
+                <p className="py-1 text-sm text-neutral-500 dark:text-neutral-400">—</p>
               ) : (
                 <select
                   id="pipeline_temperature"
                   value={lead.temperature ?? ''}
                   onChange={handlePipelineTemperatureChange}
                   disabled={moving || saving || savingTemperature || stages.length === 0}
-                  className="w-full rounded-md border border-border px-3 py-2 text-sm"
+                  className={CONTROL}
+                  title="Clasificación de interés: frío, tibio o caliente. Independiente del campo Fuente."
                 >
                   <option value="">Sin clasificar</option>
                   <option value="frio">Frío</option>
@@ -1055,16 +1066,13 @@ export function LeadDetailPage() {
                 </select>
               )}
               {savingTemperature ? (
-                <p className="text-xs text-muted mt-1">Guardando…</p>
+                <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Guardando…</p>
               ) : null}
             </div>
-            {/* Próximo paso */}
             <div className="mt-3">
-              <label className="block text-xs font-medium text-muted mb-1">
-                Próximo paso
-              </label>
+              <label className={FIELD_LABEL}>Próximo paso</label>
               {lead.archived_at ? (
-                <p className="text-sm text-muted py-1">—</p>
+                <p className="py-1 text-sm text-neutral-500 dark:text-neutral-400">—</p>
               ) : (
                 <NextActionActions
                   leadId={id!}
@@ -1078,53 +1086,44 @@ export function LeadDetailPage() {
                 />
               )}
             </div>
-            {/* Tiempos */}
-            <div className="mt-3 pt-3 border-t border-black/10">
-              <p className="text-xs font-medium text-muted mb-2">Tiempos</p>
-              <div className="text-xs text-muted space-y-1">
-                <div className="flex justify-between gap-2">
-                  <span>Días en etapa actual</span>
-                  <span className="text-text tabular-nums">
-                    {enteredCurrentStageAt ? Math.floor(diffDaysFloor(enteredCurrentStageAt, new Date())) : '—'}
-                  </span>
+            <div className="mt-4 border-t border-neutral-100 pt-3 dark:border-neutral-800/80">
+              <p className={`${SECTION_LABEL} mb-2`}>Tiempos</p>
+              <dl className="space-y-1.5 text-xs text-neutral-600 dark:text-neutral-400">
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="shrink-0">En etapa actual</dt>
+                  <dd className="tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
+                    {enteredCurrentStageAt ? `${Math.floor(diffDaysFloor(enteredCurrentStageAt, new Date()))} d` : '—'}
+                  </dd>
                 </div>
-                <div className="flex justify-between gap-2">
-                  <span>Tiempo total del lead</span>
-                  <span className="text-text tabular-nums">
-                    {lead.created_at
-                      ? `${Math.floor(diffDaysFloor(lead.created_at, new Date()))} días`
-                      : '—'}
-                  </span>
+                <div className="flex items-baseline justify-between gap-3">
+                  <dt className="shrink-0">Desde creación</dt>
+                  <dd className="tabular-nums font-medium text-neutral-900 dark:text-neutral-100">
+                    {lead.created_at ? `${Math.floor(diffDaysFloor(lead.created_at, new Date()))} d` : '—'}
+                  </dd>
                 </div>
-              </div>
+              </dl>
             </div>
-            <div className="my-3 h-px bg-black/5" />
-            <div className="text-xs text-muted flex flex-col gap-1">
-              <div>Creado: {formatDateTime(lead.created_at)}</div>
-              <div>Actualizado: {formatDateTime(lead.updated_at)}</div>
+            <div className="my-3 h-px bg-neutral-100 dark:bg-neutral-800/80" />
+            <div className="flex flex-col gap-1 text-[11px] leading-relaxed text-neutral-500 dark:text-neutral-400">
+              <div>Creado · {formatDateTime(lead.created_at)}</div>
+              <div>Actualizado · {formatDateTime(lead.updated_at)}</div>
               {lead.stage_changed_at && (
-                <div>Último cambio de etapa: {formatDateTime(lead.stage_changed_at)}</div>
+                <div>Último cambio de etapa · {formatDateTime(lead.stage_changed_at)}</div>
               )}
             </div>
           </div>
 
-          {/* Opportunity — valor estimado, cierre esperado, owner (solo lectura) */}
-          <div
-            className="rounded-lg border border-border bg-bg/30 p-3.5"
-            style={{
-              transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
-            }}
-          >
-            <h3 className="text-xs font-medium text-muted mb-1.5">
+          <div className={`${CARD_SURFACE} ${CARD_PAD}`}>
+            <h3 className={`${SECTION_LABEL} mb-3 border-b border-neutral-100 pb-2 dark:border-neutral-800/80`}>
               Oportunidad
             </h3>
-            <div className="space-y-3">
+            <div className="space-y-2.5">
               <div>
-                <label htmlFor="estimated_value" className="block text-xs font-medium text-muted mb-1">
+                <label htmlFor="estimated_value" className={FIELD_LABEL}>
                   Valor estimado
                 </label>
                 {lead.archived_at ? (
-                  <p className="text-sm text-muted py-1">{formatCurrencyMXN(lead.estimated_value)}</p>
+                  <p className="py-1 text-sm text-neutral-600 dark:text-neutral-400">{formatCurrencyMXN(lead.estimated_value)}</p>
                 ) : (
                   <input
                     id="estimated_value"
@@ -1136,16 +1135,16 @@ export function LeadDetailPage() {
                     onBlur={handleSaveOpportunity}
                     disabled={savingOpportunity}
                     placeholder="0"
-                    className="w-full rounded-md border border-border px-3 py-2 text-sm tabular-nums"
+                    className={`${CONTROL} tabular-nums`}
                   />
                 )}
               </div>
               <div>
-                <label htmlFor="expected_close_at" className="block text-xs font-medium text-muted mb-1">
+                <label htmlFor="expected_close_at" className={FIELD_LABEL}>
                   Cierre esperado
                 </label>
                 {lead.archived_at ? (
-                  <p className="text-sm text-muted py-1">
+                  <p className="py-1 text-sm text-neutral-600 dark:text-neutral-400">
                     {lead.expected_close_at
                       ? formatDateMX(lead.expected_close_at)
                       : '—'}
@@ -1158,90 +1157,21 @@ export function LeadDetailPage() {
                     onChange={(e) => setExpectedCloseAt(e.target.value)}
                     onBlur={handleSaveOpportunity}
                     disabled={savingOpportunity}
-                    className="w-full rounded-md border border-border px-3 py-2 text-sm"
+                    className={CONTROL}
                   />
                 )}
               </div>
               <div>
-                <label className="block text-xs font-medium text-muted mb-1">
-                  Owner
-                </label>
-                <p className="text-sm text-text py-1">
+                <label className={FIELD_LABEL}>Owner</label>
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-2.5 py-1.5 text-sm text-neutral-900 dark:border-neutral-700 dark:bg-neutral-900/50 dark:text-neutral-100">
                   {ownerDisplayName ?? (lead.owner_user_id ? '…' : '—')}
-                </p>
+                </div>
               </div>
               {savingOpportunity && (
-                <p className="text-xs text-muted">Guardando…</p>
+                <p className="text-xs text-neutral-500 dark:text-neutral-400">Guardando…</p>
               )}
             </div>
           </div>
-        </div>
-
-        {/* Actividad — historial de etapas; colapsada por defecto; header clicable con chevron, sin look input */}
-        <div className="lg:col-span-8 rounded-lg border border-border bg-bg/20 p-4 order-3">
-          <button
-            type="button"
-            onClick={() => setActividadExpanded((e) => !e)}
-            className="flex w-full items-center justify-between gap-2 py-2 text-left rounded border-0 bg-transparent hover:bg-black/[0.03] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary cursor-pointer"
-            aria-expanded={actividadExpanded}
-            aria-controls="actividad-content"
-          >
-            <h3 className="text-sm font-medium text-muted">
-              Actividad
-            </h3>
-            <span className="text-muted text-xs flex items-center gap-1.5" aria-hidden>
-              {!actividadExpanded && stageHistory.length > 0 && (
-                <span>{stageHistory.length} movimiento(s) de etapa</span>
-              )}
-              {actividadExpanded ? '▼' : '▶'}
-            </span>
-          </button>
-          {!actividadExpanded && stageHistory.length > 0 && (
-            <div className="mt-1 pt-2 border-t border-border space-y-1">
-              {stageHistory.slice(-3).reverse().map((h) => {
-                const fromName = h.from_stage_id ? displayStageName(stageNameById.get(h.from_stage_id)) ?? '—' : 'Inicio'
-                const toName = displayStageName(stageNameById.get(h.to_stage_id)) ?? '—'
-                const when = h.occurred_at ?? h.moved_at
-                return (
-                  <div key={h.id} className="text-sm flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                    <span className="tabular-nums text-muted">{formatDateMX(when)}</span>
-                    <span>De {fromName} → {toName}</span>
-                  </div>
-                )
-              })}
-              <button
-                type="button"
-                onClick={() => setActividadExpanded(true)}
-                className="text-xs font-medium text-primary hover:underline mt-1"
-              >
-                Ver todo
-              </button>
-            </div>
-          )}
-          {actividadExpanded && (
-            <div id="actividad-content" className="mt-1 pt-3 border-t border-border">
-              {stageHistory.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-xs font-medium text-muted mb-2">Historial de etapas</p>
-                  {stageHistory.map((h) => {
-                    const fromName = h.from_stage_id ? displayStageName(stageNameById.get(h.from_stage_id)) ?? '—' : 'Inicio'
-                    const toName = displayStageName(stageNameById.get(h.to_stage_id)) ?? '—'
-                    const when = h.occurred_at ?? h.moved_at
-                    return (
-                      <div key={h.id} className="text-sm flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
-                        <span className="tabular-nums text-muted">{formatDateMX(when)}</span>
-                        <span>De {fromName} → {toName}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              ) : (
-                <p className="text-sm text-muted">
-                  Sin historial de etapas aún.
-                </p>
-              )}
-            </div>
-          )}
         </div>
       </div>
     </div>
