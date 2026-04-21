@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react'
 import { getMyProfile, upsertMyProfile, type Profile } from '../lib/profile'
 import { Toast } from '../shared/components/Toast'
+import { useUserRole } from '../shared/hooks/useUserRole'
 
 export function ProfilePage() {
+  const { role, loading: roleLoading } = useUserRole()
+  const isAdvisor = !roleLoading && role === 'advisor'
+
   const [profile, setProfile] = useState<Profile | null>(null)
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
+  const [birthDate, setBirthDate] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
@@ -22,6 +27,7 @@ export function ProfilePage() {
       if (data) {
         setFirstName(data.first_name || '')
         setLastName(data.last_name || '')
+        setBirthDate(data.birth_date ?? '')
       }
     } catch (err) {
       console.error('Error al cargar perfil:', err)
@@ -35,10 +41,14 @@ export function ProfilePage() {
   }
 
   const handleSave = async () => {
-    if (!firstName.trim() && !lastName.trim()) {
+    const hasName = Boolean(firstName.trim() || lastName.trim())
+    const hasBirth = Boolean(birthDate.trim())
+    if (!hasName && !(isAdvisor && hasBirth)) {
       setToast({
         type: 'error',
-        message: 'Ingresa al menos un nombre o apellido',
+        message: isAdvisor
+          ? 'Ingresa al menos un nombre, un apellido o tu fecha de nacimiento'
+          : 'Ingresa al menos un nombre o apellido',
       })
       return
     }
@@ -50,8 +60,12 @@ export function ProfilePage() {
       const updated = await upsertMyProfile({
         first_name: firstName.trim(),
         last_name: lastName.trim(),
+        ...(isAdvisor ? { birth_date: birthDate.trim() || null } : {}),
       })
       setProfile(updated)
+      if (isAdvisor) {
+        setBirthDate(updated.birth_date ?? '')
+      }
       setToast({
         type: 'success',
         message: 'Perfil guardado ✅',
@@ -123,6 +137,24 @@ export function ProfilePage() {
               className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
+
+          {isAdvisor && (
+            <div>
+              <label htmlFor="birthDate" className="block text-sm font-medium text-text mb-1.5">
+                Fecha de nacimiento
+              </label>
+              <input
+                id="birthDate"
+                type="date"
+                value={birthDate}
+                onChange={(e) => setBirthDate(e.target.value)}
+                className="w-full border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+              <p className="text-xs text-muted mt-1.5">
+                Opcional. La usamos para datos internos del equipo.
+              </p>
+            </div>
+          )}
 
           <div className="flex justify-end gap-3 pt-2">
             <button

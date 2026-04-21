@@ -11,6 +11,8 @@ export interface Profile {
   first_name: string | null
   last_name: string | null
   full_name: string | null
+  /** YYYY-MM-DD desde Postgres; puede faltar si la migración aún no está aplicada */
+  birth_date?: string | null
   created_at: string
   updated_at: string
 }
@@ -50,9 +52,12 @@ export async function getMyProfile(): Promise<Profile | null> {
 export async function upsertMyProfile({
   first_name,
   last_name,
+  birth_date,
 }: {
   first_name: string
   last_name: string
+  /** Si se omite, no se envía y Postgres conserva el valor actual de birth_date */
+  birth_date?: string | null
 }): Promise<Profile> {
   const {
     data: { user },
@@ -62,15 +67,24 @@ export async function upsertMyProfile({
     throw new Error('No hay usuario autenticado')
   }
 
+  const row: {
+    user_id: string
+    first_name: string | null
+    last_name: string | null
+    birth_date?: string | null
+  } = {
+    user_id: user.id,
+    first_name: first_name.trim() || null,
+    last_name: last_name.trim() || null,
+  }
+  if (birth_date !== undefined) {
+    const t = birth_date === null ? '' : String(birth_date).trim()
+    row.birth_date = t === '' ? null : t
+  }
+
   const { data, error } = await supabase
     .from('profiles')
-    .upsert(
-      {
-        user_id: user.id,
-        first_name: first_name.trim() || null,
-        last_name: last_name.trim() || null,
-      },
-      {
+    .upsert(row, {
         onConflict: 'user_id',
       }
     )
