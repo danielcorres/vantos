@@ -13,8 +13,20 @@ export interface Profile {
   full_name: string | null
   /** YYYY-MM-DD desde Postgres; puede faltar si la migración aún no está aplicada */
   birth_date?: string | null
+  advisor_code?: string | null
+  connection_date?: string | null
+  advisor_status?: string | null
+  contract_signed_at?: string | null
   created_at: string
   updated_at: string
+}
+
+/** Campos de hitos en profiles; si se pasa a upsertMyProfile, se persisten los cuatro juntos. */
+export type MilestoneProfilePayload = {
+  advisor_code: string | null
+  connection_date: string | null
+  advisor_status: string | null
+  contract_signed_at: string | null
 }
 
 /**
@@ -53,11 +65,14 @@ export async function upsertMyProfile({
   first_name,
   last_name,
   birth_date,
+  milestone,
 }: {
   first_name: string
   last_name: string
   /** Si se omite, no se envía y Postgres conserva el valor actual de birth_date */
   birth_date?: string | null
+  /** Si se omite, no se tocan advisor_code / connection_date / advisor_status / contract_signed_at */
+  milestone?: MilestoneProfilePayload
 }): Promise<Profile> {
   const {
     data: { user },
@@ -67,12 +82,7 @@ export async function upsertMyProfile({
     throw new Error('No hay usuario autenticado')
   }
 
-  const row: {
-    user_id: string
-    first_name: string | null
-    last_name: string | null
-    birth_date?: string | null
-  } = {
+  const row: Record<string, unknown> = {
     user_id: user.id,
     first_name: first_name.trim() || null,
     last_name: last_name.trim() || null,
@@ -81,13 +91,19 @@ export async function upsertMyProfile({
     const t = birth_date === null ? '' : String(birth_date).trim()
     row.birth_date = t === '' ? null : t
   }
+  if (milestone !== undefined) {
+    row.advisor_code = milestone.advisor_code?.trim() ? milestone.advisor_code.trim() : null
+    row.connection_date = milestone.connection_date?.trim() ? milestone.connection_date.trim() : null
+    const st = milestone.advisor_status?.trim() ? milestone.advisor_status.trim() : null
+    row.advisor_status = st
+    row.contract_signed_at = milestone.contract_signed_at
+  }
 
   const { data, error } = await supabase
     .from('profiles')
     .upsert(row, {
-        onConflict: 'user_id',
-      }
-    )
+      onConflict: 'user_id',
+    })
     .select()
     .single()
 

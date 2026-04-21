@@ -2,7 +2,14 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/supabaseClient'
 import { useAuth } from '../auth/AuthProvider'
 
-type UserRole = 'advisor' | 'manager' | 'recruiter' | 'owner' | 'director' | 'seguimiento'
+type UserRole =
+  | 'advisor'
+  | 'manager'
+  | 'recruiter'
+  | 'owner'
+  | 'director'
+  | 'seguimiento'
+  | 'developer'
 
 export type UseUserRoleResult = {
   role: UserRole
@@ -136,7 +143,15 @@ export function useUserRole(): UseUserRoleResult {
       if (profileData && profileData.role) {
         const userRole = profileData.role as UserRole
         // Validar que el role sea uno de los válidos
-        const validRoles: UserRole[] = ['owner', 'manager', 'recruiter', 'advisor', 'director', 'seguimiento']
+        const validRoles: UserRole[] = [
+          'owner',
+          'manager',
+          'recruiter',
+          'advisor',
+          'director',
+          'seguimiento',
+          'developer',
+        ]
         const finalRole: UserRole = validRoles.includes(userRole) ? userRole : 'advisor'
         
         if (IS_DEV) {
