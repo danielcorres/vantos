@@ -19,6 +19,7 @@ import { buildAdvisorProfile, type AdvisorProfileResult } from '../../modules/ok
 import { buildMetricBreakdown } from '../../modules/okr/dashboard/advisorDetailHelpers'
 import { addDaysYmd } from '../../shared/utils/dates'
 import { calcWeekRangeLocal, formatWeekRangePretty } from '../../modules/okr/utils/weeklyHistoryHelpers'
+import { AdvisorMilestonesSection } from '../../modules/advisors/ui/AdvisorMilestonesSection'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -594,6 +595,15 @@ export function OwnerDashboardPage() {
         defaultSort="points"
         getAdvisorName={getAdvisorName}
         weeklyMinimums={weeklyMinimums}
+      />
+
+      {/* Hitos de asesores 12 meses (solo aplica a advisor_status = 'asesor_12_meses') */}
+      <AdvisorMilestonesSection
+        advisorIds={advisorIds}
+        nameByAdvisorId={
+          new Map(weekStats.map((s) => [s.advisor.user_id, getAdvisorName(s.advisor)]))
+        }
+        linkToDetail
       />
 
       {/* D) Perfil del equipo - Reemplaza Consistencia 12 semanas */}

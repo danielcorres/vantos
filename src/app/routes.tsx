@@ -15,6 +15,7 @@ import { OkrScoringPage } from '../modules/okr/pages/OkrScoringPage'
 import { ProfilePage } from '../pages/ProfilePage'
 import { OwnerDashboardPage } from '../pages/owner/OwnerDashboardPage'
 import { AssignmentsPage } from '../pages/owner/AssignmentsPage'
+import { AdvisorSettingsPage } from '../pages/owner/AdvisorSettingsPage'
 import { ManagerDashboardPage } from '../pages/manager/ManagerDashboardPage'
 import { AdvisorWeekDetailPage } from '../pages/manager/AdvisorWeekDetailPage'
 import { WeeklyMinimumTargetsPage } from '../modules/okr/settings/WeeklyMinimumTargetsPage'
@@ -55,6 +56,7 @@ const OWNER_DASHBOARD_ROLES = ['owner', 'director', 'seguimiento'] as const
 const ADVISOR_AREA_ROLES = ['advisor', 'owner', 'manager', 'recruiter', 'director', 'seguimiento', 'developer', 'super_admin'] as const
 const PIPELINE_ROLES = ['advisor', 'manager', 'owner'] as const
 const PIPELINE_SETTINGS_ROLES = ['manager', 'owner'] as const
+const ADVISOR_SETTINGS_ROLES = ['owner', 'director', 'seguimiento', 'developer'] as const
 
 export const router = createBrowserRouter([
   {
@@ -212,6 +214,14 @@ export const router = createBrowserRouter([
         element: (
           <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
             <WeeklyMinimumTargetsPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'settings/advisors',
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_SETTINGS_ROLES]}>
+            <AdvisorSettingsPage />
           </RoleGuard>
         ),
       },

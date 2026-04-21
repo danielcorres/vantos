@@ -11,7 +11,7 @@ function normalizeNextActionType(t: string | null | undefined): string | null {
 }
 
 const LEAD_SELECT_COLUMNS =
-  'id,owner_user_id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason,referral_name,cita_realizada_at,propuesta_presentada_at,cerrado_at,lead_condition,next_action_at,next_action_type'
+  'id,owner_user_id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason,referral_name,cita_realizada_at,propuesta_presentada_at,cerrado_at,lead_condition,next_action_at,next_action_type,estimated_value,expected_close_at'
 
 function normalizeLead(row: Record<string, unknown>): Lead {
   return {
@@ -27,6 +27,8 @@ function normalizeLead(row: Record<string, unknown>): Lead {
     referral_name: (row.referral_name as string | null) ?? null,
     next_action_at: (row.next_action_at as string | null) ?? null,
     next_action_type: (row.next_action_type as string | null) ?? null,
+    estimated_value: (row.estimated_value as number | null) ?? null,
+    expected_close_at: (row.expected_close_at as string | null) ?? null,
   } as Lead
 }
 
@@ -62,6 +64,8 @@ export type Lead = {
   lead_condition: string | null
   next_action_at: string | null
   next_action_type: string | null
+  estimated_value: number | null
+  expected_close_at: string | null
 }
 
 export type CreateLeadInput = {
@@ -184,6 +188,8 @@ export const pipelineApi = {
     lead_condition?: string | null
     next_action_at?: string | null
     next_action_type?: string | null
+    estimated_value?: number | null
+    expected_close_at?: string | null
   }): Promise<Lead> {
     const payload = { ...updates }
     if (payload.next_action_type !== undefined) {

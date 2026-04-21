@@ -8,7 +8,8 @@ import {
 } from './pipeline.store'
 import { KanbanBoard } from './components/KanbanBoard'
 import { LeadCreateModal } from './components/LeadCreateModal'
-import { PipelineTableView } from './views/PipelineTableView'
+import { PipelineRecordsView } from './views/PipelineRecordsView'
+import { PipelineHighValueView } from './views/PipelineHighValueView'
 import { getWeeklyEntryLeads } from '../productivity/api/drilldown.api'
 
 const PipelineInsightsPage = lazy(() =>
@@ -46,18 +47,18 @@ function formatWeekRangeLabel(weekStartYmd: string): string {
 }
 
 const STORAGE_KEY_VIEW = 'pipeline:viewMode'
-type ViewMode = 'table' | 'kanban' | 'insights'
+type ViewMode = 'pipeline' | 'records' | 'dashboard' | 'highvalue'
 
 type PipelineToast = { type: 'error' | 'success' | 'info'; message: string } | null
 
 function getStoredViewMode(): ViewMode {
   try {
     const v = localStorage.getItem(STORAGE_KEY_VIEW)
-    if (v === 'table' || v === 'kanban' || v === 'insights') return v
+    if (v === 'pipeline' || v === 'records' || v === 'dashboard' || v === 'highvalue') return v
   } catch {
     /* intentionally ignored */
   }
-  return 'table'
+  return 'pipeline'
 }
 
 function setStoredViewMode(mode: ViewMode) {
@@ -125,7 +126,7 @@ export function PipelinePage() {
   useEffect(() => {
     const leadId = searchParams.get('lead')
     if (leadId && state.leads.length > 0) {
-      setActiveTab('kanban')
+      setActiveTab('pipeline')
       setTimeout(() => {
         kanbanRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }, 100)
@@ -336,7 +337,7 @@ export function PipelinePage() {
   }, [state.leads, state.stages, dispatch, refreshDataSilent])
 
   const handleViewInKanban = (leadId?: string) => {
-    setActiveTab('kanban')
+    setActiveTab('pipeline')
     if (leadId && kanbanRef.current) {
       setTimeout(() => {
         kanbanRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
@@ -386,7 +387,7 @@ export function PipelinePage() {
           <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
           <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
         </div>
-        {activeTab === 'kanban' && (
+        {activeTab === 'pipeline' && (
           <button
             onClick={() => setIsModalOpen(true)}
             className="btn btn-primary text-sm"
@@ -478,7 +479,7 @@ export function PipelinePage() {
           </span>
           {!weeklyLoadError && (
             <span className="text-sm text-neutral-600 dark:text-neutral-400 tabular-nums">
-              Mostrando: {activeTab === 'table' ? (tableVisibleCount ?? displayedLeads.length) : displayedLeads.length}
+              Mostrando: {activeTab === 'records' ? (tableVisibleCount ?? displayedLeads.length) : displayedLeads.length}
             </span>
           )}
           <button
@@ -511,7 +512,7 @@ export function PipelinePage() {
         </div>
       )}
 
-      {/* FILA 1: Tabla | Kanban | Insights */}
+      {/* FILA 1: Pipeline | Records | Dashboard | High Value */}
       <div className="flex flex-wrap items-center gap-2">
         <div
           className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5 gap-0.5"
@@ -520,39 +521,49 @@ export function PipelinePage() {
         >
           <button
             role="tab"
-            aria-selected={activeTab === 'table'}
-            onClick={() => setActiveTab('table')}
+            aria-selected={activeTab === 'pipeline'}
+            onClick={() => setActiveTab('pipeline')}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-              activeTab === 'table' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+              activeTab === 'pipeline' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
             }`}
           >
-            Tabla
+            Pipeline
           </button>
           <button
             role="tab"
-            aria-selected={activeTab === 'kanban'}
-            onClick={() => setActiveTab('kanban')}
+            aria-selected={activeTab === 'records'}
+            onClick={() => setActiveTab('records')}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-              activeTab === 'kanban' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+              activeTab === 'records' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
             }`}
           >
-            Kanban
+            Records
           </button>
           <button
             role="tab"
-            aria-selected={activeTab === 'insights'}
-            onClick={() => setActiveTab('insights')}
+            aria-selected={activeTab === 'dashboard'}
+            onClick={() => setActiveTab('dashboard')}
             className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-              activeTab === 'insights' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+              activeTab === 'dashboard' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
             }`}
           >
-            Insights
+            Dashboard
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'highvalue'}
+            onClick={() => setActiveTab('highvalue')}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              activeTab === 'highvalue' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+            }`}
+          >
+            High Value
           </button>
         </div>
       </div>
 
-      {/* FILA 2: Activos | Archivados — Agrupar por etapa | Vista plana (solo en vista tabla) */}
-      {activeTab === 'table' && (
+      {/* FILA 2: Activos | Archivados — Agrupar por etapa | Vista plana (solo en vista records) */}
+      {activeTab === 'records' && (
         <div className="flex flex-wrap items-center gap-2">
           <div
             className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5 gap-0.5"
@@ -609,8 +620,8 @@ export function PipelinePage() {
         </div>
       )}
 
-      {activeTab === 'table' && (
-        <PipelineTableView
+      {activeTab === 'records' && (
+        <PipelineRecordsView
           activosLeads={displayedLeads}
           pipelineMode={pipelineMode}
           groupByStage={groupByStage}
@@ -628,7 +639,7 @@ export function PipelinePage() {
         />
       )}
 
-      {activeTab === 'kanban' && weeklyMode && displayedLeads.length === 0 && (
+      {activeTab === 'pipeline' && weeklyMode && displayedLeads.length === 0 && (
         <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 dark:bg-neutral-800/40 p-8 text-center">
           <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-2">
             No hubo entradas a esta etapa en la semana seleccionada.
@@ -643,7 +654,7 @@ export function PipelinePage() {
         </div>
       )}
 
-      {activeTab === 'kanban' && (!weeklyMode || displayedLeads.length > 0) && (
+      {activeTab === 'pipeline' && (!weeklyMode || displayedLeads.length > 0) && (
         <div ref={kanbanRef}>
           <KanbanBoard
             stages={state.stages}
@@ -659,7 +670,14 @@ export function PipelinePage() {
         </div>
       )}
 
-      {activeTab === 'insights' && (
+      {activeTab === 'highvalue' && (
+        <PipelineHighValueView
+          leads={state.leads}
+          stages={state.stages}
+        />
+      )}
+
+      {activeTab === 'dashboard' && (
         <Suspense
           fallback={
             <div className="rounded-lg border border-border bg-bg/50 p-6 flex items-center justify-center min-h-[200px]">
@@ -674,7 +692,7 @@ export function PipelinePage() {
         </Suspense>
       )}
 
-      {activeTab === 'kanban' && (
+      {activeTab === 'pipeline' && (
         <LeadCreateModal
           stages={state.stages}
           isOpen={isModalOpen}

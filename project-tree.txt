@@ -1,0 +1,148 @@
+src
+├── app
+│   ├── App.tsx
+│   ├── layout
+│   │   ├── AppShell.tsx
+│   │   ├── icons.tsx
+│   │   ├── Sidebar.tsx
+│   │   └── TopNav.tsx
+│   ├── RootLayout.tsx
+│   ├── RouteErrorBoundary.tsx
+│   └── routes.tsx
+├── App.css
+├── App.tsx
+├── assets
+│   └── react.svg
+├── components
+│   ├── auth
+│   │   └── LoginBranding.tsx
+│   ├── branding
+│   │   ├── useSystemTheme.ts
+│   │   ├── VantLogo.tsx
+│   │   └── VantMark.tsx
+│   ├── FullScreenLoader.tsx
+│   ├── Layout.css
+│   ├── Layout.tsx
+│   ├── pipeline
+│   │   ├── EmptyState.tsx
+│   │   ├── LeadCardContent.tsx
+│   │   ├── LeadCardMenu.tsx
+│   │   ├── LeadCardMobile.tsx
+│   │   ├── LeadContactLine.tsx
+│   │   ├── LeadProgressDots.tsx
+│   │   ├── LeadRowDesktop.tsx
+│   │   ├── LeadSourceTag.tsx
+│   │   ├── MobileStageSwitcher.tsx
+│   │   ├── MoveStageButton.tsx
+│   │   ├── NextActionActions.tsx
+│   │   ├── NextActionChip.tsx
+│   │   └── NextActionModal.tsx
+│   └── ProtectedRoute.tsx
+├── config.ts
+├── env.d.ts
+├── features
+│   ├── calendar
+│   │   ├── api
+│   │   ├── components
+│   │   ├── types
+│   │   └── utils
+│   ├── pipeline
+│   │   ├── components
+│   │   ├── domain
+│   │   ├── insights
+│   │   ├── pipeline.api.ts
+│   │   ├── pipeline.store.ts
+│   │   ├── PipelinePage.tsx
+│   │   ├── utils
+│   │   └── views
+│   └── productivity
+│       ├── api
+│       ├── components
+│       └── types
+├── index.css
+├── lib
+│   ├── access.ts
+│   ├── auth.ts
+│   ├── profile.ts
+│   ├── rlsNotes.md
+│   ├── supabase.ts
+│   ├── supabaseClient.ts
+│   ├── supabaseErrorHandler.ts
+│   ├── systemOwner.ts
+│   └── useSession.ts
+├── main.tsx
+├── modules
+│   ├── auth
+│   │   ├── AuthProvider.tsx
+│   │   ├── authTypes.ts
+│   │   ├── getHomePathForRole.ts
+│   │   ├── pages
+│   │   ├── RoleGuard.tsx
+│   │   └── useAuth.ts
+│   └── okr
+│       ├── components
+│       ├── dashboard
+│       ├── data
+│       ├── domain
+│       ├── index.ts
+│       ├── pages
+│       ├── settings
+│       └── utils
+├── pages
+│   ├── Activity.css
+│   ├── Activity.tsx
+│   ├── AuthCallback.css
+│   ├── AuthCallback.tsx
+│   ├── CalendarPage.tsx
+│   ├── FocusPage.tsx
+│   ├── LeadDetailPage.tsx
+│   ├── Leaderboard.tsx
+│   ├── Login.css
+│   ├── Login.tsx
+│   ├── manager
+│   │   ├── AdvisorWeekDetailPage.tsx
+│   │   └── ManagerDashboardPage.tsx
+│   ├── owner
+│   │   ├── AssignmentsPage.tsx
+│   │   ├── OwnerDashboardPage.tsx
+│   │   └── utils
+│   ├── PipelinePage.tsx
+│   ├── PipelineSettingsPage.tsx
+│   ├── ProductivityPage.tsx
+│   ├── ProfilePage.tsx
+│   └── SettingsPoints.tsx
+├── shared
+│   ├── auth
+│   │   └── AuthProvider.tsx
+│   ├── components
+│   │   ├── InfoPopover.tsx
+│   │   ├── LeadCard.tsx
+│   │   ├── PageSkeleton.tsx
+│   │   ├── Toast.tsx
+│   │   └── UnsavedChangesBar.tsx
+│   ├── hooks
+│   │   ├── useAutoDarkClass.ts
+│   │   ├── useAutoRefresh.ts
+│   │   ├── useDirtyState.ts
+│   │   ├── useFloatingPopover.ts
+│   │   ├── useReducedMotion.ts
+│   │   └── useUserRole.ts
+│   ├── types
+│   ├── ui
+│   └── utils
+│       ├── chips.ts
+│       ├── dates.ts
+│       ├── focusHelpers.ts
+│       ├── followUpStatus.ts
+│       ├── format.ts
+│       ├── leadTags.ts
+│       ├── leadUtils.ts
+│       ├── nextAction.ts
+│       ├── nextActionLabel.ts
+│       ├── sourceTag.ts
+│       ├── stageStyles.ts
+│       └── timeAgo.ts
+└── styles
+    └── globals.css
+
+48 directories, 98 files

@@ -122,13 +122,14 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
     },
     {
       title: 'Configuración',
-      visible: (r) => r === 'owner',
+      visible: (r) =>
+        r === 'owner' || r === 'director' || r === 'seguimiento' || r === 'developer',
       items: [
         {
           label: 'Puntajes OKR',
           path: '/okr/scoring',
           icon: IconTarget,
-          visible: () => true,
+          visible: (r) => r === 'owner',
         },
         {
           label: 'Asignaciones',
@@ -137,10 +138,17 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
           visible: (r) => r === 'owner' || r === 'director',
         },
         {
+          label: 'Asesores',
+          path: '/settings/advisors',
+          icon: IconUserCog,
+          visible: (r) =>
+            r === 'owner' || r === 'director' || r === 'seguimiento' || r === 'developer',
+        },
+        {
           label: 'Mínimos semanales',
           path: '/settings/okr-minimums',
           icon: IconSlidersHorizontal,
-          visible: () => true,
+          visible: (r) => r === 'owner',
         },
       ],
     },

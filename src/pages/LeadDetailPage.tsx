@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabaseClient'
 import { pipelineApi, type LeadStageHistoryRow } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
-import { formatDateMX, diffDaysFloor } from '../shared/utils/dates'
+import { formatDateMX, diffDaysFloor, ymdToLocalNoonISO } from '../shared/utils/dates'
+import { formatCurrencyMXN } from '../shared/utils/format'
 import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
@@ -28,6 +29,9 @@ type LeadData = {
   lead_condition: string | null
   next_action_at: string | null
   next_action_type: string | null
+  estimated_value: number | null
+  expected_close_at: string | null
+  owner_user_id: string | null
 }
 
 const TOAST_CLEAR_MS = 2800
@@ -122,6 +126,12 @@ export function LeadDetailPage() {
   // Stage change state
   const [selectedStageId, setSelectedStageId] = useState<string>('')
 
+  // Opportunity state
+  const [estimatedValue, setEstimatedValue] = useState<string>('')
+  const [expectedCloseAt, setExpectedCloseAt] = useState<string>('')
+  const [ownerDisplayName, setOwnerDisplayName] = useState<string | null>(null)
+  const [savingOpportunity, setSavingOpportunity] = useState(false)
+
   // Action states
   const [saving, setSaving] = useState(false)
   const [moving, setMoving] = useState(false)
@@ -200,9 +210,46 @@ export function LeadDetailPage() {
       setSource(lead.source || '')
       setNotes(lead.notes || '')
       setReferralName(lead.referral_name || '')
+      setEstimatedValue(lead.estimated_value != null ? String(lead.estimated_value) : '')
+      setExpectedCloseAt(
+        lead.expected_close_at
+          ? new Date(lead.expected_close_at).toISOString().slice(0, 10)
+          : ''
+      )
       if (!moving) setSelectedStageId(lead.stage_id)
     }
   }, [lead, moving])
+
+  // Load owner display name from profiles
+  useEffect(() => {
+    if (!lead?.owner_user_id) {
+      setOwnerDisplayName(null)
+      return
+    }
+    void (async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name, first_name, last_name')
+          .eq('user_id', lead.owner_user_id)
+          .single()
+        if (data) {
+          const fn = (data.full_name as string)?.trim()
+          if (fn) {
+            setOwnerDisplayName(fn)
+          } else {
+            const f = (data.first_name as string)?.trim() ?? ''
+            const l = (data.last_name as string)?.trim() ?? ''
+            setOwnerDisplayName(f || l ? `${f} ${l}`.trim() : '—')
+          }
+        } else {
+          setOwnerDisplayName('—')
+        }
+      } catch {
+        setOwnerDisplayName('—')
+      }
+    })()
+  }, [lead?.owner_user_id])
 
   const loadData = async () => {
     if (!id) return
@@ -216,7 +263,7 @@ export function LeadDetailPage() {
         supabase
           .from('leads')
           .select(
-            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition,next_action_at,next_action_type'
+            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition,next_action_at,next_action_type,estimated_value,expected_close_at,owner_user_id'
           )
           .eq('id', id)
           .single(),
@@ -359,6 +406,32 @@ export function LeadDetailPage() {
     if (!lead || toStageId === lead.stage_id) return
     setSelectedStageId(toStageId)
     handleMoveStage(toStageId)
+  }
+
+  const handleSaveOpportunity = async () => {
+    if (!id) return
+    setSavingOpportunity(true)
+    setError(null)
+    setToast(null)
+    try {
+      const ev = estimatedValue.trim() ? parseFloat(estimatedValue.replace(/,/g, '')) : null
+      const eco = expectedCloseAt.trim()
+        ? ymdToLocalNoonISO(expectedCloseAt)
+        : null
+      await pipelineApi.updateLead(id, {
+        estimated_value: ev != null && !Number.isNaN(ev) ? ev : null,
+        expected_close_at: eco,
+      })
+      await loadData()
+      setToast({ kind: 'success', text: 'Oportunidad actualizada' })
+      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error al guardar'
+      setToast({ kind: 'error', text: msg })
+      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
+    } finally {
+      setSavingOpportunity(false)
+    }
   }
 
   const handleArchive = async () => {
@@ -942,6 +1015,74 @@ export function LeadDetailPage() {
               <div>Actualizado: {formatDateTime(lead.updated_at)}</div>
               {lead.stage_changed_at && (
                 <div>Último cambio de etapa: {formatDateTime(lead.stage_changed_at)}</div>
+              )}
+            </div>
+          </div>
+
+          {/* Opportunity — valor estimado, cierre esperado, owner (solo lectura) */}
+          <div
+            className="rounded-lg border border-border bg-bg/30 p-3.5"
+            style={{
+              transition: prefersReducedMotion ? 'none' : 'all 150ms ease-out',
+            }}
+          >
+            <h3 className="text-xs font-medium text-muted mb-1.5">
+              Oportunidad
+            </h3>
+            <div className="space-y-3">
+              <div>
+                <label htmlFor="estimated_value" className="block text-xs font-medium text-muted mb-1">
+                  Valor estimado
+                </label>
+                {lead.archived_at ? (
+                  <p className="text-sm text-muted py-1">{formatCurrencyMXN(lead.estimated_value)}</p>
+                ) : (
+                  <input
+                    id="estimated_value"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={estimatedValue}
+                    onChange={(e) => setEstimatedValue(e.target.value)}
+                    onBlur={handleSaveOpportunity}
+                    disabled={savingOpportunity}
+                    placeholder="0"
+                    className="w-full rounded-md border border-border px-3 py-2 text-sm tabular-nums"
+                  />
+                )}
+              </div>
+              <div>
+                <label htmlFor="expected_close_at" className="block text-xs font-medium text-muted mb-1">
+                  Cierre esperado
+                </label>
+                {lead.archived_at ? (
+                  <p className="text-sm text-muted py-1">
+                    {lead.expected_close_at
+                      ? formatDateMX(lead.expected_close_at)
+                      : '—'}
+                  </p>
+                ) : (
+                  <input
+                    id="expected_close_at"
+                    type="date"
+                    value={expectedCloseAt}
+                    onChange={(e) => setExpectedCloseAt(e.target.value)}
+                    onBlur={handleSaveOpportunity}
+                    disabled={savingOpportunity}
+                    className="w-full rounded-md border border-border px-3 py-2 text-sm"
+                  />
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">
+                  Owner
+                </label>
+                <p className="text-sm text-text py-1">
+                  {ownerDisplayName ?? (lead.owner_user_id ? '…' : '—')}
+                </p>
+              </div>
+              {savingOpportunity && (
+                <p className="text-xs text-muted">Guardando…</p>
               )}
             </div>
           </div>

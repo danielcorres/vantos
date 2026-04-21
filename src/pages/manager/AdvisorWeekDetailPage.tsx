@@ -27,6 +27,7 @@ import {
   getPrevWeekRangeLocal,
   fetchEventsForRange,
 } from '../../modules/okr/dashboard/weekCompareHelpers'
+import { AdvisorMilestonesSection } from '../../modules/advisors/ui/AdvisorMilestonesSection'
 
 export function AdvisorWeekDetailPage() {
   const { advisorId } = useParams<{ advisorId: string }>()
@@ -478,6 +479,15 @@ export function AdvisorWeekDetailPage() {
           Volver
         </button>
       </div>
+
+      {/* Hitos del asesor (solo se renderiza si advisor_status = 'asesor_12_meses') */}
+      {advisorId && (
+        <AdvisorMilestonesSection
+          advisorIds={[advisorId]}
+          nameByAdvisorId={new Map([[advisorId, getAdvisorName()]])}
+          title="Hitos del asesor"
+        />
+      )}
 
       {/* Comparativo semana pasada */}
       {prevStats ? (
