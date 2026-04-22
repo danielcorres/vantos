@@ -391,11 +391,24 @@ export function PipelineTableView({
     )
   }
 
+  /** Modo servidor (Registros): búsqueda/fuente/temperatura ya aplicados en la query. */
+  const hasActiveServerFilters =
+    activosLeads == null &&
+    (debouncedSearch.trim() !== '' ||
+      sourceFilter.trim() !== '' ||
+      temperatureFilter.trim() !== '')
+
+  const showActivosTrulyEmpty =
+    pipelineMode === 'activos' &&
+    activosLeads == null &&
+    serverActivosTotal === 0 &&
+    serverActivosLeads.length === 0 &&
+    !loading &&
+    !hasActiveServerFilters
+
   const showActivosEmptyState =
     pipelineMode === 'activos' &&
-    (activosLeads == null
-      ? serverActivosTotal === 0 && serverActivosLeads.length === 0 && !loading
-      : baseLeads.length === 0)
+    (activosLeads == null ? showActivosTrulyEmpty : baseLeads.length === 0)
   if (showActivosEmptyState) {
     return (
       <div className="space-y-4">
@@ -496,6 +509,27 @@ export function PipelineTableView({
           </div>
         </div>
       </div>
+
+      {pipelineMode === 'activos' &&
+        activosLeads == null &&
+        hasActiveServerFilters &&
+        serverActivosTotal === 0 &&
+        serverActivosLeads.length === 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-4 py-3 text-sm text-neutral-800">
+            <p className="mb-2">No hay leads que coincidan con los filtros actuales.</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('')
+                setSourceFilter('')
+                setTemperatureFilter('')
+              }}
+              className="text-sm font-medium text-neutral-900 underline-offset-2 hover:underline"
+            >
+              Quitar todos los filtros
+            </button>
+          </div>
+        )}
 
       {pipelineMode === 'archivados' ? (
         <div className="card overflow-x-auto">
