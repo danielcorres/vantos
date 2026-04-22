@@ -81,46 +81,60 @@ export function OkrHomePage() {
     setError(null)
 
     const today = todayLocalYmd()
+    const defaultStreak = { streak_days: 0, is_alive: false, grace_days_left: 0 }
 
-    let prof: Profile | null = null
-    try {
-      prof = await getMyProfile()
-    } catch {
-      // No bloquear inicio si el perfil falla
+    // Perfil + 3 consultas OKR en paralelo (antes en serie sumaban RTT de red).
+    const [profResult, progressResult, streakResult, scoresResult] = await Promise.allSettled([
+      getMyProfile(),
+      okrQueries.getPointsProgress(today),
+      okrQueries.getOkrStreakWithGrace(),
+      okrQueries.getMetricScores(),
+    ])
+
+    if (profResult.status === 'fulfilled') {
+      const prof = profResult.value
+      setWelcomeName(deriveWelcomeName(prof, user?.email ?? null))
+      setIsBirthday(isBirthdayToday(prof?.birth_date, today))
+    } else {
+      setWelcomeName(deriveWelcomeName(null, user?.email ?? null))
+      setIsBirthday(false)
     }
-    setWelcomeName(deriveWelcomeName(prof, user?.email ?? null))
-    setIsBirthday(isBirthdayToday(prof?.birth_date, today))
 
-    try {
-      const progressData = await okrQueries.getPointsProgress(today)
-      setProgress(progressData)
-
-      try {
-        const streakData = await okrQueries.getOkrStreakWithGrace()
-        setStreak({
-          streak_days: streakData.streak_days,
-          is_alive: streakData.is_alive,
-          grace_days_left: streakData.grace_days_left,
-        })
-      } catch (streakErr) {
-        console.warn('Error al cargar racha:', streakErr)
-        setStreak({ streak_days: 0, is_alive: false, grace_days_left: 0 })
-      }
-
-      const scores = await okrQueries.getMetricScores()
-      setScoresCount(scores.length)
-    } catch (err: unknown) {
-      const errorMsg = getErrorMessage(err)
-      setError(errorMsg)
-
+    if (progressResult.status === 'fulfilled') {
+      setProgress(progressResult.value)
+      setError(null)
+    } else {
+      const err = progressResult.reason
+      let errorMsg = getErrorMessage(err)
       if (isNetworkError(err)) {
-        setError('Supabase local no responde. Corre: supabase start')
+        errorMsg = 'Supabase local no responde. Corre: supabase start'
       } else if (isAuthError(err)) {
-        setError('Error de autenticación. Por favor, recarga la página.')
+        errorMsg = 'Error de autenticación. Por favor, recarga la página.'
       }
-    } finally {
-      setLoading(false)
+      setError(errorMsg)
+      setProgress(null)
     }
+
+    if (streakResult.status === 'fulfilled') {
+      const streakData = streakResult.value
+      setStreak({
+        streak_days: streakData.streak_days,
+        is_alive: streakData.is_alive,
+        grace_days_left: streakData.grace_days_left,
+      })
+    } else {
+      console.warn('Error al cargar racha:', streakResult.reason)
+      setStreak(defaultStreak)
+    }
+
+    if (scoresResult.status === 'fulfilled') {
+      setScoresCount(scoresResult.value.length)
+    } else {
+      console.warn('Error al cargar puntajes OKR:', scoresResult.reason)
+      setScoresCount(0)
+    }
+
+    setLoading(false)
   }, [user?.email])
 
   useEffect(() => {
