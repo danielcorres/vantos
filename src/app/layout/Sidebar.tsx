@@ -240,12 +240,12 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
 
   return (
     <div
-      className={`flex flex-col bg-surface border-r border-border transition-all duration-300 ${
+      className={`flex flex-col bg-surface dark:bg-neutral-900 border-r border-border dark:border-neutral-800 transition-all duration-300 ${
         collapsed && !isMobile ? 'w-16' : 'w-64'
       } ${isMobile ? 'w-64 h-full' : 'h-full'}`}
     >
       {/* Logo/Header */}
-      <div className={`px-4 pt-3 pb-2 border-b border-border flex flex-col items-center shrink-0 ${collapsed && !isMobile ? 'px-2' : ''}`}>
+      <div className={`px-4 pt-3 pb-2 border-b border-border dark:border-neutral-800 flex flex-col items-center shrink-0 ${collapsed && !isMobile ? 'px-2' : ''}`}>
         {isMobile ? (
           // Móvil: siempre VantLogo, más grande
           <>
@@ -266,10 +266,10 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
 
       {/* Botón colapsar (solo desktop) */}
       {!isMobile && (
-        <div className="flex justify-end p-1.5 border-b border-border shrink-0">
+        <div className="flex justify-end p-1.5 border-b border-border dark:border-neutral-800 shrink-0">
           <button
             onClick={() => setCollapsed(!collapsed)}
-            className="p-1.5 text-text hover:bg-black/5 rounded-lg transition-colors"
+            className="p-1.5 text-text dark:text-neutral-100 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors"
             aria-label={collapsed ? 'Expandir sidebar' : 'Colapsar sidebar'}
           >
             {collapsed ? <IconChevronRight className="w-4 h-4" /> : <IconChevronLeft className="w-4 h-4" />}
@@ -288,12 +288,12 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
             <div key={sectionIdx}>
               {/* Título de sección */}
               {(!collapsed || isMobile) && (
-                <div className="px-4 py-1 text-xs font-semibold text-muted uppercase tracking-wide mb-0.5">
+                <div className="px-4 py-1 text-xs font-semibold text-muted dark:text-neutral-400 uppercase tracking-wide mb-0.5">
                   {section.title}
                 </div>
               )}
               {collapsed && !isMobile && (
-                <div className="h-px bg-border my-1 mx-2" />
+                <div className="h-px bg-border dark:bg-neutral-700 my-1 mx-2" />
               )}
 
               {/* Items */}
@@ -318,8 +318,8 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
                             collapsed && !isMobile ? 'justify-center px-2' : ''
                           } ${
                             active
-                              ? 'bg-primary/10 text-primary border-l-4 border-primary'
-                              : 'text-text hover:bg-black/5'
+                              ? 'bg-primary/10 text-primary border-l-4 border-primary dark:bg-white/10 dark:text-neutral-100 dark:border-l-neutral-200'
+                              : 'text-text dark:text-neutral-100 hover:bg-black/5 dark:hover:bg-white/10'
                           }`
                         }}
                         onClick={handleNavClick}
@@ -346,19 +346,19 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
 
       {/* Footer - sticky en móvil */}
       <div
-        className={`p-3 border-t border-border space-y-1.5 shrink-0 bg-surface ${
+        className={`p-3 border-t border-border dark:border-neutral-800 space-y-1.5 shrink-0 bg-surface dark:bg-neutral-900 ${
           collapsed && !isMobile ? 'px-2' : ''
         } ${isMobile ? 'sticky bottom-0' : ''}`}
       >
         {(!collapsed || isMobile) && userEmail && (
-          <div className="text-xs text-muted px-2 truncate mb-0.5">{userEmail}</div>
+          <div className="text-xs text-muted dark:text-neutral-400 px-2 truncate mb-0.5">{userEmail}</div>
         )}
         <button
           onClick={() => {
             handleNavClick()
             onSignOut()
           }}
-          className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-text hover:bg-black/5 transition-colors ${
+          className={`w-full flex items-center gap-3 px-4 py-2 rounded-lg text-sm font-medium text-text dark:text-neutral-100 hover:bg-black/5 dark:hover:bg-white/10 transition-colors ${
             collapsed && !isMobile ? 'justify-center px-2' : ''
           }`}
         >

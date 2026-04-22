@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 
 /**
  * Sincroniza la clase `dark` en <html> con prefers-color-scheme.
- * Una sola llamada global (ej. en App). Sin state ni settings.
+ * (Hoy la app fuerza tema claro en App.tsx; este hook queda por si se reactiva.)
  */
 export function useAutoDarkClass() {
   useEffect(() => {

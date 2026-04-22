@@ -48,7 +48,7 @@ const SECTION_LABEL =
   'text-[11px] font-semibold uppercase tracking-wider text-neutral-500 dark:text-neutral-400'
 const FIELD_LABEL = 'block text-xs font-medium text-neutral-600 dark:text-neutral-400 mb-1'
 const CONTROL =
-  'w-full rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-2.5 py-1.5 text-sm text-neutral-900 dark:text-neutral-100 transition-[border-color,box-shadow] duration-150 focus-visible:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200/70 dark:focus-visible:ring-neutral-600/40 disabled:opacity-50'
+  'w-full rounded-lg border border-neutral-200 dark:border-neutral-600 bg-white dark:bg-neutral-900 px-2.5 py-1.5 text-sm text-neutral-900 dark:text-neutral-100 placeholder:text-neutral-500 dark:placeholder:text-neutral-400 transition-[border-color,box-shadow] duration-150 focus-visible:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-200/70 dark:focus-visible:ring-neutral-600/40 disabled:opacity-50'
 
 const SOURCE_OPTIONS = [
   { value: 'Referido', label: 'Referido' },
@@ -620,7 +620,7 @@ export function LeadDetailPage() {
               {lead.full_name || 'Lead sin nombre'}
             </h1>
             {lead.archived_at && (
-              <span className="inline-block rounded-full px-2 py-0.5 text-xs ring-1 bg-neutral-100 text-neutral-700 ring-neutral-200">
+              <span className="inline-block rounded-full px-2 py-0.5 text-xs ring-1 bg-neutral-100 text-neutral-700 ring-neutral-200 dark:bg-neutral-800 dark:text-neutral-200 dark:ring-neutral-600">
                 Archivado
               </span>
             )}
@@ -797,15 +797,15 @@ export function LeadDetailPage() {
           aria-labelledby="archive-modal-title"
           aria-describedby="archive-modal-description"
         >
-          <div className="bg-bg border border-border rounded-lg shadow-lg max-w-sm w-full p-4">
-            <h3 id="archive-modal-title" className="text-base font-semibold mb-2">
+          <div className="bg-bg dark:bg-neutral-900 border border-border dark:border-neutral-700 rounded-lg shadow-lg max-w-sm w-full p-4">
+            <h3 id="archive-modal-title" className="text-base font-semibold mb-2 text-text dark:text-neutral-100">
               Archivar lead
             </h3>
-            <p id="archive-modal-description" className="text-sm text-muted mb-3">
+            <p id="archive-modal-description" className="text-sm text-muted dark:text-neutral-400 mb-3">
               ¿Archivar este lead? Puedes agregar un motivo opcional.
             </p>
             <div className="mb-4">
-              <label htmlFor="archive_reason" className="block text-xs font-medium text-muted mb-1">
+              <label htmlFor="archive_reason" className="block text-xs font-medium text-muted dark:text-neutral-400 mb-1">
                 Motivo (opcional)
               </label>
               <textarea
@@ -814,7 +814,7 @@ export function LeadDetailPage() {
                 onChange={(e) => setArchiveReasonInput(e.target.value)}
                 placeholder="Ej. No contesta, fuera de mercado..."
                 rows={2}
-                className="w-full rounded-md border border-border px-2 py-1.5 text-sm resize-none"
+                className={`${CONTROL} resize-none`}
               />
             </div>
             <div className="flex gap-2 justify-end">

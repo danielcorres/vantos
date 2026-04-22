@@ -72,15 +72,15 @@ export function AppShell() {
 
   if (authLoading) {
     return (
-      <div className="flex flex-col justify-center items-center min-h-screen gap-4">
+      <div className="flex flex-col justify-center items-center min-h-screen gap-4 bg-bg dark:bg-neutral-950">
         <VantMark size={48} animated aria-label="VANT" />
-        <span className="text-muted">Cargando...</span>
+        <span className="text-muted dark:text-neutral-400">Cargando...</span>
         {authError && (
           <div className="card p-4 max-w-md text-center">
-            <div className="text-sm text-red-700 mb-3">{authError}</div>
+            <div className="text-sm text-red-700 dark:text-red-300 mb-3">{authError}</div>
             <button
               onClick={() => signOut()}
-              className="btn text-sm border border-border"
+              className="btn text-sm border border-border dark:border-neutral-600"
             >
               Cerrar sesión
             </button>
@@ -92,18 +92,18 @@ export function AppShell() {
 
   if (!user) {
     return (
-      <div className="flex flex-col justify-center items-center min-h-screen gap-4">
+      <div className="flex flex-col justify-center items-center min-h-screen gap-4 bg-bg dark:bg-neutral-950">
         <VantMark size={40} animated aria-label="VANT" />
-        <span className="text-muted">Redirigiendo...</span>
+        <span className="text-muted dark:text-neutral-400">Redirigiendo...</span>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-bg flex">
+    <div className="min-h-screen bg-bg dark:bg-neutral-950 flex">
       {/* Desktop Sidebar */}
       <aside
-        className="hidden md:block border-r border-border bg-surface sticky top-0 h-screen overflow-hidden transition-all duration-300"
+        className="hidden md:block border-r border-border bg-surface dark:bg-neutral-900 dark:border-neutral-800 sticky top-0 h-screen overflow-hidden transition-all duration-300"
         style={{ width: `${sidebarWidth}px` }}
       >
         <Sidebar
@@ -115,11 +115,11 @@ export function AppShell() {
       </aside>
 
       {/* Mobile Header */}
-      <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-surface border-b border-border">
+      <header className="md:hidden fixed top-0 left-0 right-0 z-50 bg-surface dark:bg-neutral-900 border-b border-border dark:border-neutral-800">
         <div className="flex items-center justify-center h-14 px-4 relative">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="absolute left-4 p-2 text-text hover:bg-black/5 rounded-lg transition-colors"
+            className="absolute left-4 p-2 text-text dark:text-neutral-100 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Abrir menú"
           >
             <IconMenu />
@@ -139,17 +139,17 @@ export function AppShell() {
           />
           {/* Sidebar Panel */}
           <aside
-            className="fixed top-0 left-0 w-64 bg-surface border-r border-border z-50 md:hidden shadow-xl transform transition-transform flex flex-col"
+            className="fixed top-0 left-0 w-64 bg-surface dark:bg-neutral-900 border-r border-border dark:border-neutral-800 z-50 md:hidden shadow-xl transform transition-transform flex flex-col"
             style={{ height: '100dvh' }}
             role="dialog"
             aria-modal="true"
             aria-label="Menú de navegación"
           >
-            <div className="flex items-center justify-between p-4 border-b border-border h-14 shrink-0">
-              <h2 className="text-base font-semibold text-text">Menú</h2>
+            <div className="flex items-center justify-between p-4 border-b border-border dark:border-neutral-800 h-14 shrink-0">
+              <h2 className="text-base font-semibold text-text dark:text-neutral-100">Menú</h2>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="p-2 text-text hover:bg-black/5 rounded-lg transition-colors"
+                className="p-2 text-text dark:text-neutral-100 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors"
                 aria-label="Cerrar menú"
               >
                 <IconX />
@@ -175,9 +175,9 @@ export function AppShell() {
           </div>
         </main>
         {/* Footer Global */}
-        <footer className="border-t border-border bg-surface py-4 px-4 sm:px-6 lg:px-8">
+        <footer className="border-t border-border dark:border-neutral-800 bg-surface dark:bg-neutral-900 py-4 px-4 sm:px-6 lg:px-8">
           <div className="w-full max-w-screen-2xl mx-auto text-center">
-            <p className="text-xs text-muted">
+            <p className="text-xs text-muted dark:text-neutral-400">
               Todos los derechos reservados © Vant 2026
             </p>
           </div>

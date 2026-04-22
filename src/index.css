@@ -8,19 +8,23 @@
 }
 
 @layer base {
+  html {
+    color-scheme: light dark;
+  }
+
   * {
     @apply box-border;
   }
 
   body {
-    @apply m-0 min-w-[320px] min-h-screen bg-surface text-text;
+    @apply m-0 min-w-[320px] min-h-screen bg-surface text-text dark:bg-neutral-950 dark:text-neutral-100;
     font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-semibold text-text;
+    @apply font-semibold text-text dark:text-neutral-100;
     line-height: 1.2;
   }
 
@@ -37,11 +41,11 @@
   }
 
   a {
-    @apply text-text no-underline;
+    @apply text-text no-underline dark:text-neutral-100;
   }
 
   a:focus-visible {
-    @apply outline-2 outline-offset-2 outline-primary;
+    @apply outline-2 outline-offset-2 outline-primary dark:outline-neutral-400;
   }
 
   input, select, textarea {
@@ -61,11 +65,11 @@
 
 @layer components {
   .card {
-    @apply bg-surface border border-border rounded-lg p-3.5;
+    @apply bg-surface border border-border rounded-lg p-3.5 dark:bg-neutral-900 dark:border-neutral-800;
   }
 
   .card-header {
-    @apply font-semibold text-base mb-3 pb-2 border-b-2 border-border;
+    @apply font-semibold text-base mb-3 pb-2 border-b-2 border-border dark:border-neutral-800;
   }
 
   .btn {
@@ -78,7 +82,7 @@
   }
 
   .btn-primary {
-    @apply bg-primary text-surface;
+    @apply bg-primary text-surface dark:bg-neutral-100 dark:text-neutral-950;
   }
 
   .btn-primary:hover:not(:disabled) {
@@ -86,11 +90,11 @@
   }
 
   .btn-ghost {
-    @apply bg-transparent text-text;
+    @apply bg-transparent text-text dark:text-neutral-100;
   }
 
   .btn-ghost:hover:not(:disabled) {
-    @apply bg-black/5;
+    @apply bg-black/5 dark:bg-white/10;
   }
 
   .badge {
@@ -110,13 +114,13 @@
   }
 
   .badge-none {
-    @apply bg-bg text-muted border border-border;
+    @apply bg-bg text-muted border border-border dark:bg-neutral-800/80 dark:text-neutral-300 dark:border-neutral-700;
   }
 
   .select {
-    @apply border border-border rounded-md px-2 py-1 text-xs;
+    @apply border border-border rounded-md px-2 py-1 text-xs dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100;
     font-family: inherit;
     @apply disabled:opacity-60 disabled:cursor-not-allowed;
-    @apply focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary;
+    @apply focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary dark:focus-visible:outline-neutral-400;
   }
 }

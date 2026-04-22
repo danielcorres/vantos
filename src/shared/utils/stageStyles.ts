@@ -15,12 +15,18 @@ export type StageSlug =
 
 /** Chip: paleta pastel por slug. Fallback gris si slug no coincide. */
 const SLUG_CHIP_CLASSES: Record<StageSlug, string> = {
-  contactos_nuevos: 'bg-sky-50 text-sky-700 ring-sky-200',       // azul claro
-  citas_agendadas: 'bg-amber-50 text-amber-700 ring-amber-200',   // amarillo
-  casos_abiertos: 'bg-indigo-50 text-indigo-700 ring-indigo-200', // azul fuerte
-  citas_cierre: 'bg-orange-50 text-orange-700 ring-orange-200',   // naranja
-  solicitudes_ingresadas: 'bg-violet-50 text-violet-700 ring-violet-200', // morado
-  casos_ganados: 'bg-emerald-50 text-emerald-700 ring-emerald-200', // verde
+  contactos_nuevos:
+    'bg-sky-50 text-sky-700 ring-sky-200 dark:bg-sky-950/50 dark:text-sky-100 dark:ring-sky-700/60',
+  citas_agendadas:
+    'bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-950/45 dark:text-amber-100 dark:ring-amber-700/55',
+  casos_abiertos:
+    'bg-indigo-50 text-indigo-700 ring-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-100 dark:ring-indigo-700/55',
+  citas_cierre:
+    'bg-orange-50 text-orange-700 ring-orange-200 dark:bg-orange-950/45 dark:text-orange-100 dark:ring-orange-700/55',
+  solicitudes_ingresadas:
+    'bg-violet-50 text-violet-700 ring-violet-200 dark:bg-violet-950/50 dark:text-violet-100 dark:ring-violet-700/55',
+  casos_ganados:
+    'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-950/45 dark:text-emerald-100 dark:ring-emerald-700/55',
 }
 
 /** Colores de acento (borde/barra) — tonos 200 por slug */
@@ -50,7 +56,9 @@ function isKnownSlug(slug: string | undefined): slug is StageSlug {
 /** Clases para chip de etapa. Recibe slug (no name). */
 export function getStageTagClasses(stageSlug: string | undefined): string {
   const slug = (stageSlug ?? '').trim()
-  if (!isKnownSlug(slug)) return `${CHIP_BASE} bg-slate-50 text-slate-600 ring-slate-200`
+  if (!isKnownSlug(slug)) {
+    return `${CHIP_BASE} bg-slate-50 text-slate-600 ring-slate-200 dark:bg-slate-800/70 dark:text-slate-200 dark:ring-slate-600/80`
+  }
   return `${CHIP_BASE} ${SLUG_CHIP_CLASSES[slug]}`
 }
 
