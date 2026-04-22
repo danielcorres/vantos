@@ -162,7 +162,7 @@ export function OkrWeekPage() {
   }, [weekOffset])
 
   const load = useCallback(async () => {
-    let isMounted = true
+    const isMounted = true
     
     setLoading(true)
     setError(null)

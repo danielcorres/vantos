@@ -3,7 +3,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import { RootLayout } from './RootLayout'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { AppShell } from './layout/AppShell'
-import { VantMark } from '../components/branding/VantMark'
+import { RouterErrorPage } from './RouterErrorPage'
 import { RoleGuard } from '../modules/auth/RoleGuard'
 import { PageSkeleton } from '../shared/components/PageSkeleton'
 import { LoginPage } from '../modules/auth/pages/LoginPage'
@@ -39,18 +39,6 @@ const PipelineSettingsPage = lazy(() =>
   import('../pages/PipelineSettingsPage').then((m) => ({ default: m.PipelineSettingsPage }))
 )
 
-function ErrorPage() {
-  return (
-    <div className="flex flex-col items-center justify-center min-h-screen gap-6 p-8 text-center">
-      <VantMark size={40} aria-label="VANT" />
-      <div>
-        <h1 className="text-xl font-semibold text-text mb-2">Error</h1>
-        <p className="text-muted">Algo salió mal. Por favor, intenta recargar la página.</p>
-      </div>
-    </div>
-  )
-}
-
 const OWNER_ROLES = ['owner', 'director', 'seguimiento'] as const
 const OWNER_DASHBOARD_ROLES = ['owner', 'director', 'seguimiento'] as const
 const ADVISOR_AREA_ROLES = ['advisor', 'owner', 'manager', 'recruiter', 'director', 'seguimiento', 'developer', 'super_admin'] as const
@@ -66,7 +54,7 @@ export const router = createBrowserRouter([
       {
         path: '/login',
         element: <LoginPage />,
-        errorElement: <ErrorPage />,
+        errorElement: <RouterErrorPage />,
       },
       {
         path: '/auth/reset',
@@ -75,7 +63,7 @@ export const router = createBrowserRouter([
       {
         path: '/',
         element: <AppShell />,
-        errorElement: <ErrorPage />,
+        errorElement: <RouterErrorPage />,
         children: [
       {
         index: true,

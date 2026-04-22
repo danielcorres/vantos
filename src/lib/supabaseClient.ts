@@ -3,12 +3,22 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 
 const SUPABASE_SINGLETON_KEY = '__vant_supabase__'
 
+type GlobalSupabaseStore = typeof globalThis & Record<string, SupabaseClient | undefined>
+
+function readCachedClient(): SupabaseClient | undefined {
+  const g = globalThis as GlobalSupabaseStore
+  return g[SUPABASE_SINGLETON_KEY]
+}
+
+function writeCachedClient(client: SupabaseClient): void {
+  const g = globalThis as GlobalSupabaseStore
+  g[SUPABASE_SINGLETON_KEY] = client
+}
+
 // Singleton resistente a Vite HMR
 function getSupabaseClient(): SupabaseClient {
-  // Verificar si ya existe en globalThis
-  if ((globalThis as any)[SUPABASE_SINGLETON_KEY]) {
-    return (globalThis as any)[SUPABASE_SINGLETON_KEY]
-  }
+  const cached = readCachedClient()
+  if (cached) return cached
 
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
@@ -17,12 +27,8 @@ function getSupabaseClient(): SupabaseClient {
     throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY')
   }
 
-  // Crear cliente una sola vez
   const client = createClient(supabaseUrl, supabaseAnonKey)
-  
-  // Guardar en globalThis para persistir entre HMR
-  ;(globalThis as any)[SUPABASE_SINGLETON_KEY] = client
-
+  writeCachedClient(client)
   return client
 }
 

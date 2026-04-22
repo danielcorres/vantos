@@ -57,7 +57,7 @@ export function TeamProfileList({
 
   // Calcular métricas cumplidas
   const getMetricsCompliance = (metrics: Record<string, number>) => {
-    const metricsWithMin = Object.entries(weeklyMinimums).filter(([_, min]) => min > 0)
+    const metricsWithMin = Object.entries(weeklyMinimums).filter(([, min]) => min > 0)
     const metricsMet = metricsWithMin.filter(([key, min]) => (metrics[key] || 0) >= min).length
     return { met: metricsMet, total: metricsWithMin.length }
   }

@@ -371,7 +371,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       didInitRef.current = false
       subscription.unsubscribe()
     }
-  }, [])
+  }, [loadUserRole, loadSystemOwnerId])
 
   return (
     <AuthContext.Provider value={{ user, session, role, systemOwnerId, loading, error, signOut }}>
@@ -380,6 +380,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components -- hook colocado con AuthProvider
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext)
   if (context === undefined) {

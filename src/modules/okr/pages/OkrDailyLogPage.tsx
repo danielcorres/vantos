@@ -60,7 +60,7 @@ export function OkrDailyLogPage() {
   const [inputValues, setInputValues] = useState<Record<string, string>>({})
 
   const loadData = useCallback(async () => {
-    let isMounted = true
+    const isMounted = true
     
     setLoading(true)
     try {

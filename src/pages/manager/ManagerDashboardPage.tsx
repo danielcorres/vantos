@@ -199,7 +199,7 @@ export function ManagerDashboardPage() {
         percentOfTarget: stat.percentOfTarget,
       }
     })
-  }, [weekStats, eventsWeek, scoresMap, weeklyMinimums, weeklyDays])
+  }, [weekStats, eventsWeek, scoresMap, weeklyMinimums])
 
   // Contar perfiles
   const profileCounts = useMemo(() => {

@@ -340,7 +340,7 @@ export function LeadDetailPage() {
     } else {
       blocker.reset()
     }
-  }, [blocker.state, blocker.proceed, blocker.reset, discardChanges])
+  }, [blocker, discardChanges])
 
   useEffect(() => {
     if (!dirty) return

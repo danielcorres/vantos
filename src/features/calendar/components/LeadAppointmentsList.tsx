@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { calendarApi } from '../api/calendar.api'
 import type { CalendarEvent } from '../types/calendar.types'
@@ -29,6 +29,8 @@ export function LeadAppointmentsList({ leadId }: LeadAppointmentsListProps) {
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
   const [historyOpen, setHistoryOpen] = useState(false)
+  /** Marca temporal para partir próximas vs historial sin llamar Date.now() en cada render. */
+  const [asOfMs, setAsOfMs] = useState(() => Date.now())
 
   const load = useCallback(() => {
     setLoading(true)
@@ -42,13 +44,21 @@ export function LeadAppointmentsList({ leadId }: LeadAppointmentsListProps) {
     load()
   }, [load])
 
-  const now = Date.now()
-  const upcoming = events.filter(
-    (e) => new Date(e.starts_at).getTime() >= now && e.status === 'scheduled'
-  )
-  const history = events.filter(
-    (e) => new Date(e.starts_at).getTime() < now || e.status !== 'scheduled'
-  )
+  useEffect(() => {
+    if (!loading) setAsOfMs(Date.now())
+  }, [loading, events])
+
+  const { upcoming, history } = useMemo(() => {
+    const now = asOfMs
+    return {
+      upcoming: events.filter(
+        (e) => new Date(e.starts_at).getTime() >= now && e.status === 'scheduled'
+      ),
+      history: events.filter(
+        (e) => new Date(e.starts_at).getTime() < now || e.status !== 'scheduled'
+      ),
+    }
+  }, [events, asOfMs])
 
   const goToCalendar = () => {
     navigate(`/calendar?lead=${encodeURIComponent(leadId)}`)

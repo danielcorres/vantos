@@ -3,12 +3,21 @@
  * Timezone canónica: America/Monterrey
  */
 
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { addDaysYmd } from '../../../shared/utils/dates'
 
 export type ActivityEventRow = {
   recorded_at: string
   metric_key: string
   value: number
+  actor_user_id: string
+}
+
+/** Fila mínima devuelta por el select en `fetchEventsForRange`. */
+type ActivityEventDbRow = {
+  recorded_at: string
+  metric_key: string
+  value: number | null
   actor_user_id: string
 }
 
@@ -55,7 +64,7 @@ export async function fetchEventsForRange({
   fromYmdInclusive,
   toYmdExclusive,
 }: {
-  supabase: any
+  supabase: SupabaseClient
   advisorIds: string[]
   fromYmdInclusive: string
   toYmdExclusive: string
@@ -82,10 +91,11 @@ export async function fetchEventsForRange({
     return []
   }
 
-  return (data || []).map((row: any) => ({
+  const rows = (data ?? []) as ActivityEventDbRow[]
+  return rows.map((row) => ({
     recorded_at: row.recorded_at,
     metric_key: row.metric_key,
-    value: row.value || 0,
+    value: row.value ?? 0,
     actor_user_id: row.actor_user_id,
   }))
 }

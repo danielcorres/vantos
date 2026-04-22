@@ -47,7 +47,7 @@ async function getStageIdBySlug(slug: CalendarStageSlug): Promise<string | null>
       stageIdBySlugCache.set(slug, stage.id)
       return stage.id
     }
-  } catch (_) {
+  } catch {
     // fall through to null
   }
   return null

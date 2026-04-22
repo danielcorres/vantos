@@ -148,7 +148,7 @@ export function OkrScoringPage() {
     if (!session || !user?.id) return
 
     loadScores()
-  }, [authLoading, session?.access_token, user?.id, loadScores])
+  }, [authLoading, session, user?.id, loadScores])
 
   // Cargar otros datos solo cuando la sesión esté lista y el usuario pueda ver la configuración
   useEffect(() => {
@@ -158,7 +158,7 @@ export function OkrScoringPage() {
     if (role !== 'owner' && !(user?.id && systemOwnerId && user.id === systemOwnerId)) return
 
     loadData()
-  }, [authLoading, session?.access_token, user?.id, roleLoading, role, systemOwnerId, loadData])
+  }, [authLoading, session, user?.id, roleLoading, role, systemOwnerId, loadData])
 
   // Debug: log temporal para verificar valores (hook ejecutado siempre, ANTES de early returns)
   useEffect(() => {

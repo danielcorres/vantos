@@ -36,6 +36,15 @@ const METRIC_ORDER = [
   'policies_paid',
 ] as const
 
+function leaderboardSortIndicator(
+  field: 'points' | 'status',
+  activeField: 'points' | 'status',
+  direction: 'asc' | 'desc'
+): string | null {
+  if (activeField !== field) return null
+  return direction === 'asc' ? '↑' : '↓'
+}
+
 export function TeamWeeklyLeaderboardTable({
   weekStats,
   weeklyTarget,
@@ -140,11 +149,6 @@ export function TeamWeeklyLeaderboardTable({
     }
   }
 
-  const SortIcon = ({ field }: { field: 'points' | 'status' }) => {
-    if (sortField !== field) return null
-    return sortDirection === 'asc' ? '↑' : '↓'
-  }
-
   const handleRowClick = (advisorId: string) => {
     if (onAdvisorClick) {
       onAdvisorClick(advisorId)
@@ -198,13 +202,13 @@ export function TeamWeeklyLeaderboardTable({
                 className="sticky left-0 z-10 bg-bg text-left py-1.5 px-4 text-xs font-semibold text-muted uppercase cursor-pointer hover:bg-black/5 min-w-[120px] border-r border-border"
                 onClick={() => handleSort('points')}
               >
-                Asesor <SortIcon field="points" />
+                Asesor {leaderboardSortIndicator('points', sortField, sortDirection)}
               </th>
               <th
                 className="text-right py-1.5 px-4 text-xs font-semibold text-muted uppercase cursor-pointer hover:bg-black/5 min-w-[70px]"
                 onClick={() => handleSort('points')}
               >
-                Puntos <SortIcon field="points" />
+                Puntos {leaderboardSortIndicator('points', sortField, sortDirection)}
               </th>
               <th className="text-right py-1.5 px-4 text-xs font-semibold text-muted uppercase min-w-[70px]">% de meta</th>
               {METRIC_ORDER.map((metricKey) => {
@@ -224,7 +228,7 @@ export function TeamWeeklyLeaderboardTable({
                 onClick={() => handleSort('status')}
               >
                 <div className="flex items-center justify-center gap-1">
-                  Estado <SortIcon field="status" />
+                  Estado {leaderboardSortIndicator('status', sortField, sortDirection)}
                   <div className="w-3 h-3 flex items-center justify-center bg-black/5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-help">
                     <span className="text-[8px] text-muted">ⓘ</span>
                   </div>
