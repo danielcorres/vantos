@@ -79,9 +79,9 @@ Flujo de creación de lead, weeklyMode, conectividad Productividad ↔ Pipeline 
 - [ ] **Modal — Fecha inválida:** Intentar guardar con fecha inválida muestra error en el modal y no cierra.
 - [ ] **Filtros:** Labels "Se me pasó", "Hoy", "Esta semana", "Más adelante" (query param `?na=` igual: overdue|today|week|later).
 - [ ] **Marcar como hecho:** En menú "Actualizar ▾" (tabla y Kanban) existe "Marcar como hecho" cuando next_action_type es contact o meeting.
-- [ ] **Al marcar:** Si contact → incrementa contacts_made; si meeting → incrementa meetings_done. Toast "Listo. Define el siguiente paso.", se abre modal para elegir siguiente next_action_at.
+- [ ] **Al marcar:** Si contact → incrementa **calls**; si meeting → incrementa **meetings_held**. Toast "Listo. Define el siguiente paso.", se abre modal para elegir siguiente next_action_at.
 - [ ] **Error RPC:** Si falla el registro, toast "No se pudo registrar" y NO se abre modal.
-- [ ] **Métricas:** Verificar en OKR/Daily Log que contacts_made y meetings_done se muestran tras completar pasos.
+- [ ] **Métricas:** Verificar en OKR/Daily Log que suben **Llamadas** o **Citas realizadas** (no métricas duplicadas del catálogo).
 - [ ] **TZ Monterrey:** Fechas y buckets de filtros usan America/Monterrey consistentemente.
 
 ---

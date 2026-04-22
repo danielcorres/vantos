@@ -255,7 +255,7 @@ export const pipelineApi = {
     if (error) throw error
   },
 
-  /** Registra completado de próximo paso (contact→contacts_made, meeting→meetings_done). */
+  /** Registra completado de próximo paso (contact→calls, meeting→meetings_held vía RPC). */
   async logNextActionCompletion(leadId: string, actionType: 'contact' | 'meeting'): Promise<void> {
     const { error } = await supabase.rpc('log_next_action_completion', {
       p_lead_id: leadId,

@@ -4,10 +4,13 @@
  */
 
 // Labels largos (default): textos completos para UI/tablas (Title Case)
+// contacts_made / meetings_done: claves legacy en activity_events (métricas desactivadas en BD)
 const METRIC_LABELS_LONG: Record<string, string> = {
   calls: 'Llamadas',
+  contacts_made: 'Llamadas',
   meetings_set: 'Citas agendadas',
   meetings_held: 'Citas realizadas',
+  meetings_done: 'Citas realizadas',
   proposals_presented: 'Propuestas presentadas',
   applications_submitted: 'Solicitudes ingresadas',
   referrals: 'Referidos',
@@ -17,8 +20,10 @@ const METRIC_LABELS_LONG: Record<string, string> = {
 // Labels cortos: textos compactos para strings tipo "Hoy" o chips (pero consistentes)
 const METRIC_LABELS_SHORT: Record<string, string> = {
   calls: 'Llamadas',
+  contacts_made: 'Llamadas',
   meetings_set: 'Citas',
   meetings_held: 'Reuniones',
+  meetings_done: 'Reuniones',
   proposals_presented: 'Propuestas',
   applications_submitted: 'Solicitudes',
   referrals: 'Referidos',
