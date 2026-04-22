@@ -13,6 +13,25 @@ function normalizeNextActionType(t: string | null | undefined): string | null {
 const LEAD_SELECT_COLUMNS =
   'id,owner_user_id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason,referral_name,cita_realizada_at,propuesta_presentada_at,cerrado_at,lead_condition,next_action_at,next_action_type,estimated_value,expected_close_at,temperature'
 
+/** Tamaño de página por etapa en Kanban y página por defecto en listas. */
+export const PIPELINE_STAGE_PAGE_SIZE = 50
+
+export type ActivosQueryParams = {
+  offset: number
+  limit: number
+  /** Búsqueda en nombre, teléfono o email (ilike) */
+  search?: string
+  source?: string
+  /** '' | '__null__' | frio | tibio | caliente */
+  temperature?: string
+  /** Si viene, limita a estos ids (p. ej. filtro semanal) */
+  idsIn?: string[] | null
+}
+
+function escapeIlikePattern(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_')
+}
+
 export type LeadTemperature = 'frio' | 'tibio' | 'caliente'
 
 function parseLeadTemperature(v: unknown): LeadTemperature | null {
@@ -138,6 +157,137 @@ export const pipelineApi = {
       .not('archived_at', 'is', null)
     if (error) throw error
     return (data || []).map(normalizeLead)
+  },
+
+  /** Total de leads activos (sin archivar). */
+  async getActiveLeadsTotalCount(): Promise<number> {
+    const { count, error } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .is('archived_at', null)
+    if (error) throw error
+    return count ?? 0
+  },
+
+  /** Total archivados. */
+  async getArchivedLeadsTotalCount(): Promise<number> {
+    const { count, error } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .not('archived_at', 'is', null)
+    if (error) throw error
+    return count ?? 0
+  },
+
+  /** Conteo de activos por etapa (en paralelo). */
+  async getActiveLeadCountsByStages(stageIds: string[]): Promise<Record<string, number>> {
+    const results = await Promise.all(
+      stageIds.map(async (stageId) => {
+        const { count, error } = await supabase
+          .from('leads')
+          .select('id', { count: 'exact', head: true })
+          .eq('stage_id', stageId)
+          .is('archived_at', null)
+        if (error) throw error
+        return [stageId, count ?? 0] as const
+      })
+    )
+    return Object.fromEntries(results)
+  },
+
+  /**
+   * Activos en una etapa, orden alineado con Kanban (next_action_at asc, nulls last, id).
+   */
+  async getLeadsForStage(
+    stageId: string,
+    opts: { offset: number; limit?: number }
+  ): Promise<Lead[]> {
+    const limit = opts.limit ?? PIPELINE_STAGE_PAGE_SIZE
+    const end = opts.offset + limit - 1
+    const { data, error } = await supabase
+      .from('leads')
+      .select(LEAD_SELECT_COLUMNS)
+      .eq('stage_id', stageId)
+      .is('archived_at', null)
+      .order('next_action_at', { ascending: true, nullsFirst: false })
+      .order('id', { ascending: true })
+      .range(opts.offset, end)
+    if (error) throw error
+    return (data || []).map(normalizeLead)
+  },
+
+  /** Carga activos por ids (p. ej. filtro semanal sin traer todo el pipeline). */
+  async getLeadsByIds(ids: string[]): Promise<Lead[]> {
+    if (ids.length === 0) return []
+    const { data, error } = await supabase
+      .from('leads')
+      .select(LEAD_SELECT_COLUMNS)
+      .in('id', ids)
+      .is('archived_at', null)
+    if (error) throw error
+    return (data || []).map(normalizeLead)
+  },
+
+  /**
+   * Lista activos con filtros y total (misma consulta con count).
+   * Orden: next_action_at asc nulls last, id (coherente con Kanban por prioridad de fecha).
+   */
+  async queryActivosLeads(params: ActivosQueryParams): Promise<{ leads: Lead[]; total: number }> {
+    if (params.idsIn !== undefined && params.idsIn !== null && params.idsIn.length === 0) {
+      return { leads: [], total: 0 }
+    }
+    const limit = params.limit
+    const end = params.offset + limit - 1
+    let q = supabase
+      .from('leads')
+      .select(LEAD_SELECT_COLUMNS, { count: 'exact' })
+      .is('archived_at', null)
+
+    if (params.idsIn && params.idsIn.length > 0) {
+      q = q.in('id', params.idsIn)
+    }
+
+    const qTrim = params.search?.trim()
+    if (qTrim) {
+      const safe = escapeIlikePattern(qTrim.replace(/,/g, ' '))
+      const pattern = `%${safe}%`
+      q = q.or(`full_name.ilike.${pattern},phone.ilike.${pattern},email.ilike.${pattern}`)
+    }
+
+    const src = params.source?.trim()
+    if (src) {
+      q = q.eq('source', src)
+    }
+
+    const temp = params.temperature?.trim() ?? ''
+    if (temp === '__null__') {
+      q = q.is('temperature', null)
+    } else if (temp === 'frio' || temp === 'tibio' || temp === 'caliente') {
+      q = q.eq('temperature', temp)
+    }
+
+    const { data, error, count } = await q
+      .order('next_action_at', { ascending: true, nullsFirst: false })
+      .order('id', { ascending: true })
+      .range(params.offset, end)
+
+    if (error) throw error
+    return { leads: (data || []).map(normalizeLead), total: count ?? 0 }
+  },
+
+  /** Archivados paginados (más recientes primero). */
+  async queryArchivedLeadsPage(opts: { offset: number; limit?: number }): Promise<{ leads: Lead[]; total: number }> {
+    const limit = opts.limit ?? PIPELINE_STAGE_PAGE_SIZE
+    const end = opts.offset + limit - 1
+    const { data, error, count } = await supabase
+      .from('leads')
+      .select(LEAD_SELECT_COLUMNS, { count: 'exact' })
+      .not('archived_at', 'is', null)
+      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
+      .range(opts.offset, end)
+    if (error) throw error
+    return { leads: (data || []).map(normalizeLead), total: count ?? 0 }
   },
 
   async createLead(input: CreateLeadInput): Promise<Lead> {

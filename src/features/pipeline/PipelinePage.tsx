@@ -1,6 +1,6 @@
 import { useEffect, useReducer, useState, useRef, useMemo, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { pipelineApi, type Lead } from './pipeline.api'
+import { pipelineApi, type Lead, PIPELINE_STAGE_PAGE_SIZE } from './pipeline.api'
 import {
   pipelineReducer,
   generateIdempotencyKey,
@@ -140,10 +140,28 @@ export function PipelinePage() {
     return state.leads.filter((l) => weeklyLeadIds.has(l.id))
   }, [weeklyMode, weeklyLeadIds, state.leads])
 
+  useEffect(() => {
+    if (!weeklyMode || weeklyLeadIds === null || weeklyLeadIds.size === 0) return
+    const ids = [...weeklyLeadIds]
+    let cancelled = false
+    void pipelineApi.getLeadsByIds(ids).then((rows) => {
+      if (!cancelled) dispatch({ type: 'UPSERT_LEADS', payload: { leads: rows } })
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [weeklyMode, weeklyLeadIds, dispatch])
+
   const [pipelineMode, setPipelineMode] = useState<'activos' | 'archivados'>('activos')
   const [groupByStage, setGroupByStage] = useState(true)
   const [tableCounts, setTableCounts] = useState({ activos: 0, archivados: 0 })
   const [tableVisibleCount, setTableVisibleCount] = useState<number | null>(null)
+  const [stageLoadMeta, setStageLoadMeta] = useState<Record<string, { total: number; loaded: number }>>({})
+  const [kanbanStageLoadingMore, setKanbanStageLoadingMore] = useState<string | null>(null)
+  const stageLoadMetaRef = useRef(stageLoadMeta)
+  useEffect(() => {
+    stageLoadMetaRef.current = stageLoadMeta
+  }, [stageLoadMeta])
 
   const clearWeeklyMode = () => {
     setSearchParams((prev) => {
@@ -157,10 +175,25 @@ export function PipelinePage() {
   const loadData = async () => {
     dispatch({ type: 'LOAD_START' })
     try {
-      const [stages, leads] = await Promise.all([
-        pipelineApi.getStages(),
-        pipelineApi.getLeads('activos'),
+      const stages = await pipelineApi.getStages()
+      const stageIds = stages.map((s) => s.id)
+      const [counts, activosTotal, archTotal] = await Promise.all([
+        pipelineApi.getActiveLeadCountsByStages(stageIds),
+        pipelineApi.getActiveLeadsTotalCount(),
+        pipelineApi.getArchivedLeadsTotalCount(),
       ])
+      const pages = await Promise.all(
+        stageIds.map((sid) =>
+          pipelineApi.getLeadsForStage(sid, { offset: 0, limit: PIPELINE_STAGE_PAGE_SIZE })
+        )
+      )
+      const leads = pages.flat()
+      const meta: Record<string, { total: number; loaded: number }> = {}
+      stageIds.forEach((sid, i) => {
+        meta[sid] = { total: counts[sid] ?? 0, loaded: pages[i].length }
+      })
+      setStageLoadMeta(meta)
+      setTableCounts({ activos: activosTotal, archivados: archTotal })
       dispatch({ type: 'LOAD_SUCCESS', payload: { stages, leads } })
     } catch (err: unknown) {
       dispatch({ type: 'LOAD_ERROR', payload: err instanceof Error ? err.message : 'Error al cargar datos' })
@@ -187,16 +220,84 @@ export function PipelinePage() {
     [dispatch]
   )
 
-  /** Refetch sin loading global. Mantiene la UI visible durante actualizaciones inline. */
+  /** Refetch completo (primera página por etapa + conteos). */
   const refreshDataSilent = useCallback(async () => {
     try {
-      const [stages, leads] = await Promise.all([
-        pipelineApi.getStages(),
-        pipelineApi.getLeads('activos'),
+      let stages = state.stages
+      if (!stages.length) {
+        stages = await pipelineApi.getStages()
+      }
+      const stageIds = stages.map((s) => s.id)
+      const [counts, activosTotal, archTotal] = await Promise.all([
+        pipelineApi.getActiveLeadCountsByStages(stageIds),
+        pipelineApi.getActiveLeadsTotalCount(),
+        pipelineApi.getArchivedLeadsTotalCount(),
       ])
+      const pages = await Promise.all(
+        stageIds.map((sid) =>
+          pipelineApi.getLeadsForStage(sid, { offset: 0, limit: PIPELINE_STAGE_PAGE_SIZE })
+        )
+      )
+      const leads = pages.flat()
+      const meta: Record<string, { total: number; loaded: number }> = {}
+      stageIds.forEach((sid, i) => {
+        meta[sid] = { total: counts[sid] ?? 0, loaded: pages[i].length }
+      })
+      setStageLoadMeta(meta)
+      setTableCounts({ activos: activosTotal, archivados: archTotal })
       dispatch({ type: 'LOAD_SUCCESS', payload: { stages, leads } })
     } catch (err: unknown) {
       dispatch({ type: 'LOAD_ERROR', payload: err instanceof Error ? err.message : 'Error al cargar datos' })
+    }
+  }, [dispatch, state.stages])
+
+  const refreshAffectedStages = useCallback(
+    async (fromStageId: string, toStageId: string) => {
+      const ids = fromStageId === toStageId ? [fromStageId] : [fromStageId, toStageId]
+      const metaNow = stageLoadMetaRef.current
+      try {
+        const counts = await pipelineApi.getActiveLeadCountsByStages(ids)
+        const pages = await Promise.all(
+          ids.map((sid) => {
+            const cap = Math.max(metaNow[sid]?.loaded ?? 0, PIPELINE_STAGE_PAGE_SIZE)
+            return pipelineApi.getLeadsForStage(sid, { offset: 0, limit: cap })
+          })
+        )
+        dispatch({ type: 'REFRESH_STAGES_DATA', payload: { stageIds: ids, leads: pages.flat() } })
+        setStageLoadMeta((m) => {
+          const next = { ...m }
+          ids.forEach((sid, i) => {
+            next[sid] = { total: counts[sid] ?? 0, loaded: pages[i].length }
+          })
+          return next
+        })
+      } catch {
+        await refreshDataSilent()
+      }
+    },
+    [dispatch, refreshDataSilent]
+  )
+
+  const handleLoadMoreStage = useCallback(async (stageId: string) => {
+    const meta = stageLoadMetaRef.current[stageId]
+    if (!meta || meta.loaded >= meta.total) return
+    setKanbanStageLoadingMore(stageId)
+    try {
+      const next = await pipelineApi.getLeadsForStage(stageId, {
+        offset: meta.loaded,
+        limit: PIPELINE_STAGE_PAGE_SIZE,
+      })
+      if (next.length === 0) return
+      dispatch({ type: 'APPEND_LEADS', payload: { leads: next } })
+      setStageLoadMeta((m) => ({
+        ...m,
+        [stageId]: {
+          total: m[stageId]?.total ?? 0,
+          loaded: (m[stageId]?.loaded ?? 0) + next.length,
+        },
+      }))
+    } finally {
+      setKanbanStageLoadingMore(null)
     }
   }, [dispatch])
 
@@ -204,6 +305,8 @@ export function PipelinePage() {
     const newLead = await pipelineApi.createLead(data)
     dispatch({ type: 'CREATE_LEAD', payload: newLead })
     setIsModalOpen(false)
+    setCreateStageId(undefined)
+    await refreshAffectedStages(newLead.stage_id, newLead.stage_id)
   }
 
   const handleCreateLeadFromStage = useCallback((stageId: string) => {
@@ -253,7 +356,7 @@ export function PipelinePage() {
       )
       try {
         await pipelineApi.moveLeadStage(draggedLead.id, toStageId, idempotencyKey)
-        await refreshDataSilent()
+        await refreshAffectedStages(fromStageId, toStageId)
       } catch {
         dispatch({
           type: 'MOVE_ROLLBACK',
@@ -271,7 +374,7 @@ export function PipelinePage() {
         setDraggedLead(null)
       }
     },
-    [draggedLead, dispatch, refreshDataSilent]
+    [draggedLead, dispatch, refreshAffectedStages]
   )
 
   /**
@@ -305,7 +408,7 @@ export function PipelinePage() {
     const idempotencyKey = generateIdempotencyKey(leadId, fromStageId, toStageId)
     try {
       await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
-      await refreshDataSilent()
+      await refreshAffectedStages(fromStageId, toStageId)
       setPipelineToast({
         type: 'success',
         message: stageName ? `Movido a ${displayStageName(stageName)}` : 'Etapa actualizada',
@@ -330,7 +433,7 @@ export function PipelinePage() {
         })
       })
     }
-  }, [state.leads, state.stages, dispatch, refreshDataSilent])
+  }, [state.leads, state.stages, dispatch, refreshAffectedStages])
 
   if (state.loading) {
     return (
@@ -589,7 +692,7 @@ export function PipelinePage() {
 
       {activeTab === 'records' && (
         <PipelineRecordsView
-          activosLeads={displayedLeads}
+          activosLeads={activeTab === 'records' ? null : displayedLeads}
           pipelineMode={pipelineMode}
           groupByStage={groupByStage}
           onCountsChange={setTableCounts}
@@ -626,6 +729,9 @@ export function PipelinePage() {
           <KanbanBoard
             stages={state.stages}
             leads={displayedLeads}
+            stageLoadMeta={stageLoadMeta}
+            loadingMoreStageId={kanbanStageLoadingMore}
+            onLoadMoreStage={handleLoadMoreStage}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
@@ -678,10 +784,10 @@ export function PipelinePage() {
               message:
                 'Se guardó la próxima acción pero no se pudo mover la etapa. Intenta mover de nuevo.',
             })
-            await refreshDataSilent()
+            await refreshAffectedStages(pendingMove.fromStageId, pendingMove.toStageId)
             return
           }
-          await refreshDataSilent()
+          await refreshAffectedStages(pendingMove.fromStageId, pendingMove.toStageId)
           const stageName = state.stages.find((s) => s.id === pendingMove.toStageId)?.name
           setPipelineToast({
             type: 'success',

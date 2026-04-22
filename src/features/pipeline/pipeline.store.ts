@@ -30,6 +30,12 @@ export type PipelineAction =
       }
     }
   | { type: 'DELETE_LEAD'; payload: string }
+  /** Añade leads nuevos (evita duplicar por id). */
+  | { type: 'APPEND_LEADS'; payload: { leads: Lead[] } }
+  /** Sustituye en memoria todos los leads de las etapas indicadas por los del payload (merge por id). */
+  | { type: 'REFRESH_STAGES_DATA'; payload: { stageIds: string[]; leads: Lead[] } }
+  /** Reemplaza leads por id (p. ej. carga semanal puntual). */
+  | { type: 'UPSERT_LEADS'; payload: { leads: Lead[] } }
 
 export function pipelineReducer(
   state: PipelineState,
@@ -103,6 +109,30 @@ export function pipelineReducer(
         ...state,
         leads: state.leads.filter((lead) => lead.id !== action.payload),
       }
+
+    case 'APPEND_LEADS': {
+      const seen = new Set(state.leads.map((l) => l.id))
+      const add = action.payload.leads.filter((l) => !seen.has(l.id))
+      return { ...state, leads: [...state.leads, ...add] }
+    }
+
+    case 'REFRESH_STAGES_DATA': {
+      const ids = new Set(action.payload.stageIds)
+      const rest = state.leads.filter((l) => !ids.has(l.stage_id))
+      const incomingIds = new Set(action.payload.leads.map((l) => l.id))
+      const restNoDup = rest.filter((l) => !incomingIds.has(l.id))
+      return { ...state, leads: [...restNoDup, ...action.payload.leads] }
+    }
+
+    case 'UPSERT_LEADS': {
+      const incoming = action.payload.leads
+      if (incoming.length === 0) return state
+      const incomingIds = new Set(incoming.map((l) => l.id))
+      return {
+        ...state,
+        leads: [...state.leads.filter((l) => !incomingIds.has(l.id)), ...incoming],
+      }
+    }
 
     default:
       return state

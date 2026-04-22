@@ -14,6 +14,12 @@ interface KanbanColumnProps {
   stage: PipelineStage
   stages: PipelineStage[]
   leads: Lead[]
+  /** Total en servidor para esta etapa (cabecera). Si no viene, se usa leads.length. */
+  totalInStage?: number
+  loadedInStage?: number
+  hasMoreInStage?: boolean
+  loadingMore?: boolean
+  onLoadMore?: () => void | Promise<void>
   onDragStart: (e: React.DragEvent, lead: Lead) => void
   onDragOver: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent, stageId: string) => void
@@ -26,6 +32,11 @@ function KanbanColumnInner({
   stage,
   stages,
   leads,
+  totalInStage,
+  loadedInStage,
+  hasMoreInStage,
+  loadingMore,
+  onLoadMore,
   onDragStart,
   onDragOver,
   onDrop,
@@ -37,6 +48,12 @@ function KanbanColumnInner({
 
   const sortedLeads = useMemo(() => sortLeadsByNextActionPriority(leads), [leads])
   const counts = useMemo(() => aggregateNextActionColumnCounts(leads), [leads])
+  const headerTotal = totalInStage ?? counts.total
+  const showPartialHint =
+    typeof loadedInStage === 'number' &&
+    typeof totalInStage === 'number' &&
+    totalInStage > 0 &&
+    loadedInStage < totalInStage
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
@@ -81,7 +98,12 @@ function KanbanColumnInner({
           />
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-          <span className="tabular-nums text-neutral-400">{counts.total} leads</span>
+          <span className="tabular-nums text-neutral-400">
+            {headerTotal} leads
+            {showPartialHint ? (
+              <span className="text-neutral-400 font-normal"> · mostrando {loadedInStage}</span>
+            ) : null}
+          </span>
           {counts.overdue > 0 && (
             <span className="tabular-nums text-red-600 font-medium" title="Atrasados">
               {counts.overdue} atrasados
@@ -113,6 +135,18 @@ function KanbanColumnInner({
                 onUpdated={onUpdated}
               />
             ))}
+            {hasMoreInStage && onLoadMore ? (
+              <button
+                type="button"
+                onClick={() => void onLoadMore()}
+                disabled={loadingMore}
+                className="mt-1 w-full rounded-lg border border-dashed border-neutral-300 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                {loadingMore
+                  ? 'Cargando…'
+                  : `Cargar más${typeof loadedInStage === 'number' && typeof totalInStage === 'number' ? ` (${loadedInStage} de ${totalInStage})` : ''}`}
+              </button>
+            ) : null}
           </div>
         )}
       </div>

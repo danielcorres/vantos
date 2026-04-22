@@ -159,6 +159,8 @@ export function LeadDetailPage() {
   const actionsRef = useRef<HTMLDivElement>(null)
   /** Evita marcar dirty hasta que el formulario refleje el lead de la ruta (evita bloqueo fantasma al cargar). */
   const [leadFormHydrated, setLeadFormHydrated] = useState(false)
+  /** Permite un intento de navegación sin pasar por useBlocker (p. ej. Regresar tras confirmar o con estado desfasado). */
+  const bypassNavigationBlockRef = useRef(false)
 
   // Reduced motion
   const prefersReducedMotion = useReducedMotion()
@@ -333,10 +335,19 @@ export function LeadDetailPage() {
         discardChanges()
       })
     }
-    void navigate(-1)
+    bypassNavigationBlockRef.current = true
+    try {
+      void navigate(-1)
+    } finally {
+      queueMicrotask(() => {
+        bypassNavigationBlockRef.current = false
+      })
+    }
   }, [dirty, discardChanges, navigate])
 
-  const blocker = useBlocker(dirty)
+  const blocker = useBlocker(
+    useCallback(() => dirty && !bypassNavigationBlockRef.current, [dirty])
+  )
 
   useEffect(() => {
     if (blocker.state !== 'blocked') return
@@ -715,11 +726,11 @@ export function LeadDetailPage() {
           <button
             type="button"
             onClick={handleGoBack}
-            className="btn btn-ghost border border-border text-xs"
+            className="relative z-30 btn btn-ghost border border-border text-xs"
           >
             Regresar
           </button>
-          <div className="relative" ref={actionsRef}>
+          <div className="relative z-10" ref={actionsRef}>
             <button
               type="button"
               onClick={(e) => {

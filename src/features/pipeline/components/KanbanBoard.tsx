@@ -9,6 +9,10 @@ import type { PipelineStageLite } from '../../../components/pipeline/LeadProgres
 interface KanbanBoardProps {
   stages: PipelineStage[]
   leads: Lead[]
+  /** Totales por etapa y cuántos están cargados (Kanban paginado). */
+  stageLoadMeta?: Record<string, { total: number; loaded: number }>
+  loadingMoreStageId?: string | null
+  onLoadMoreStage?: (stageId: string) => void | Promise<void>
   onDragStart: (e: React.DragEvent, lead: Lead) => void
   onDragOver: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent, stageId: string) => void
@@ -21,6 +25,9 @@ interface KanbanBoardProps {
 export function KanbanBoard({
   stages,
   leads,
+  stageLoadMeta = {},
+  loadingMoreStageId = null,
+  onLoadMoreStage,
   onDragStart,
   onDragOver,
   onDrop,
@@ -137,6 +144,23 @@ export function KanbanBoard({
                   variant="kanban"
                 />
               ))}
+              {(() => {
+                const meta = stageLoadMeta[mobileStageId]
+                const hasMore = meta != null && meta.loaded < meta.total
+                if (!hasMore || !onLoadMoreStage) return null
+                return (
+                  <button
+                    type="button"
+                    onClick={() => void onLoadMoreStage(mobileStageId)}
+                    disabled={loadingMoreStageId === mobileStageId}
+                    className="w-full rounded-lg border border-dashed border-neutral-300 py-2 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+                  >
+                    {loadingMoreStageId === mobileStageId
+                      ? 'Cargando…'
+                      : `Cargar más (${meta.loaded} de ${meta.total})`}
+                  </button>
+                )
+              })()}
             </div>
           )}
         </div>
@@ -145,20 +169,28 @@ export function KanbanBoard({
       {/* DESKTOP: tablero completo con drag & drop (se mantiene) */}
       <div className="hidden md:block -mx-4 px-4 pb-4 overflow-x-auto">
         <div className="flex gap-3 items-start min-w-max">
-          {stages.map((stage) => (
-            <KanbanColumn
-              key={stage.id}
-              stage={stage}
-              stages={stages}
-              leads={leadsByStage.get(stage.id) ?? emptyLeads}
-              onDragStart={onDragStart}
-              onDragOver={onDragOver}
-              onDrop={onDrop}
-              onMoveStage={onMoveStage}
-              onToast={onToast}
-              onUpdated={onUpdated}
-            />
-          ))}
+          {stages.map((stage) => {
+            const meta = stageLoadMeta[stage.id]
+            return (
+              <KanbanColumn
+                key={stage.id}
+                stage={stage}
+                stages={stages}
+                leads={leadsByStage.get(stage.id) ?? emptyLeads}
+                totalInStage={meta?.total}
+                loadedInStage={meta?.loaded}
+                hasMoreInStage={meta != null && meta.loaded < meta.total}
+                loadingMore={loadingMoreStageId === stage.id}
+                onLoadMore={onLoadMoreStage ? () => void onLoadMoreStage(stage.id) : undefined}
+                onDragStart={onDragStart}
+                onDragOver={onDragOver}
+                onDrop={onDrop}
+                onMoveStage={onMoveStage}
+                onToast={onToast}
+                onUpdated={onUpdated}
+              />
+            )
+          })}
         </div>
       </div>
     </>

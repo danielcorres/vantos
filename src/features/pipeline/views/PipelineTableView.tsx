@@ -1,6 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { pipelineApi, type Lead, type PipelineStage, type CreateLeadInput } from '../pipeline.api'
+import {
+  pipelineApi,
+  type Lead,
+  type PipelineStage,
+  type CreateLeadInput,
+  PIPELINE_STAGE_PAGE_SIZE,
+} from '../pipeline.api'
 import { generateIdempotencyKey } from '../pipeline.store'
 import { LeadCreateModal } from '../components/LeadCreateModal'
 import { NextActionModal } from '../../../components/pipeline/NextActionModal'
@@ -71,13 +77,32 @@ export function PipelineTableView({
   /** '' = todas; '__null__' = sin clasificar; frio|tibio|caliente */
   const [temperatureFilter, setTemperatureFilter] = useState('')
   const [restoreLeadPending, setRestoreLeadPending] = useState<Lead | null>(null)
+  const [serverActivosLeads, setServerActivosLeads] = useState<Lead[]>([])
+  const [serverActivosTotal, setServerActivosTotal] = useState(0)
+  const [activosListLoadedCount, setActivosListLoadedCount] = useState(0)
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [listLoadingMore, setListLoadingMore] = useState(false)
+  const [archivedTotal, setArchivedTotal] = useState(0)
 
   const weeklyMode = weeklyFilterLeadIds != null && weeklyLoadError == null
 
-  const baseLeads = useMemo(
-    () => (pipelineMode === 'activos' ? (activosLeads ?? []) : leads),
-    [pipelineMode, activosLeads, leads]
-  )
+  const weeklyIdsKey = useMemo(() => {
+    if (!weeklyFilterLeadIds || weeklyFilterLeadIds.size === 0) return ''
+    return [...weeklyFilterLeadIds].sort().join(',')
+  }, [weeklyFilterLeadIds])
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedSearch(searchQuery.trim()), 350)
+    return () => window.clearTimeout(t)
+  }, [searchQuery])
+
+  const serverActivosListMode = pipelineMode === 'activos' && activosLeads == null
+
+  const baseLeads = useMemo(() => {
+    if (pipelineMode !== 'activos') return leads
+    if (activosLeads != null) return activosLeads
+    return serverActivosLeads
+  }, [pipelineMode, activosLeads, leads, serverActivosLeads])
 
   const stagesLite = useMemo(
     () => stages.map((s) => ({ id: s.id, name: s.name, position: s.position, slug: s.slug })),
@@ -86,6 +111,13 @@ export function PipelineTableView({
 
   const filteredLeads = useMemo(() => {
     if (pipelineMode !== 'activos') return []
+    if (activosLeads == null) {
+      let list = baseLeads
+      if (weeklyMode && weeklyFilterLeadIds?.size) {
+        list = list.filter((l) => weeklyFilterLeadIds.has(l.id))
+      }
+      return list
+    }
     let list = baseLeads
     if (weeklyMode && weeklyFilterLeadIds?.size) {
       list = list.filter((l) => weeklyFilterLeadIds.has(l.id))
@@ -111,11 +143,24 @@ export function PipelineTableView({
       list = list.filter((l) => l.temperature === temp)
     }
     return list
-  }, [pipelineMode, baseLeads, searchQuery, sourceFilter, temperatureFilter, weeklyMode, weeklyFilterLeadIds])
+  }, [
+    pipelineMode,
+    activosLeads,
+    baseLeads,
+    searchQuery,
+    sourceFilter,
+    temperatureFilter,
+    weeklyMode,
+    weeklyFilterLeadIds,
+  ])
 
   useEffect(() => {
-    onVisibleCountChange?.(filteredLeads.length)
-  }, [filteredLeads.length, onVisibleCountChange])
+    if (pipelineMode === 'activos' && activosLeads == null) {
+      onVisibleCountChange?.(serverActivosTotal)
+    } else {
+      onVisibleCountChange?.(filteredLeads.length)
+    }
+  }, [pipelineMode, activosLeads, serverActivosTotal, filteredLeads.length, onVisibleCountChange])
 
   const sortedLeads = useMemo(
     () => sortLeadsByPriority(filteredLeads),
@@ -142,11 +187,6 @@ export function PipelineTableView({
   }, [groupByStage, pipelineMode, groupedSections])
 
   useEffect(() => {
-    loadData()
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: run only when pipelineMode changes
-  }, [pipelineMode])
-
-  useEffect(() => {
     if (pipelineMode !== 'activos' || !groupedSections.length) return
     setCollapsedStages((prev) => {
       let next = prev
@@ -162,19 +202,48 @@ export function PipelineTableView({
     setLoading(true)
     setError(null)
     try {
-      const [stagesData, activosData, archivadosData] = await Promise.all([
-        pipelineApi.getStages(),
-        pipelineApi.getLeads('activos'),
-        pipelineApi.getLeads('archivados'),
-      ])
+      const stagesData = await pipelineApi.getStages()
       setStages(stagesData)
-      const activosCount =
-        pipelineMode === 'activos' && activosLeads != null
-          ? activosLeads.length
-          : activosData.length
-      onCountsChange?.({ activos: activosCount, archivados: archivadosData.length })
+      const [activosTotalCount, archTotalCount] = await Promise.all([
+        pipelineApi.getActiveLeadsTotalCount(),
+        pipelineApi.getArchivedLeadsTotalCount(),
+      ])
+      onCountsChange?.({ activos: activosTotalCount, archivados: archTotalCount })
+
       if (pipelineMode === 'archivados') {
-        setLeads(archivadosData)
+        const { leads: archPage, total } = await pipelineApi.queryArchivedLeadsPage({
+          offset: 0,
+          limit: PIPELINE_STAGE_PAGE_SIZE,
+        })
+        setLeads(archPage)
+        setArchivedTotal(total)
+      } else if (activosLeads == null) {
+        const idsIn =
+          weeklyMode && weeklyFilterLeadIds && weeklyFilterLeadIds.size > 0
+            ? [...weeklyFilterLeadIds]
+            : null
+        const { leads: page, total } = await pipelineApi.queryActivosLeads({
+          offset: 0,
+          limit: PIPELINE_STAGE_PAGE_SIZE,
+          search: debouncedSearch || undefined,
+          source: sourceFilter.trim() || undefined,
+          temperature: temperatureFilter.trim() || undefined,
+          idsIn,
+        })
+        setServerActivosLeads(page)
+        setServerActivosTotal(total)
+        setActivosListLoadedCount(page.length)
+        setLeads([])
+      } else {
+        setServerActivosLeads([])
+        setServerActivosTotal(0)
+        setActivosListLoadedCount(0)
+        const arch = await pipelineApi.queryArchivedLeadsPage({
+          offset: 0,
+          limit: PIPELINE_STAGE_PAGE_SIZE,
+        })
+        setLeads(arch.leads)
+        setArchivedTotal(arch.total)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar datos')
@@ -183,11 +252,62 @@ export function PipelineTableView({
     }
   }
 
+  useEffect(() => {
+    void loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- pipelineMode / origen activos
+  }, [pipelineMode, activosLeads])
+
+  useEffect(() => {
+    if (pipelineMode !== 'activos' || activosLeads != null) return
+    void loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- filtros servidor
+  }, [debouncedSearch, sourceFilter, temperatureFilter, weeklyIdsKey])
+
   const refreshCurrentMode = async () => {
     if (pipelineMode === 'activos' && onRefreshActivos) {
       await onRefreshActivos()
-    } else {
+    }
+    if (pipelineMode === 'archivados' || (pipelineMode === 'activos' && activosLeads == null)) {
       await loadData()
+    }
+  }
+
+  const loadMoreActivos = async () => {
+    if (activosListLoadedCount >= serverActivosTotal) return
+    setListLoadingMore(true)
+    try {
+      const idsIn =
+        weeklyMode && weeklyFilterLeadIds && weeklyFilterLeadIds.size > 0
+          ? [...weeklyFilterLeadIds]
+          : null
+      const { leads: page } = await pipelineApi.queryActivosLeads({
+        offset: activosListLoadedCount,
+        limit: PIPELINE_STAGE_PAGE_SIZE,
+        search: debouncedSearch || undefined,
+        source: sourceFilter.trim() || undefined,
+        temperature: temperatureFilter.trim() || undefined,
+        idsIn,
+      })
+      if (page.length === 0) return
+      setServerActivosLeads((prev) => [...prev, ...page])
+      setActivosListLoadedCount((c) => c + page.length)
+    } finally {
+      setListLoadingMore(false)
+    }
+  }
+
+  const loadMoreArchived = async () => {
+    if (leads.length >= archivedTotal) return
+    setListLoadingMore(true)
+    try {
+      const { leads: page } = await pipelineApi.queryArchivedLeadsPage({
+        offset: leads.length,
+        limit: PIPELINE_STAGE_PAGE_SIZE,
+      })
+      if (page.length === 0) return
+      setLeads((prev) => [...prev, ...page])
+    } finally {
+      setListLoadingMore(false)
     }
   }
 
@@ -268,7 +388,11 @@ export function PipelineTableView({
     )
   }
 
-  const showActivosEmptyState = pipelineMode === 'activos' && baseLeads.length === 0
+  const showActivosEmptyState =
+    pipelineMode === 'activos' &&
+    (activosLeads == null
+      ? serverActivosTotal === 0 && serverActivosLeads.length === 0 && !loading
+      : baseLeads.length === 0)
   if (showActivosEmptyState) {
     return (
       <div className="space-y-4">
@@ -469,6 +593,18 @@ export function PipelineTableView({
               )}
             </tbody>
           </table>
+          {leads.length < archivedTotal ? (
+            <div className="flex justify-center py-3">
+              <button
+                type="button"
+                onClick={() => void loadMoreArchived()}
+                disabled={listLoadingMore}
+                className="rounded-lg border border-dashed border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+              >
+                {listLoadingMore ? 'Cargando…' : `Cargar más (${leads.length} de ${archivedTotal})`}
+              </button>
+            </div>
+          ) : null}
         </div>
       ) : (
         <div className="space-y-3">
@@ -485,6 +621,20 @@ export function PipelineTableView({
               onToast={onToast ?? ((msg) => setToast({ type: 'success', message: msg }))}
               onUpdated={refreshCurrentMode}
             />
+            {serverActivosListMode && activosListLoadedCount < serverActivosTotal ? (
+              <div className="flex justify-center py-2">
+                <button
+                  type="button"
+                  onClick={() => void loadMoreActivos()}
+                  disabled={listLoadingMore}
+                  className="rounded-lg border border-dashed border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50"
+                >
+                  {listLoadingMore
+                    ? 'Cargando…'
+                    : `Cargar más (${activosListLoadedCount} de ${serverActivosTotal})`}
+                </button>
+              </div>
+            ) : null}
         </div>
       )}
 

@@ -13,6 +13,7 @@ import {
   IconLogout,
   IconChevronLeft,
   IconChevronRight,
+  IconPipeline,
 } from './icons'
 import { useAuth } from '../../shared/auth/AuthProvider'
 import { VantLogo } from '../../components/branding/VantLogo'
@@ -71,6 +72,12 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
           path: homePath,
           icon: IconHome,
           visible: () => true,
+        },
+        {
+          label: 'Pipeline',
+          path: '/pipeline',
+          icon: IconPipeline,
+          visible: (r) => r === 'advisor' || r === 'manager' || r === 'owner',
         },
         {
           label: 'OKR Diario',
