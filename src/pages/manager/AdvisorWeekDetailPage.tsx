@@ -19,7 +19,7 @@ import {
   buildMetricBreakdown,
   buildFulfillmentPlan,
 } from '../../modules/okr/dashboard/advisorDetailHelpers'
-import { getMetricLabel } from '../../modules/okr/domain/metricLabels'
+import { getMetricLabel, OKR_CORE_METRIC_DISPLAY_ORDER } from '../../modules/okr/domain/metricLabels'
 import {
   calculateAdvisorInsight,
 } from '../../modules/okr/dashboard/teamDashboardInsights'
@@ -309,17 +309,8 @@ export function AdvisorWeekDetailPage() {
     const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb']
     const TIMEZONE = 'America/Monterrey'
     
-    // Orden operativo natural de métricas
-    const metricOrder = [
-      'calls',
-      'meetings_set',
-      'meetings_held',
-      'proposals_presented',
-      'applications_submitted',
-      'referrals',
-      'policies_paid',
-    ]
-    
+    const metricOrder = [...OKR_CORE_METRIC_DISPLAY_ORDER]
+
     // Crear 7 días (lunes-domingo)
     const rows = Array.from({ length: 7 }, (_, i) => {
       const dateYmd = addDaysYmd(weekStartLocal, i)

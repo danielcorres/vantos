@@ -6,6 +6,7 @@ import { okrQueries } from '../data/okrQueries'
 import { DailyGoalProgress } from '../components/DailyGoalProgress'
 import { Toast } from '../../../shared/components/Toast'
 import { todayLocalYmd, timestampToYmdInTz, addDaysYmd, TZ_MTY } from '../../../shared/utils/dates'
+import { compareOkrMetricDisplayOrder, getMetricLabel } from '../domain/metricLabels'
 
 interface TodaySummary {
   metric_key: string
@@ -55,8 +56,13 @@ export function OkrTodayPage() {
 
       if (err) throw err
 
-      setData(summary || [])
-      const total = (summary || []).reduce((sum, item) => sum + item.total_points_today, 0)
+      const rows = (summary || []).map((row) => ({
+        ...row,
+        label: getMetricLabel(row.metric_key),
+      }))
+      rows.sort((a, b) => compareOkrMetricDisplayOrder(a.metric_key, b.metric_key))
+      setData(rows)
+      const total = rows.reduce((sum, item) => sum + item.total_points_today, 0)
       setTotalPoints(total)
 
       // Calcular racha: días consecutivos con actividad

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from '../lib/useSession'
 import { supabase } from '../lib/supabase'
 import { getErrorMessage } from '../lib/supabaseErrorHandler'
+import { getMetricLabel, OKR_CORE_METRIC_DISPLAY_ORDER } from '../modules/okr/domain/metricLabels'
 import './Activity.css'
 
 function formatActivityError(error: unknown): string {
@@ -13,18 +14,12 @@ function formatActivityError(error: unknown): string {
   return base
 }
 
-// Métricas según PROJECT_CONTEXT.md - OKR v0
-const METRICS = [
-  { key: 'calls', label: 'Llamadas' },
-  { key: 'meetings_set', label: 'Citas agendadas' },
-  { key: 'meetings_held', label: 'Citas realizadas' },
-  { key: 'proposals_presented', label: 'Propuestas presentadas' },
-  { key: 'applications_submitted', label: 'Solicitudes ingresadas' },
-  { key: 'referrals', label: 'Referidos' },
-  { key: 'policies_paid', label: 'Pólizas pagadas' },
-] as const
+type MetricKey = (typeof OKR_CORE_METRIC_DISPLAY_ORDER)[number]
 
-type MetricKey = typeof METRICS[number]['key']
+const METRICS = OKR_CORE_METRIC_DISPLAY_ORDER.map((key) => ({
+  key,
+  label: getMetricLabel(key),
+}))
 
 export function Activity() {
   const { session, loading: sessionLoading } = useSession()
@@ -32,9 +27,9 @@ export function Activity() {
     calls: 0,
     meetings_set: 0,
     meetings_held: 0,
+    referrals: 0,
     proposals_presented: 0,
     applications_submitted: 0,
-    referrals: 0,
     policies_paid: 0,
   })
   const [points, setPoints] = useState<number>(0)

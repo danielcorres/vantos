@@ -81,7 +81,7 @@ Flujo de creación de lead, weeklyMode, conectividad Productividad ↔ Pipeline 
 - [ ] **Marcar como hecho:** En menú "Actualizar ▾" (tabla y Kanban) existe "Marcar como hecho" cuando next_action_type es contact o meeting.
 - [ ] **Al marcar:** Si contact → incrementa **calls**; si meeting → incrementa **meetings_held**. Toast "Listo. Define el siguiente paso.", se abre modal para elegir siguiente next_action_at.
 - [ ] **Error RPC:** Si falla el registro, toast "No se pudo registrar" y NO se abre modal.
-- [ ] **Métricas:** Verificar en OKR/Daily Log que suben **Llamadas** o **Citas realizadas** (no métricas duplicadas del catálogo).
+- [ ] **Métricas:** Verificar en OKR/Daily Log que suben **Llamadas contestadas** o **Citas iniciales realizadas** (no métricas duplicadas del catálogo).
 - [ ] **TZ Monterrey:** Fechas y buckets de filtros usan America/Monterrey consistentemente.
 
 ---

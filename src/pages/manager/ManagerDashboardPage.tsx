@@ -10,7 +10,7 @@ import { TeamProfileList } from '../../modules/okr/components/TeamProfileList'
 import {
   type Advisor,
 } from '../owner/utils/ownerDashboardHelpers'
-import { getMetricLabel } from '../../modules/okr/domain/metricLabels'
+import { getMetricLabel, OKR_CORE_METRIC_DISPLAY_ORDER } from '../../modules/okr/domain/metricLabels'
 import { fetchWeeklyMinimumTargetsForOwner, DEFAULT_WEEKLY_MINIMUMS, type WeeklyMinimumTargetsMap } from '../../modules/okr/dashboard/weeklyMinimumTargets'
 import { supabase } from '../../lib/supabase'
 import { buildAdvisorProfile, type AdvisorProfileResult } from '../../modules/okr/dashboard/advisorProfile'
@@ -238,16 +238,7 @@ export function ManagerDashboardPage() {
   const teamActivityTotals = useMemo(() => {
     const totals = new Map<string, number>()
 
-    // Orden de métricas para mostrar
-    const metricOrder = [
-      'calls',
-      'meetings_set',
-      'meetings_held',
-      'proposals_presented',
-      'applications_submitted',
-      'referrals',
-      'policies_paid',
-    ]
+    const metricOrder = [...OKR_CORE_METRIC_DISPLAY_ORDER]
 
     // Sumar todos los eventos de la semana por métrica
     eventsWeek.forEach((event) => {
@@ -605,8 +596,8 @@ export function ManagerDashboardPage() {
  *    - Verificar que cards se apilan correctamente
  * 
  * 7) QUÉ HACER HOY (columna "Hoy"):
- *    - Asesor con requiredDailyAvg > 0: debe mostrar plan (ej. "2 Llamadas · 1 Citas agendadas · 1 Propuestas presentadas")
- *    - Asesor sin actividad (riskReason="no_activity"): debe mostrar kickstart (ej. "1 Llamadas (Arranque)")
+ *    - Asesor con requiredDailyAvg > 0: debe mostrar plan (ej. "2 Llamadas contestadas · 1 Citas iniciales agendadas · 1 Propuestas presentadas")
+ *    - Asesor sin actividad (riskReason="no_activity"): debe mostrar kickstart (ej. "1 Llamadas contestadas (Arranque)")
  *    - Asesor con requiredDailyAvg = 0: debe mostrar "✅" o "Mantener"
  *    - Hover sobre columna "Hoy" debe mostrar tooltip con desglose (requerido, distribución, omitidas)
  * 

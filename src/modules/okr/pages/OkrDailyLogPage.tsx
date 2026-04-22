@@ -8,7 +8,11 @@ import { Toast } from '../../../shared/components/Toast'
 import { useAutoRefresh } from '../../../shared/hooks/useAutoRefresh'
 import { timeAgo } from '../../../shared/utils/timeAgo'
 import { todayLocalYmd, addDaysYmd } from '../../../shared/utils/dates'
-import { METRIC_LABELS } from '../domain/metricLabels'
+import {
+  compareOkrMetricDisplayOrder,
+  getMetricLabel,
+  OKR_CORE_METRIC_DISPLAY_ORDER,
+} from '../domain/metricLabels'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -62,16 +66,21 @@ export function OkrDailyLogPage() {
       if (defsError) throw defsError
 
       // Filtrar en frontend: excluir métricas que empiecen con 'pipeline.'
-      let filteredMetrics = (metricDefs || []).filter(
-        (m) => !m.key.startsWith('pipeline.')
-      )
-      
-      // Fallback: si no hay métricas de DB, usar keys de METRIC_LABELS
+      let filteredMetrics = (metricDefs || [])
+        .filter((m) => !m.key.startsWith('pipeline.'))
+        .map((m) => ({ ...m, label: getMetricLabel(m.key) }))
+        .sort((a, b) => {
+          const byOrder = compareOkrMetricDisplayOrder(a.key, b.key)
+          if (byOrder !== 0) return byOrder
+          return (a.sort_order ?? 0) - (b.sort_order ?? 0)
+        })
+
+      // Fallback: si no hay métricas de DB, usar catálogo core
       if (filteredMetrics.length === 0) {
-        filteredMetrics = Object.keys(METRIC_LABELS).map((key) => ({
+        filteredMetrics = OKR_CORE_METRIC_DISPLAY_ORDER.map((key, i) => ({
           key,
-          label: METRIC_LABELS[key],
-          sort_order: 0,
+          label: getMetricLabel(key),
+          sort_order: i,
         }))
       }
       
@@ -283,10 +292,9 @@ export function OkrDailyLogPage() {
 
     try {
       // Preparar entries (incluir todas las métricas, incluso con 0)
-      // Usar metrics si existe, sino usar keys de METRIC_LABELS como fallback
-      const metricKeys = metrics.length > 0 
-        ? metrics.map(m => m.key)
-        : Object.keys(METRIC_LABELS)
+      // Usar metrics si existe, sino catálogo core ordenado
+      const metricKeys =
+        metrics.length > 0 ? metrics.map((m) => m.key) : [...OKR_CORE_METRIC_DISPLAY_ORDER]
       
       const entriesToSave: DailyEntry[] = metricKeys.map((metricKey) => {
         const raw = entries[metricKey] ?? 0
@@ -374,10 +382,9 @@ export function OkrDailyLogPage() {
     return value * (scores[metricKey] ?? 0)
   }
 
-  // Usar metrics si existe, sino usar keys de METRIC_LABELS como fallback
-  const metricKeys = metrics.length > 0 
-    ? metrics.map(m => m.key)
-    : Object.keys(METRIC_LABELS)
+  // Usar metrics si existe, sino catálogo core ordenado
+  const metricKeys =
+    metrics.length > 0 ? metrics.map((m) => m.key) : [...OKR_CORE_METRIC_DISPLAY_ORDER]
   
   const totalPoints = metricKeys.reduce((sum, metricKey) => {
     return sum + calculatePoints(metricKey, entries[metricKey] ?? 0)
@@ -523,7 +530,7 @@ export function OkrDailyLogPage() {
           {metricKeys.map((metricKey) => {
             const metric = metrics.find(m => m.key === metricKey) || {
               key: metricKey,
-              label: METRIC_LABELS[metricKey] || metricKey,
+              label: getMetricLabel(metricKey),
               sort_order: 0,
             }
             const value = entries[metricKey] ?? 0
@@ -614,7 +621,7 @@ export function OkrDailyLogPage() {
               {metricKeys.map((metricKey, index) => {
                 const metric = metrics.find(m => m.key === metricKey) || {
                   key: metricKey,
-                  label: METRIC_LABELS[metricKey] || metricKey,
+                  label: getMetricLabel(metricKey),
                   sort_order: 0,
                 }
                 const value = entries[metricKey] ?? 0

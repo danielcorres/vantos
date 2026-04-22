@@ -6,6 +6,7 @@ import { okrQueries, type OkrTier } from '../data/okrQueries'
 import { Toast } from '../../../shared/components/Toast'
 import { useUserRole } from '../../../shared/hooks/useUserRole'
 import { useAuth } from '../../../shared/auth/AuthProvider'
+import { compareOkrMetricDisplayOrder, getMetricLabel } from '../domain/metricLabels'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -115,7 +116,10 @@ export function OkrScoringPage() {
       if (defsError) throw defsError
 
       // Filtrar en frontend: excluir métricas que empiecen con 'pipeline.'
-      const filteredMetrics = (metricDefs || []).filter((m) => !m.key.startsWith('pipeline.'))
+      const filteredMetrics = (metricDefs || [])
+        .filter((m) => !m.key.startsWith('pipeline.'))
+        .map((m) => ({ ...m, label: getMetricLabel(m.key) }))
+        .sort((a, b) => compareOkrMetricDisplayOrder(a.key, b.key))
 
       setMetrics(filteredMetrics)
     } catch (err: unknown) {

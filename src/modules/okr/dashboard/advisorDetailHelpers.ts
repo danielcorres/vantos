@@ -93,7 +93,7 @@ export interface DailyTimelineRow {
   dayLabel: string // "Lun 12"
   dateYmd: string // "2026-01-12"
   points: number
-  activity: string // "9 Llamadas · 2 Citas agendadas · 1 Propuestas presentadas"
+  activity: string // ej. "9 Llamadas contestadas · 2 Citas iniciales agendadas · 1 Propuestas presentadas"
   status: string // "0 pts" o "Activo"
 }
 

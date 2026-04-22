@@ -14,17 +14,22 @@ export const METRIC_MINIMUM_CONFIGS: MetricMinimumConfig[] = [
   {
     key: 'calls',
     label: getMetricLabel('calls', 'long'),
-    tooltip: 'Contactos gestionados por teléfono.',
+    tooltip: 'Llamadas en las que el prospecto contesta o hay interacción válida.',
   },
   {
     key: 'meetings_set',
     label: getMetricLabel('meetings_set', 'long'),
-    tooltip: 'Citas acordadas con prospectos.',
+    tooltip: 'Citas iniciales acordadas con prospectos (primera reunión).',
   },
   {
     key: 'meetings_held',
     label: getMetricLabel('meetings_held', 'long'),
-    tooltip: 'Citas efectivamente realizadas.',
+    tooltip: 'Citas iniciales efectivamente realizadas.',
+  },
+  {
+    key: 'referrals',
+    label: getMetricLabel('referrals', 'long'),
+    tooltip: 'Referidos obtenidos con permiso para contactar.',
   },
   {
     key: 'proposals_presented',
@@ -35,11 +40,6 @@ export const METRIC_MINIMUM_CONFIGS: MetricMinimumConfig[] = [
     key: 'applications_submitted',
     label: getMetricLabel('applications_submitted', 'long'),
     tooltip: 'Solicitudes enviadas a la compañía.',
-  },
-  {
-    key: 'referrals',
-    label: getMetricLabel('referrals', 'long'),
-    tooltip: 'Referidos obtenidos con permiso para contactar.',
   },
   {
     key: 'policies_paid',

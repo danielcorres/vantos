@@ -7,6 +7,7 @@ import { todayLocalYmd, addDaysYmd, daysBetweenYmd, timestampToYmdInTz, TZ_MTY }
 import { getWeeklyRhythmCoach } from '../utils/weeklyRhythmCoach'
 import { WeeklyRhythmCoach } from '../components/WeeklyRhythmCoach'
 import { getLastNWeekStarts, groupEventsByWeek, formatWeekRange as formatWeekRangeHistory } from '../utils/weeklyHistoryHelpers'
+import { compareOkrMetricDisplayOrder, getMetricLabel } from '../domain/metricLabels'
 
 interface WeekMetricTotal {
   metric_key: string
@@ -265,7 +266,7 @@ export function OkrWeekPage() {
           summary.push({
             day_local: dayLocal,
             metric_key: metricKey,
-            label: metricDef.label,
+            label: getMetricLabel(metricKey),
             sort_order: metricDef.sort_order,
             total_value: totalValue,
             points_per_unit: scoresMap.get(metricKey) || 0,
@@ -294,7 +295,7 @@ export function OkrWeekPage() {
 
         totalsMap.set(metricKey, {
           metric_key: metricKey,
-          label: metricDef.label,
+          label: getMetricLabel(metricKey),
           sort_order: metricDef.sort_order,
           total_value_week: totalValue,
           points_per_unit: scoresMap.get(metricKey) || 0,
@@ -304,12 +305,16 @@ export function OkrWeekPage() {
 
       if (!isMounted) return
 
-      setMetricTotals(Array.from(totalsMap.values()).sort((a, b) => {
-        const orderA = safeNumber(a.sort_order)
-        const orderB = safeNumber(b.sort_order)
-        if (orderA !== orderB) return orderA - orderB
-        return (a.metric_key || '').localeCompare(b.metric_key || '')
-      }))
+      setMetricTotals(
+        Array.from(totalsMap.values()).sort((a, b) => {
+          const byDisplay = compareOkrMetricDisplayOrder(a.metric_key, b.metric_key)
+          if (byDisplay !== 0) return byDisplay
+          const orderA = safeNumber(a.sort_order)
+          const orderB = safeNumber(b.sort_order)
+          if (orderA !== orderB) return orderA - orderB
+          return (a.metric_key || '').localeCompare(b.metric_key || '')
+        })
+      )
 
       // Calcular total de puntos semanal
       const weekTotalPoints = Array.from(dailyPointsMap.values()).reduce((sum, pts) => sum + pts, 0)

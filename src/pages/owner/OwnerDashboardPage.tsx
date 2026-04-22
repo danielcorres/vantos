@@ -13,7 +13,7 @@ import { WeeklyMinimumsModal } from '../../modules/okr/components/WeeklyMinimums
 import {
   type Advisor,
 } from './utils/ownerDashboardHelpers'
-import { getMetricLabel } from '../../modules/okr/domain/metricLabels'
+import { getMetricLabel, OKR_CORE_METRIC_DISPLAY_ORDER } from '../../modules/okr/domain/metricLabels'
 import { fetchWeeklyMinimumTargetsForOwner, DEFAULT_WEEKLY_MINIMUMS, type WeeklyMinimumTargetsMap } from '../../modules/okr/dashboard/weeklyMinimumTargets'
 import { buildAdvisorProfile, type AdvisorProfileResult } from '../../modules/okr/dashboard/advisorProfile'
 import { buildMetricBreakdown } from '../../modules/okr/dashboard/advisorDetailHelpers'
@@ -197,16 +197,7 @@ export function OwnerDashboardPage() {
   const teamMetricsTotals = useMemo(() => {
     const totals = new Map<string, number>()
 
-    // Orden de métricas para mostrar
-    const metricOrder = [
-      'calls',
-      'meetings_set',
-      'meetings_held',
-      'proposals_presented',
-      'applications_submitted',
-      'referrals',
-      'policies_paid',
-    ]
+    const metricOrder = [...OKR_CORE_METRIC_DISPLAY_ORDER]
 
     // Sumar todos los eventos de la semana por métrica
     eventsWeek.forEach((event) => {
