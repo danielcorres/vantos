@@ -51,6 +51,7 @@ export function InfoPopover({
   className = '',
 }: InfoPopoverProps) {
   const triggerRef = useRef<HTMLSpanElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const closeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [open, setOpen] = useState(false)
   const [anchorRect, setAnchorRect] = useState<DOMRect | null>(null)
@@ -76,7 +77,7 @@ export function InfoPopover({
 
   const scheduleClose = useCallback(() => {
     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current)
-    closeTimeoutRef.current = setTimeout(close, 150)
+    closeTimeoutRef.current = setTimeout(close, 220)
   }, [close])
 
   const cancelClose = useCallback(() => {
@@ -114,6 +115,23 @@ export function InfoPopover({
     return () => document.removeEventListener('keydown', handleEscape)
   }, [open, close])
 
+  /** Cierre al pulsar fuera, sin overlay que robe hover (evita parpadeo al pasar el ratón). */
+  useEffect(() => {
+    if (!open) return
+    const isInside = (root: HTMLElement | null, target: Node) => Boolean(root?.contains(target))
+    const onPointerDown = (ev: MouseEvent | TouchEvent) => {
+      const t = ev.target as Node
+      if (isInside(triggerRef.current, t) || isInside(panelRef.current, t)) return
+      close()
+    }
+    document.addEventListener('mousedown', onPointerDown, true)
+    document.addEventListener('touchstart', onPointerDown, true)
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown, true)
+      document.removeEventListener('touchstart', onPointerDown, true)
+    }
+  }, [open, close])
+
   const canHover = typeof window !== 'undefined' && window.matchMedia('(hover: hover)').matches
 
   const panelContent = content ?? (
@@ -133,14 +151,11 @@ export function InfoPopover({
     </div>
   )
 
-  const panel = open && anchorRect && (
-    <>
+  const panel =
+    open &&
+    anchorRect && (
       <div
-        className="fixed inset-0 z-[999]"
-        aria-hidden
-        onMouseDown={close}
-      />
-      <div
+        ref={panelRef}
         role="dialog"
         aria-label={title}
         className="rounded-lg border border-neutral-200 bg-white shadow-lg p-3 max-w-[280px]"
@@ -151,8 +166,7 @@ export function InfoPopover({
         <p className="text-xs font-semibold text-neutral-900 mb-2">{title}</p>
         {panelContent}
       </div>
-    </>
-  )
+    )
 
   return (
     <span

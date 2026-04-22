@@ -19,6 +19,11 @@ type PipelineTableProps = {
   stages: Stage[]
   groupByStage?: boolean
   groupedSections?: GroupedSection[]
+  /**
+   * Si true (defecto), una sección sin leads en `groupedSections` empieza colapsada.
+   * Pon false cuando los leads son una página parcial en servidor: “vacío” no implica etapa vacía en BD.
+   */
+  defaultCollapseEmptyStages?: boolean
   collapsedStages?: Record<string, boolean>
   onCollapsedStagesChange?: (next: Record<string, boolean>) => void
   highlightLeadId?: string | null
@@ -47,6 +52,7 @@ export function PipelineTable({
   stages,
   groupByStage = false,
   groupedSections = [],
+  defaultCollapseEmptyStages = true,
   collapsedStages: controlledCollapsed,
   onCollapsedStagesChange,
   highlightLeadId,
@@ -63,6 +69,7 @@ export function PipelineTable({
   const isControlled = controlledCollapsed != null && onCollapsedStagesChange != null
   const collapsedStages = isControlled ? controlledCollapsed : internalCollapsed
   const setCollapsedStages = isControlled ? onCollapsedStagesChange : setInternalCollapsed
+  const collapseEmptyByDefault = defaultCollapseEmptyStages
 
   const stageById = useMemo(() => {
     const m = new Map<string, Stage>()
@@ -78,11 +85,11 @@ export function PipelineTable({
       let next = prev
       for (const { stage, leads: sectionLeads } of groupedSections) {
         if (stage.id in next) continue
-        next = { ...next, [stage.id]: sectionLeads.length === 0 }
+        next = { ...next, [stage.id]: collapseEmptyByDefault && sectionLeads.length === 0 }
       }
       return next
     })
-  }, [isControlled, showGrouped, groupedSections])
+  }, [isControlled, showGrouped, groupedSections, collapseEmptyByDefault])
 
   const toggleStage = (stageId: string) => {
     setCollapsedStages({ ...collapsedStages, [stageId]: !collapsedStages[stageId] })
@@ -103,7 +110,9 @@ export function PipelineTable({
     <div className="md:hidden space-y-2">
       {showGrouped
         ? groupedSections.map(({ stage, leads: sectionLeads }, idx) => {
-            const isCollapsed = collapsedStages[stage.id] ?? sectionLeads.length === 0
+            const isCollapsed =
+              collapsedStages[stage.id] ?? (collapseEmptyByDefault && sectionLeads.length === 0)
+            const stageHelp = getStageHelp(stage.slug ?? stage.name)
             return (
               <Fragment key={stage.id}>
                 {idx > 0 ? <div className="h-2" /> : null}
@@ -121,9 +130,9 @@ export function PipelineTable({
                           {displayStageName(stage.name)}
                         </span>
                         <InfoPopover
-                          title={getStageHelp(stage.slug ?? stage.name).title}
-                          bullets={getStageHelp(stage.slug ?? stage.name).bullets}
-                          tip={getStageHelp(stage.slug ?? stage.name).tip}
+                          title={displayStageName(stage.name)}
+                          bullets={stageHelp.bullets}
+                          tip={stageHelp.tip}
                         />
                       </div>
                       <div className="text-xs text-neutral-500">{sectionLeads.length} lead{sectionLeads.length === 1 ? '' : 's'}</div>
@@ -202,7 +211,9 @@ export function PipelineTable({
           <tbody>
             {showGrouped
               ? groupedSections.map(({ stage, leads: sectionLeads }, sectionIndex) => {
-                  const isCollapsed = collapsedStages[stage.id] ?? sectionLeads.length === 0
+                  const isCollapsed =
+                    collapsedStages[stage.id] ?? (collapseEmptyByDefault && sectionLeads.length === 0)
+                  const stageHelp = getStageHelp(stage.slug ?? stage.name)
                   const isFirst = sectionIndex === 0
                   return (
                     <Fragment key={stage.id}>
@@ -241,9 +252,9 @@ export function PipelineTable({
                               </span>
                               <span className="font-semibold text-neutral-900 truncate">{displayStageName(stage.name)}</span>
                               <InfoPopover
-                                title={getStageHelp(stage.slug ?? stage.name).title}
-                                bullets={getStageHelp(stage.slug ?? stage.name).bullets}
-                                tip={getStageHelp(stage.slug ?? stage.name).tip}
+                                title={displayStageName(stage.name)}
+                                bullets={stageHelp.bullets}
+                                tip={stageHelp.tip}
                               />
                               <span className="text-xs text-neutral-500">({sectionLeads.length})</span>
                             </div>

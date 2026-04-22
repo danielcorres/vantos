@@ -11,6 +11,7 @@ import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
 import { getStageTagClasses, displayStageName } from '../shared/utils/stageStyles'
 import { NextActionActions } from '../components/pipeline/NextActionActions'
+import { LeadSourceTag } from '../components/pipeline/LeadSourceTag'
 import type { LeadTemperature } from '../features/pipeline/pipeline.api'
 
 type LeadData = {
@@ -97,25 +98,6 @@ function normalizeWhatsAppNumber(digits: string): string {
   if (digits.startsWith('52') && digits.length >= 12 && digits.length <= 13) return digits
   return ''
 }
-
-const CHIP_BASE = 'inline-block px-2 py-0.5 text-xs rounded-md border border-black/5'
-
-function getSourceTagClasses(source: string | null): string {
-  if (!source) return `${CHIP_BASE} bg-black/5 text-muted`
-  switch (source) {
-    case 'Referido':
-      return `${CHIP_BASE} bg-emerald-100 text-emerald-800`
-    case 'Mercado natural':
-      return `${CHIP_BASE} bg-sky-100 text-sky-800`
-    case 'Frío':
-      return `${CHIP_BASE} bg-rose-100 text-rose-800`
-    case 'Social media':
-      return `${CHIP_BASE} bg-violet-100 text-violet-800`
-    default:
-      return `${CHIP_BASE} bg-black/5 text-muted`
-  }
-}
-
 
 export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -642,11 +624,7 @@ export function LeadDetailPage() {
                 Archivado
               </span>
             )}
-            {lead.source && (
-              <span className={getSourceTagClasses(lead.source)}>
-                {lead.source}
-              </span>
-            )}
+            {lead.source ? <LeadSourceTag source={lead.source} /> : null}
             {currentStage && (
               <span className={getStageTagClasses(currentStage.slug)}>
                 {displayStageName(currentStage.name)}

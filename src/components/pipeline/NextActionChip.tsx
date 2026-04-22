@@ -62,7 +62,10 @@ export function NextActionChip({
 
   // Sin tipo → estado vacío (selecciona próximo paso)
   if (!type || !config) {
-    const emptyChipClass = `${chipBase} ${chipSizeSm} ${chipTint.neutral} cursor-pointer hover:bg-neutral-100/60 transition-colors`
+    const emptyChipClass =
+      variant === 'kanban'
+        ? `${chipBase} ${chipSizeSm} border-2 border-dashed border-neutral-300 bg-neutral-50/90 text-neutral-700 cursor-pointer transition-all duration-150 hover:border-sky-400 hover:bg-sky-100 hover:text-sky-950 hover:shadow-sm active:bg-sky-200/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-1`
+        : `${chipBase} ${chipSizeSm} ${chipTint.neutral} cursor-pointer hover:bg-neutral-100/60 transition-colors`
     if (onClick) {
       return (
         <button
@@ -108,7 +111,7 @@ export function NextActionChip({
     const urgencyClass = getKanbanUrgencyLineClass(bucket, urgencyLabel)
     const dateStatusClass = getDateStatusClass(bucket, hasDate, urgencyLabel === 'Mañana')
     const baseClass =
-      'inline-flex flex-col items-start gap-0.5 min-w-0 max-w-full cursor-pointer rounded-md px-1.5 py-0.5 -mx-0.5 -my-0.5 hover:bg-neutral-50/80 transition-colors text-left'
+      'inline-flex flex-col items-start gap-0.5 min-w-0 max-w-full cursor-pointer rounded-md border border-transparent px-1.5 py-0.5 -mx-0.5 -my-0.5 text-left transition-all duration-150 hover:border-sky-300 hover:bg-sky-50 hover:shadow-sm active:bg-sky-100/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:ring-offset-1'
     const btnClass = onClick ? baseClass : baseClass.replace('cursor-pointer', 'cursor-default')
 
     const content = (

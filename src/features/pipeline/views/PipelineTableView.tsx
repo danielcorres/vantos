@@ -15,6 +15,7 @@ import { Toast } from '../../../shared/components/Toast'
 import { formatDateMX } from '../../../shared/utils/dates'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
 import { LeadTemperatureChip } from '../../../components/pipeline/LeadTemperatureChip'
+import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
 
 const BTN_PRIMARY =
   'h-9 rounded-xl bg-neutral-900 text-white px-4 text-sm font-semibold gap-2 hover:bg-neutral-800 active:scale-[0.98] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-1 flex-shrink-0 inline-flex items-center justify-center'
@@ -192,11 +193,13 @@ export function PipelineTableView({
       let next = prev
       for (const { stage, leads: sectionLeads } of groupedSections) {
         if (stage.id in next) continue
-        next = { ...next, [stage.id]: sectionLeads.length === 0 }
+        // Lista activos paginada en servidor: una etapa puede tener 0 filas en esta página pero leads en BD.
+        const collapseWhenEmpty = !serverActivosListMode && sectionLeads.length === 0
+        next = { ...next, [stage.id]: collapseWhenEmpty }
       }
       return next
     })
-  }, [pipelineMode, groupedSections])
+  }, [pipelineMode, groupedSections, serverActivosListMode])
 
   const loadData = async () => {
     setLoading(true)
@@ -538,7 +541,9 @@ export function PipelineTableView({
                       <td className="py-2.5 pr-4">
                         <span className={getStageTagClasses(stageSlug)}>{displayStageName(stageName)}</span>
                       </td>
-                      <td className="py-2.5 pr-4 text-muted">{lead.source ?? '—'}</td>
+                      <td className="py-2.5 pr-4 align-middle">
+                        <LeadSourceTag source={lead.source} />
+                      </td>
                       <td className="py-2.5 pr-4 text-muted">
                         <LeadTemperatureChip temperature={lead.temperature} showPlaceholder />
                       </td>
@@ -613,6 +618,7 @@ export function PipelineTableView({
               stages={stagesLite}
               groupedSections={groupByStage ? sectionsToRender : undefined}
               groupByStage={groupByStage}
+              defaultCollapseEmptyStages={!serverActivosListMode}
               collapsedStages={collapsedStages}
               onCollapsedStagesChange={setCollapsedStages}
               highlightLeadId={highlightLeadId}

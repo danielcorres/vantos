@@ -54,7 +54,7 @@ function getStoredViewMode(): ViewMode {
   } catch {
     /* intentionally ignored */
   }
-  return 'pipeline'
+  return 'records'
 }
 
 function setStoredViewMode(mode: ViewMode) {
@@ -602,23 +602,13 @@ export function PipelinePage() {
         </div>
       )}
 
-      {/* FILA 1: Kanban | Lista */}
+      {/* FILA 1: Lista | Kanban */}
       <div className="flex flex-wrap items-center gap-2">
         <div
           className="inline-flex rounded-lg border border-neutral-200 bg-neutral-100/80 p-0.5 gap-0.5"
           role="tablist"
           aria-label="Vista del pipeline"
         >
-          <button
-            role="tab"
-            aria-selected={activeTab === 'pipeline'}
-            onClick={() => setActiveTab('pipeline')}
-            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-              activeTab === 'pipeline' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
-            }`}
-          >
-            Kanban
-          </button>
           <button
             role="tab"
             aria-selected={activeTab === 'records'}
@@ -628,6 +618,16 @@ export function PipelinePage() {
             }`}
           >
             Lista
+          </button>
+          <button
+            role="tab"
+            aria-selected={activeTab === 'pipeline'}
+            onClick={() => setActiveTab('pipeline')}
+            className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
+              activeTab === 'pipeline' ? 'bg-white text-neutral-900 ring-1 ring-neutral-200 font-medium' : 'text-neutral-600 hover:bg-neutral-200/60'
+            }`}
+          >
+            Kanban
           </button>
         </div>
       </div>

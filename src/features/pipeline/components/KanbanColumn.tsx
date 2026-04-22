@@ -48,6 +48,7 @@ function KanbanColumnInner({
 
   const sortedLeads = useMemo(() => sortLeadsByNextActionPriority(leads), [leads])
   const counts = useMemo(() => aggregateNextActionColumnCounts(leads), [leads])
+  const stageHelp = useMemo(() => getStageHelp(stage.slug ?? stage.name), [stage.slug, stage.name])
   const headerTotal = totalInStage ?? counts.total
   const showPartialHint =
     typeof loadedInStage === 'number' &&
@@ -92,9 +93,9 @@ function KanbanColumnInner({
             {displayStageName(stage.name)}
           </span>
           <InfoPopover
-            title={getStageHelp(stage.slug ?? stage.name).title}
-            bullets={getStageHelp(stage.slug ?? stage.name).bullets}
-            tip={getStageHelp(stage.slug ?? stage.name).tip}
+            title={displayStageName(stage.name)}
+            bullets={stageHelp.bullets}
+            tip={stageHelp.tip}
           />
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
