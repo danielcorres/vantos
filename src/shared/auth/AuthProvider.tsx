@@ -269,6 +269,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (IS_DEV) {
             console.debug('[AuthProvider] Error al obtener sesión:', sessionError)
           }
+          // Chrome con perfil “sucio”: refresh token inválido o storage corrupto; limpiar localmente
+          // para no quedar en un estado que en incógnito no aparece (storage vacío).
+          try {
+            await supabase.auth.signOut({ scope: 'local' })
+          } catch {
+            /* ignore */
+          }
           if (mountedRef.current) {
             setUser(null)
             setSession(null)
@@ -320,6 +327,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         console.error('[AuthProvider] Error inesperado al inicializar auth:', err)
+        const msg = err instanceof Error ? err.message : String(err)
+        if (/refresh|invalid_grant|Invalid JWT|JWT expired|Auth session/i.test(msg)) {
+          try {
+            await supabase.auth.signOut({ scope: 'local' })
+          } catch {
+            /* ignore */
+          }
+        }
         if (mountedRef.current) {
           setUser(null)
           setSession(null)

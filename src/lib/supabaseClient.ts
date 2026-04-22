@@ -27,7 +27,14 @@ function getSupabaseClient(): SupabaseClient {
     throw new Error('Missing VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY')
   }
 
-  const client = createClient(supabaseUrl, supabaseAnonKey)
+  const client = createClient(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      flowType: 'pkce',
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+  })
   writeCachedClient(client)
   return client
 }
