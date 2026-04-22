@@ -8,19 +8,9 @@ import { Toast } from '../../../shared/components/Toast'
 import { useAutoRefresh } from '../../../shared/hooks/useAutoRefresh'
 import { timeAgo } from '../../../shared/utils/timeAgo'
 import { todayLocalYmd, addDaysYmd } from '../../../shared/utils/dates'
-import { useAuth } from '../../../shared/auth/AuthProvider'
 import { METRIC_LABELS } from '../domain/metricLabels'
-import { calcWeekRangeLocal } from '../utils/weeklyHistoryHelpers'
 
 const IS_DEV = import.meta.env.DEV
-import {
-  buildScoresMap,
-  computeAdvisorWeekStats,
-} from '../../../pages/owner/utils/ownerDashboardHelpers'
-import {
-  calculateAdvisorInsight,
-} from '../dashboard/teamDashboardInsights'
-import { buildTodayPlanForAdvisor } from '../dashboard/todayActionPlan'
 
 type MetricDefinition = {
   key: string
@@ -29,7 +19,6 @@ type MetricDefinition = {
 }
 
 export function OkrDailyLogPage() {
-  const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const dateParam = searchParams.get('date')
@@ -55,7 +44,6 @@ export function OkrDailyLogPage() {
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
-  const [todayPlan, setTodayPlan] = useState<{ label: string; items: Array<{ metric_key: string; units: number }> } | null>(null)
   // Estado temporal para inputs en mobile (permite string vacío mientras se escribe)
   const [inputValues, setInputValues] = useState<Record<string, string>>({})
 
@@ -187,135 +175,6 @@ export function OkrDailyLogPage() {
 
   // Auto-refresh al hacer focus o cuando el documento se vuelve visible
   useAutoRefresh(loadData, { enabled: !loading && !saving })
-
-  // Calcular plan de sugerencia para hoy (solo si es hoy y hay usuario)
-  useEffect(() => {
-    if (!user?.id || selectedDate !== todayLocalYmd() || loading) {
-      setTodayPlan(null)
-      return
-    }
-
-    let mounted = true
-
-    const calculateTodayPlan = async () => {
-      try {
-        // Obtener settings y scores
-        const [settings, scoresData] = await Promise.all([
-          okrQueries.getOkrSettingsGlobal(),
-          okrQueries.getMetricScores(),
-        ])
-
-        if (!mounted) return
-
-        const scoresMap = buildScoresMap(scoresData)
-        const weeklyTarget = settings.daily_base_target * settings.weekly_days
-        const { weekStartLocal, weekEndLocal } = calcWeekRangeLocal()
-
-        // Cargar eventos de la semana actual para el usuario
-        const [startYear, startMonth, startDay] = weekStartLocal.split('-').map(Number)
-        const nextWeekStart = addDaysYmd(weekStartLocal, 7)
-        const [nextYear, nextMonth, nextDay] = nextWeekStart.split('-').map(Number)
-
-        const weekStartUTC = new Date(Date.UTC(startYear, startMonth - 1, startDay, 0, 0, 0))
-        const nextWeekUTC = new Date(Date.UTC(nextYear, nextMonth - 1, nextDay, 0, 0, 0))
-
-        const { data: eventsWeek } = await supabase
-          .from('activity_events')
-          .select('recorded_at, metric_key, value, actor_user_id')
-          .eq('actor_user_id', user.id)
-          .eq('is_void', false)
-          .eq('source', 'manual')
-          .gte('recorded_at', weekStartUTC.toISOString())
-          .lt('recorded_at', nextWeekUTC.toISOString())
-          .order('recorded_at', { ascending: true })
-
-        if (!mounted) return
-
-        // Calcular stats de la semana
-        const stats = computeAdvisorWeekStats(
-          (eventsWeek || []).map((e) => ({
-            recorded_at: e.recorded_at,
-            metric_key: e.metric_key,
-            value: e.value,
-            actor_user_id: e.actor_user_id,
-          })),
-          user.id,
-          scoresMap,
-          weeklyTarget,
-          settings.weekly_days,
-          todayLocalYmd(),
-          weekStartLocal,
-          weekEndLocal
-        )
-
-        if (!mounted || !stats) {
-          setTodayPlan(null)
-          return
-        }
-
-        // Calcular insight
-        const insight = calculateAdvisorInsight(
-          stats,
-          weeklyTarget,
-          settings.weekly_days,
-          weekStartLocal,
-          todayLocalYmd()
-        )
-
-        // Construir plan
-        const plan = buildTodayPlanForAdvisor({
-          requiredDailyAvg: insight.requiredDailyAvg,
-          riskReason: insight.riskReason,
-          scoresMap,
-        })
-
-        if (mounted) {
-          setTodayPlan({
-            label: plan.label,
-            items: plan.items.map((item) => ({
-              metric_key: item.metric_key,
-              units: item.units,
-            })),
-          })
-        }
-      } catch (err) {
-        console.error('[OkrDailyLogPage] Error al calcular plan de sugerencia:', err)
-        if (mounted) {
-          setTodayPlan(null)
-        }
-      }
-    }
-
-    calculateTodayPlan()
-
-    return () => {
-      mounted = false
-    }
-  }, [user?.id, selectedDate, loading, scores])
-
-  const handleApplySuggestion = useCallback(() => {
-    if (!todayPlan || todayPlan.items.length === 0) {
-      setToast({
-        type: 'error',
-        message: 'Sin métricas configuradas para la sugerencia',
-      })
-      return
-    }
-
-    // Pre-llenar entries con las unidades sugeridas
-    const newEntries: Record<string, number> = { ...entries }
-    todayPlan.items.forEach((item) => {
-      newEntries[item.metric_key] = item.units
-    })
-
-    setEntries(newEntries)
-    setInputValues({}) // Limpiar valores temporales al aplicar sugerencia
-    setHasChanges(true)
-    setToast({
-      type: 'success',
-      message: `Sugerencia aplicada: ${todayPlan.label}`,
-    })
-  }, [todayPlan, entries])
 
   const handleEntryChange = (metricKey: string, rawValue: string) => {
     // Normalizar: eliminar espacios (permite pegar "1 000" → "1000")
@@ -552,15 +411,6 @@ export function OkrDailyLogPage() {
           <h1 className="text-2xl md:text-3xl font-bold mb-1">OKR Diario</h1>
           <p className="text-sm text-muted">Captura y progreso</p>
         </div>
-        {todayPlan && selectedDate === todayLocalYmd() && (
-          <button
-            onClick={handleApplySuggestion}
-            className="btn btn-secondary btn-sm"
-            title={`Aplicar sugerencia: ${todayPlan.label}`}
-          >
-            Aplicar sugerencia
-          </button>
-        )}
       </div>
 
       {/* Summary Cards Grid */}
