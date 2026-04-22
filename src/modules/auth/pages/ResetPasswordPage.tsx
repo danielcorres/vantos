@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import { LoginBranding } from '../../../components/auth/LoginBranding'
 
 const MIN_PASSWORD_LENGTH = 8

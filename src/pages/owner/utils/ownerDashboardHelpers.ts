@@ -4,7 +4,7 @@
 
 import { timestampToYmdInTz, TZ_MTY } from '../../../shared/utils/dates'
 import { groupEventsByWeek } from '../../../modules/okr/utils/weeklyHistoryHelpers'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 
 export interface Advisor {
   user_id: string

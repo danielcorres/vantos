@@ -1,3 +1,4 @@
+import type { ElementType } from 'react'
 import type {
   AdvisorMilestoneStatus,
   MilestoneState,
@@ -95,7 +96,7 @@ export function AdvisorMilestoneCard({
 
   const styles = STATE_STYLES[activeState]
 
-  const Wrapper: any = onClick ? 'button' : 'div'
+  const Wrapper = (onClick ? 'button' : 'div') as ElementType
   const wrapperProps = onClick
     ? {
         onClick,

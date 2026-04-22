@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import { isNetworkError, isAuthError, getErrorMessage } from '../../../lib/supabaseErrorHandler'
 import { okrQueries, type DailyEntry, type PointsProgress, type OkrTier } from '../data/okrQueries'
 import { DailyGoalProgress } from '../components/DailyGoalProgress'

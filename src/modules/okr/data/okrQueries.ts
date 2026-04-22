@@ -1,4 +1,4 @@
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import { timestampToYmdInTz, TZ_MTY } from '../../../shared/utils/dates'
 
 export type MetricScore = {

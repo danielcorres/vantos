@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { flushSync } from 'react-dom'
 import { useParams, useNavigate, useBlocker } from 'react-router-dom'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '../lib/supabase'
 import { pipelineApi, type LeadStageHistoryRow } from '../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
 import { formatDateMX, diffDaysFloor, ymdToLocalNoonISO } from '../shared/utils/dates'

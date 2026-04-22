@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Navigate } from 'react-router-dom'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import { isNetworkError, isAuthError, getErrorMessage } from '../../../lib/supabaseErrorHandler'
 import { okrQueries, type OkrTier } from '../data/okrQueries'
 import { Toast } from '../../../shared/components/Toast'

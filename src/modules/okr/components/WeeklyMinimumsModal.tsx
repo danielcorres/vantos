@@ -6,7 +6,7 @@ import { useState, useEffect } from 'react'
 import { METRIC_MINIMUM_CONFIGS } from '../settings/metricMinimumConfig'
 import { DEFAULT_WEEKLY_MINIMUMS, type WeeklyMinimumTargetsMap } from '../dashboard/weeklyMinimumTargets'
 import { saveWeeklyMinimumTargets } from '../settings/weeklyMinimumTargetsApi'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 
 export interface WeeklyMinimumsModalProps {
   isOpen: boolean

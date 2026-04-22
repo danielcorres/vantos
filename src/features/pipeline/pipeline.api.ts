@@ -1,4 +1,4 @@
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../lib/supabase'
 
 /** Normaliza next_action_type a solo 'contact' | 'meeting' (compatibilidad con legacy). */
 function normalizeNextActionType(t: string | null | undefined): string | null {

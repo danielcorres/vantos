@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../lib/supabase'
 import { useUserRole } from '../../shared/hooks/useUserRole'
 import { useAuth } from '../../shared/auth/AuthProvider'
 import { isSystemOwner } from '../../lib/access'

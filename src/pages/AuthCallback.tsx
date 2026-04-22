@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { getErrorMessage } from '../lib/supabaseErrorHandler'
 import './AuthCallback.css'
 
 export function AuthCallback() {
@@ -24,8 +25,8 @@ export function AuthCallback() {
         } else {
           throw new Error('No se pudo crear la sesión')
         }
-      } catch (err: any) {
-        setError(err.message || 'Error al procesar el enlace de autenticación')
+      } catch (err: unknown) {
+        setError(getErrorMessage(err) || 'Error al procesar el enlace de autenticación')
         setLoading(false)
       }
     }

@@ -1,4 +1,4 @@
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import { pipelineApi } from '../../pipeline/pipeline.api'
 import type {
   CalendarEvent,

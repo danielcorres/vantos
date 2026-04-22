@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import { okrQueries } from '../data/okrQueries'
 import { todayLocalYmd } from '../../../shared/utils/dates'
 import { getLastNWeekStarts, calcWeekRangeLocal } from '../utils/weeklyHistoryHelpers'

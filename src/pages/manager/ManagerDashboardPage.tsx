@@ -12,7 +12,7 @@ import {
 } from '../owner/utils/ownerDashboardHelpers'
 import { getMetricLabel } from '../../modules/okr/domain/metricLabels'
 import { fetchWeeklyMinimumTargetsForOwner, DEFAULT_WEEKLY_MINIMUMS, type WeeklyMinimumTargetsMap } from '../../modules/okr/dashboard/weeklyMinimumTargets'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../lib/supabase'
 import { buildAdvisorProfile, type AdvisorProfileResult } from '../../modules/okr/dashboard/advisorProfile'
 import { buildMetricBreakdown } from '../../modules/okr/dashboard/advisorDetailHelpers'
 import { addDaysYmd } from '../../shared/utils/dates'

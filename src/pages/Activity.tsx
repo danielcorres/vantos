@@ -1,7 +1,17 @@
 import { useState, useEffect } from 'react'
 import { useSession } from '../lib/useSession'
 import { supabase } from '../lib/supabase'
+import { getErrorMessage } from '../lib/supabaseErrorHandler'
 import './Activity.css'
+
+function formatActivityError(error: unknown): string {
+  const base = getErrorMessage(error)
+  if (error && typeof error === 'object' && 'details' in error) {
+    const d = (error as { details?: unknown }).details
+    if (d != null && String(d).trim() !== '') return `${base} (${String(d)})`
+  }
+  return base
+}
 
 // Métricas según PROJECT_CONTEXT.md - OKR v0
 const METRICS = [
@@ -175,10 +185,8 @@ export function Activity() {
         setPoints(totalPoints)
       }
       setMessage({ type: 'success', text: 'Datos guardados correctamente' })
-    } catch (error: any) {
-      const errorMessage = error.message || 'Error al guardar los datos'
-      const errorDetails = error.details ? ` (${error.details})` : ''
-      const fullMessage = `${errorMessage}${errorDetails}`
+    } catch (error: unknown) {
+      const fullMessage = formatActivityError(error)
       console.error('Error completo al guardar:', error)
       setMessage({ type: 'error', text: fullMessage })
     } finally {
@@ -213,11 +221,12 @@ export function Activity() {
       const totalPoints = data?.reduce((sum, event) => sum + (event.value || 0), 0) ?? 0
       setPoints(totalPoints)
       setMessage({ type: 'success', text: 'Puntos recalculados correctamente' })
-    } catch (error: any) {
-      const errorMessage = error.message || 'Error desconocido'
-      const errorDetails = error.details ? ` (${error.details})` : ''
+    } catch (error: unknown) {
       console.error('Error al recalcular puntos:', error)
-      setMessage({ type: 'error', text: `Error al recalcular puntos: ${errorMessage}${errorDetails}` })
+      setMessage({
+        type: 'error',
+        text: `Error al recalcular puntos: ${formatActivityError(error)}`,
+      })
     } finally {
       setRecalculating(false)
     }

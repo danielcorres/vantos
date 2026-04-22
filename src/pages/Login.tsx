@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { getErrorMessage } from '../lib/supabaseErrorHandler'
 import './Login.css'
 
 export function Login() {
@@ -25,8 +26,8 @@ export function Login() {
       if (error) throw error
 
       setMessage('¡Revisa tu correo! Te hemos enviado un enlace mágico para iniciar sesión.')
-    } catch (err: any) {
-      setError(err.message || 'Error al enviar el enlace mágico')
+    } catch (err: unknown) {
+      setError(getErrorMessage(err) || 'Error al enviar el enlace mágico')
     } finally {
       setLoading(false)
     }

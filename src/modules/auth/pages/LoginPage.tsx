@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import { isNetworkError } from '../../../lib/supabaseErrorHandler'
 import { useAuth } from '../useAuth'
 import { getHomePathForRole } from '../getHomePathForRole'

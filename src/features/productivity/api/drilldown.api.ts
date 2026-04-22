@@ -1,4 +1,4 @@
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import type { StageSlug } from '../types/productivity.types'
 import type { WeeklyEntryLead } from '../types/productivity.types'
 

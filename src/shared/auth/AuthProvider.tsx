@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../lib/supabase'
 import { getSystemOwnerId, clearSystemOwnerCache } from '../../lib/systemOwner'
 import type { User, Session, AuthError } from '@supabase/supabase-js'
 

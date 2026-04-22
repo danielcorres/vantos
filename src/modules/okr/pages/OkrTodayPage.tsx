@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import { isNetworkError, isAuthError, getErrorMessage } from '../../../lib/supabaseErrorHandler'
 import { okrQueries } from '../data/okrQueries'
 import { DailyGoalProgress } from '../components/DailyGoalProgress'
@@ -131,8 +131,8 @@ export function OkrTodayPage() {
       if (err) throw err
       await load()
       setToast({ type: 'success', message: 'Registrado ✅' })
-    } catch (err: any) {
-      const errorMessage = err.message || 'Error al registrar actividad'
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err) || 'Error al registrar actividad'
       setError(errorMessage)
       setToast({ type: 'error', message: errorMessage })
     } finally {
@@ -151,8 +151,8 @@ export function OkrTodayPage() {
       if (err) throw err
       await load()
       setToast({ type: 'success', message: 'Deshecho ✅' })
-    } catch (err: any) {
-      const errorMessage = err.message || 'Error al deshacer'
+    } catch (err: unknown) {
+      const errorMessage = getErrorMessage(err) || 'Error al deshacer'
       setError(errorMessage)
       setToast({ type: 'error', message: errorMessage })
     } finally {

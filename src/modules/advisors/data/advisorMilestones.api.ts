@@ -1,4 +1,4 @@
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import { getPhase1PolicyWindow, getPhase2CumulativeWindow } from '../domain/advisorMilestones'
 
 export interface AdvisorMilestoneProfile {

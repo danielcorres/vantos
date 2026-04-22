@@ -5,7 +5,7 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../lib/supabase'
 import { okrQueries } from '../../modules/okr/data/okrQueries'
 import { useUserRole } from '../../shared/hooks/useUserRole'
 import { todayLocalYmd, timestampToYmdInTz, addDaysYmd } from '../../shared/utils/dates'

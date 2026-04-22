@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import { okrQueries } from '../data/okrQueries'
 import { getWeeklyMotivationMessage } from '../utils/weeklyMotivationHelpers'
 import { useAutoRefresh } from '../../../shared/hooks/useAutoRefresh'

@@ -3,7 +3,7 @@
  * Fuente única de verdad: public.okr_settings_global.owner_user_id
  */
 
-import { supabase } from './supabaseClient'
+import { supabase } from './supabase'
 
 let systemOwnerIdCache: string | null | undefined = undefined
 let systemOwnerIdPromise: Promise<string | null> | null = null

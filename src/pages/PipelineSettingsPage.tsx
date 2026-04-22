@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabaseClient'
+import { supabase } from '../lib/supabase'
 import { displayStageName } from '../shared/utils/stageStyles'
 
 type PipelineStageSettings = {

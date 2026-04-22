@@ -3,7 +3,7 @@
  * Incluye fallback a valores por defecto si no hay configuración en DB
  */
 
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import { todayLocalYmd } from '../../../shared/utils/dates'
 
 export type WeeklyMinimumTargetsMap = Record<string, number>

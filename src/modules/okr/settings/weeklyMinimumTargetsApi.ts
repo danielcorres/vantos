@@ -2,7 +2,7 @@
  * API helper para cargar y guardar mínimos semanales por asesor
  */
 
-import { supabase } from '../../../lib/supabaseClient'
+import { supabase } from '../../../lib/supabase'
 import { todayLocalYmd } from '../../../shared/utils/dates'
 import { DEFAULT_WEEKLY_MINIMUMS, type WeeklyMinimumTargetsMap } from '../dashboard/weeklyMinimumTargets'
 

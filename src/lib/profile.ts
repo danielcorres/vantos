@@ -2,7 +2,7 @@
  * Helpers para manejar perfiles de usuario
  */
 
-import { supabase } from './supabaseClient'
+import { supabase } from './supabase'
 
 export interface Profile {
   user_id: string

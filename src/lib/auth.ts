@@ -1,5 +1,5 @@
 // TODO: Implementar funciones de autenticación
-import { supabase } from './supabaseClient'
+import { supabase } from './supabase'
 
 export async function signInWithEmail(email: string) {
   // TODO: Implementar login con magic link

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../shared/auth/AuthProvider'
 import { useUserRole } from '../../shared/hooks/useUserRole'
 import {

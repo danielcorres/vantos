@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { supabase } from '../../lib/supabaseClient'
+import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../shared/auth/AuthProvider'
 import { getSystemOwnerId } from '../../lib/systemOwner'
 
@@ -13,6 +13,12 @@ type Profile = {
 }
 
 const rolesEditable = ['advisor', 'manager', 'recruiter', 'director', 'seguimiento'] as const
+
+type EditableRole = (typeof rolesEditable)[number]
+
+function isEditableAssignmentRole(role: Profile['role']): role is EditableRole {
+  return (rolesEditable as readonly string[]).includes(role)
+}
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'error'
 
@@ -347,7 +353,7 @@ export function AssignmentsPage() {
               const displayName = getDisplayName(profile)
               const isSystemOwner = profile.user_id === ownerUserId
               const isReadOnly = isSystemOwner
-              const showRoleDropdown = !isReadOnly && rolesEditable.includes(profile.role as any)
+              const showRoleDropdown = !isReadOnly && isEditableAssignmentRole(profile.role)
 
               return (
                 <tr key={profile.user_id} className="border-b border-border hover:bg-black/5">
