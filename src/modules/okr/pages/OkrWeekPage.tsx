@@ -162,11 +162,14 @@ export function OkrWeekPage() {
     }
   }, [weekOffset])
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true
     const isMounted = true
-    
-    setLoading(true)
-    setError(null)
+
+    if (!silent) {
+      setLoading(true)
+      setError(null)
+    }
     try {
       // Obtener usuario actual
       const {
@@ -393,7 +396,7 @@ export function OkrWeekPage() {
         setError(errorMessage)
       }
     } finally {
-      if (isMounted) {
+      if (isMounted && !silent) {
         setLoading(false)
       }
     }
@@ -403,8 +406,9 @@ export function OkrWeekPage() {
     load()
   }, [load])
 
+  const silentRefresh = useCallback(() => load({ silent: true }), [load])
   // Auto-refresh solo para semana actual
-  useAutoRefresh(load, { enabled: !loading && weekOffset === 0 })
+  useAutoRefresh(silentRefresh, { enabled: !loading && weekOffset === 0 })
 
   // Crear mapa: metric_key -> day_local -> total_value (memoizado)
   const dailyMap = useMemo(() => {
@@ -684,7 +688,12 @@ export function OkrWeekPage() {
           <span>
             Meta diaria: {safeDailyTarget} pts × {safeWeeklyDays} días = {weeklySummary.weeklyTarget} pts
           </span>
-          <button onClick={load} className="btn btn-ghost text-xs px-2 py-1" disabled={loading}>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="btn btn-ghost text-xs px-2 py-1"
+            disabled={loading}
+          >
             Actualizar
           </button>
         </div>

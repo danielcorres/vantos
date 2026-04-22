@@ -76,9 +76,12 @@ export function OkrHomePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    setError(null)
+  const loadData = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true
+    if (!silent) {
+      setLoading(true)
+      setError(null)
+    }
 
     const today = todayLocalYmd()
     const defaultStreak = { streak_days: 0, is_alive: false, grace_days_left: 0 }
@@ -134,7 +137,9 @@ export function OkrHomePage() {
       setScoresCount(0)
     }
 
-    setLoading(false)
+    if (!silent) {
+      setLoading(false)
+    }
   }, [user?.email])
 
   useEffect(() => {
@@ -155,7 +160,8 @@ export function OkrHomePage() {
     })
   }, [isBirthday, welcomeName])
 
-  useAutoRefresh(loadData, { enabled: !loading })
+  const silentRefresh = useCallback(() => loadData({ silent: true }), [loadData])
+  useAutoRefresh(silentRefresh, { enabled: !loading })
 
   if (loading) {
     return (

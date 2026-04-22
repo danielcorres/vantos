@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
 import { isNetworkError, isAuthError, getErrorMessage } from '../../../lib/supabaseErrorHandler'
@@ -50,11 +50,22 @@ export function OkrDailyLogPage() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   // Estado temporal para inputs en mobile (permite string vacío mientras se escribe)
   const [inputValues, setInputValues] = useState<Record<string, string>>({})
+  const hasChangesRef = useRef(false)
+  useEffect(() => {
+    hasChangesRef.current = hasChanges
+  }, [hasChanges])
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true
+    if (silent && hasChangesRef.current) {
+      return
+    }
+
     const isMounted = true
-    
-    setLoading(true)
+
+    if (!silent) {
+      setLoading(true)
+    }
     try {
       // Cargar métricas disponibles
       const { data: metricDefs, error: defsError } = await supabase
@@ -117,8 +128,10 @@ export function OkrDailyLogPage() {
       if (!isMounted) return
       
       setEntries(dailyEntries)
-      setInputValues({}) // Limpiar valores temporales al cargar nuevos datos
-      setHasChanges(false)
+      if (!silent) {
+        setInputValues({}) // Limpiar valores temporales al cargar nuevos datos
+        setHasChanges(false)
+      }
 
       // Cargar progreso
       const progressData = await okrQueries.getPointsProgress(selectedDate)
@@ -172,7 +185,7 @@ export function OkrDailyLogPage() {
         })
       }
     } finally {
-      if (isMounted) {
+      if (isMounted && !silent) {
         setLoading(false)
       }
     }
@@ -182,8 +195,8 @@ export function OkrDailyLogPage() {
     loadData()
   }, [loadData])
 
-  // Auto-refresh al hacer focus o cuando el documento se vuelve visible
-  useAutoRefresh(loadData, { enabled: !loading && !saving })
+  const silentRefresh = useCallback(() => loadData({ silent: true }), [loadData])
+  useAutoRefresh(silentRefresh, { enabled: !loading && !saving })
 
   const handleEntryChange = (metricKey: string, rawValue: string) => {
     // Normalizar: eliminar espacios (permite pegar "1 000" → "1000")
