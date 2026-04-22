@@ -23,6 +23,7 @@ export function LoginPage() {
   const [searchParams] = useSearchParams()
   const next = searchParams.get('next')
   const { session, role, loading: authLoading } = useAuth()
+  const sessionUserId = session?.user?.id ?? null
   const [email, setEmail] = useState(() => {
     // Cargar email guardado del localStorage
     const savedEmail = localStorage.getItem(EMAIL_STORAGE_KEY)
@@ -46,10 +47,10 @@ export function LoginPage() {
 
   // Si ya está autenticado en /login, redirigir a next o getHomePathForRole(role)
   useEffect(() => {
-    if (!session || role == null || authLoading) return
+    if (!sessionUserId || role == null || authLoading) return
     const dest = isSafeNext(next) ? next : getHomePathForRole(role)
     navigate(dest, { replace: true })
-  }, [session, role, authLoading, next, navigate])
+  }, [sessionUserId, role, authLoading, next, navigate])
 
   // Guardar email en localStorage cuando cambia
   useEffect(() => {

@@ -331,38 +331,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     initializeAuth()
 
-    // Una sola suscripción a onAuthStateChange
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      if (!mountedRef.current || aborted) return
+    // Una sola suscripción a onAuthStateChange.
+    // Diferir setState: actualizar React en el mismo tick que el callback de GoTrue puede encadenar
+    // con llamadas a auth.getUser() en hijos y re-disparar el listener (congelamiento).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      queueMicrotask(() => {
+        if (!mountedRef.current || aborted) return
 
-      if (IS_DEV) {
-        console.debug('[AuthProvider] onAuthStateChange:', { event: _event, hasSession: !!newSession })
-      }
+        if (IS_DEV) {
+          console.debug('[AuthProvider] onAuthStateChange:', { event: _event, hasSession: !!newSession })
+        }
 
-      if (mountedRef.current) {
-        const currentUserId = newSession?.user?.id ?? null
-        
-        // Limpiar cache solo si cambió el userId
-        if (currentUserId !== lastUserIdRef.current) {
-          clearSystemOwnerCache()
-          lastUserIdRef.current = currentUserId
+        if (mountedRef.current) {
+          const currentUserId = newSession?.user?.id ?? null
+
+          // Limpiar cache solo si cambió el userId
+          if (currentUserId !== lastUserIdRef.current) {
+            clearSystemOwnerCache()
+            lastUserIdRef.current = currentUserId
+          }
+
+          setSession(newSession)
+          setUser(newSession?.user ?? null)
+          setError(null)
+          setLoading(false)
+
+          // Cargar role y system owner si hay usuario
+          if (currentUserId) {
+            loadUserRole(currentUserId)
+            loadSystemOwnerId()
+          } else {
+            // Si no hay sesión, limpiar role y system owner
+            setRole(null)
+            setSystemOwnerId(null)
+          }
         }
-        
-        setSession(newSession)
-        setUser(newSession?.user ?? null)
-        setError(null)
-        setLoading(false)
-        
-        // Cargar role y system owner si hay usuario
-        if (currentUserId) {
-          loadUserRole(currentUserId)
-          loadSystemOwnerId()
-        } else {
-          // Si no hay sesión, limpiar role y system owner
-          setRole(null)
-          setSystemOwnerId(null)
-        }
-      }
+      })
     })
 
     return () => {

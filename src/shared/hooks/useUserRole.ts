@@ -42,6 +42,11 @@ export function useUserRole(): UseUserRoleResult {
   const mountedRef = useRef(true)
   const lastUserIdRef = useRef<string | null>(null)
   const loadInProgressRef = useRef(false)
+  const errorRef = useRef<string | null>(null)
+
+  useEffect(() => {
+    errorRef.current = error
+  }, [error])
 
   const loadUserRole = useCallback(async (userId: string) => {
     // Prevenir ejecución múltiple
@@ -74,8 +79,8 @@ export function useUserRole(): UseUserRoleResult {
         }
       }, ROLE_TIMEOUT_MS)
 
-      // Evitar recargar si es el mismo usuario
-      if (lastUserIdRef.current === userId && !error) {
+      // Evitar recargar si es el mismo usuario (ref evita recrear el callback cuando cambia error)
+      if (lastUserIdRef.current === userId && !errorRef.current) {
         if (IS_DEV) {
           console.debug('[useUserRole] Mismo usuario, saltando recarga')
         }
@@ -205,7 +210,7 @@ export function useUserRole(): UseUserRoleResult {
       if (timeoutId) clearTimeout(timeoutId)
       loadInProgressRef.current = false
     }
-  }, [error])
+  }, [])
 
   const retry = useCallback(() => {
     if (IS_DEV) {
@@ -213,6 +218,7 @@ export function useUserRole(): UseUserRoleResult {
     }
     if (user?.id) {
       lastUserIdRef.current = null
+      errorRef.current = null
       setError(null)
       setLoading(true)
       loadUserRole(user.id)

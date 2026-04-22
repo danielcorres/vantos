@@ -22,9 +22,15 @@ export function AppShell() {
   // Calcular width del sidebar en desktop
   const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED
 
-  // Cargar nombre de perfil cuando user cambia
+  // Resetear displayNameLoadedRef cuando cambia el usuario (antes de cargar nombre)
   useEffect(() => {
-    if (!user || displayNameLoadedRef.current) return
+    displayNameLoadedRef.current = false
+  }, [user?.id])
+
+  // Depender de user?.id, no de user: cada TOKEN_REFRESHED crea un nuevo objeto user
+  // y volver a llamar getUserDisplayName() -> auth.getUser() puede re-disparar onAuthStateChange (bucle).
+  useEffect(() => {
+    if (!user?.id || displayNameLoadedRef.current) return
 
     const loadDisplayName = async () => {
       try {
@@ -43,12 +49,7 @@ export function AppShell() {
     }
 
     loadDisplayName()
-  }, [user])
-
-  // Resetear displayNameLoadedRef cuando user cambia
-  useEffect(() => {
-    displayNameLoadedRef.current = false
-  }, [user?.id])
+  }, [user?.id, user?.email])
 
   // Redirigir a login si no hay sesión
   useEffect(() => {

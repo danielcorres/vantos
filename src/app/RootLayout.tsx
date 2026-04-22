@@ -11,12 +11,13 @@ function isSafeNext(next: string | null): next is string {
 
 export function RootLayout() {
   const { session, role, loading } = useAuth()
+  const sessionUserId = session?.user?.id ?? null
   const location = useLocation()
   const navigate = useNavigate()
   const { pathname, search } = location
 
   useEffect(() => {
-    if (!session || role == null || loading) return
+    if (!sessionUserId || role == null || loading) return
     if (pathname !== '/' && pathname !== '/login') return
 
     const params = new URLSearchParams(search)
@@ -26,7 +27,7 @@ export function RootLayout() {
       return
     }
     navigate(getHomePathForRole(role), { replace: true })
-  }, [session, role, loading, pathname, search, navigate])
+  }, [sessionUserId, role, loading, pathname, search, navigate])
 
   if (loading) {
     return <FullScreenLoader label="Cargando..." />
