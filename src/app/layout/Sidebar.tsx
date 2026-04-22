@@ -98,21 +98,14 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
       title: 'Dashboards',
       visible: (r, loading) => {
         if (loading) return false
-        return (
-          r === 'owner' ||
-          r === 'director' ||
-          r === 'seguimiento' ||
-          r === 'developer' ||
-          r === 'manager'
-        )
+        return r === 'owner' || r === 'director' || r === 'seguimiento' || r === 'manager'
       },
       items: [
         {
           label: 'Dashboard',
           path: '/owner/dashboard',
           icon: IconLayoutDashboard,
-          visible: (r) =>
-            r === 'owner' || r === 'director' || r === 'seguimiento' || r === 'developer',
+          visible: (r) => r === 'owner' || r === 'director' || r === 'seguimiento',
         },
         {
           label: 'Dashboard Manager',
@@ -137,11 +130,7 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
           label: 'Asignaciones',
           path: '/owner/assignments',
           icon: IconUserCog,
-          visible: (r) =>
-            r === 'owner' ||
-            r === 'director' ||
-            r === 'seguimiento' ||
-            r === 'developer',
+          visible: (r) => r === 'owner' || r === 'director',
         },
         {
           label: 'Asesores',

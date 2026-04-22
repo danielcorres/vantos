@@ -25,8 +25,6 @@ export interface UseTeamOkrDashboardOptions {
   filters?: {
     managerId?: string | null
     recruiterId?: string | null
-    seguimientoId?: string | null
-    developerId?: string | null
   } // Solo usado si mode === 'owner'
   weekStartLocal?: string // YYYY-MM-DD (lunes) - Si se proporciona, usa esta semana en vez de la actual
 }
@@ -91,8 +89,6 @@ export function useTeamOkrDashboard(
         scopedAdvisorIds = await getScopedAdvisors({
           managerId: filters?.managerId ?? null,
           recruiterId: filters?.recruiterId ?? null,
-          seguimientoId: filters?.seguimientoId ?? null,
-          developerId: filters?.developerId ?? null,
         })
       }
 
@@ -284,19 +280,7 @@ export function useTeamOkrDashboard(
       }
       loadInProgressRef.current = false
     }
-  }, [
-    mode,
-    managerUserId,
-    filters?.managerId,
-    filters?.recruiterId,
-    filters?.seguimientoId,
-    filters?.developerId,
-    options.weekStartLocal,
-    weekStartLocal,
-    weekEndLocal,
-    nextWeekStartLocal,
-    todayLocal,
-  ])
+  }, [mode, managerUserId, filters?.managerId, filters?.recruiterId, options.weekStartLocal, weekStartLocal, weekEndLocal, nextWeekStartLocal, todayLocal])
 
   const reload = useCallback(() => {
     loadData()
