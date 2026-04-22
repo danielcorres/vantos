@@ -20,6 +20,7 @@ import { AdvisorSettingsPage } from '../pages/owner/AdvisorSettingsPage'
 import { ManagerDashboardPage } from '../pages/manager/ManagerDashboardPage'
 import { AdvisorWeekDetailPage } from '../pages/manager/AdvisorWeekDetailPage'
 import { WeeklyMinimumTargetsPage } from '../modules/okr/settings/WeeklyMinimumTargetsPage'
+import { ASSIGNMENTS_PAGE_ROLES } from '../modules/auth/assignmentAccess'
 
 const PipelinePage = lazy(() =>
   import('../pages/PipelinePage').then((m) => ({ default: m.PipelinePage }))
@@ -40,8 +41,7 @@ const PipelineSettingsPage = lazy(() =>
   import('../pages/PipelineSettingsPage').then((m) => ({ default: m.PipelineSettingsPage }))
 )
 
-const OWNER_ROLES = ['owner', 'director', 'seguimiento'] as const
-const OWNER_DASHBOARD_ROLES = ['owner', 'director', 'seguimiento'] as const
+const OWNER_DASHBOARD_ROLES = ['owner', 'director', 'seguimiento', 'developer'] as const
 const ADVISOR_AREA_ROLES = ['advisor', 'owner', 'manager', 'recruiter', 'director', 'seguimiento', 'developer', 'super_admin'] as const
 const PIPELINE_ROLES = ['advisor', 'manager', 'owner'] as const
 const PIPELINE_SETTINGS_ROLES = ['manager', 'owner'] as const
@@ -182,7 +182,7 @@ export const router = createBrowserRouter([
       {
         path: 'owner/assignments',
         element: (
-          <RoleGuard allowedRoles={[...OWNER_ROLES]}>
+          <RoleGuard allowedRoles={[...ASSIGNMENTS_PAGE_ROLES]}>
             <AssignmentsPage />
           </RoleGuard>
         ),

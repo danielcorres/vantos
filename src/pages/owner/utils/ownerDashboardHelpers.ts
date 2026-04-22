@@ -38,6 +38,8 @@ export interface AdvisorHistoryStats {
 export async function getScopedAdvisors(options?: {
   managerId?: string | null
   recruiterId?: string | null
+  seguimientoId?: string | null
+  developerId?: string | null
 }): Promise<string[]> {
   let query = supabase
     .from('profiles')
@@ -50,6 +52,14 @@ export async function getScopedAdvisors(options?: {
 
   if (options?.recruiterId) {
     query = query.eq('recruiter_user_id', options.recruiterId)
+  }
+
+  if (options?.seguimientoId) {
+    query = query.eq('seguimiento_user_id', options.seguimientoId)
+  }
+
+  if (options?.developerId) {
+    query = query.eq('developer_user_id', options.developerId)
   }
 
   const { data, error } = await query

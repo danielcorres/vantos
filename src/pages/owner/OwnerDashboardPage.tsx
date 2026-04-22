@@ -36,8 +36,12 @@ export function OwnerDashboardPage() {
   const { role: userRole, isOwner, loading: roleLoading, error: roleError, retry: retryRole } = useUserRole()
   
   const isSystemOwnerUser = isSystemOwner(user?.id, systemOwnerId)
-  // Permitir acceso a owner, director y seguimiento
-  const canAccessDashboard = userRole === 'owner' || userRole === 'director' || userRole === 'seguimiento'
+  // Permitir acceso a owner, director, seguimiento y developer
+  const canAccessDashboard =
+    userRole === 'owner' ||
+    userRole === 'director' ||
+    userRole === 'seguimiento' ||
+    userRole === 'developer'
   const [selectedManagerId, setSelectedManagerId] = useState<string | null>(null)
   const [selectedRecruiterId, setSelectedRecruiterId] = useState<string | null>(null)
   const [managers, setManagers] = useState<ProfileOption[]>([])
@@ -83,6 +87,8 @@ export function OwnerDashboardPage() {
     filters: {
       managerId: selectedManagerId,
       recruiterId: selectedRecruiterId,
+      seguimientoId: userRole === 'seguimiento' ? user?.id ?? null : null,
+      developerId: userRole === 'developer' ? user?.id ?? null : null,
     },
     weekStartLocal: weekStartLocalToUse,
   })
