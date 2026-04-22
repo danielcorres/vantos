@@ -404,7 +404,7 @@ export function OkrDailyLogPage() {
   }
 
   return (
-    <div className="space-y-4 pb-28 md:pb-4">
+    <div className="scheme-light space-y-4 pb-28 md:pb-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -439,7 +439,7 @@ export function OkrDailyLogPage() {
                 value={selectedDate}
                 onChange={(e) => handleDateChange(e.target.value)}
                 max={todayLocalYmd()}
-                className="flex-1 border border-border rounded-md px-2 py-1 text-sm"
+                className="scheme-light flex-1 border border-border rounded-md bg-surface px-2 py-1 text-sm text-text"
               />
               <button
                 onClick={handleNextDay}
@@ -563,7 +563,7 @@ export function OkrDailyLogPage() {
                         onFocus={(e) => e.currentTarget.select()}
                         onBlur={() => handleEntryBlur(metricKey)}
                         disabled={saving}
-                        className="w-20 border border-border rounded-md px-2 py-1.5 text-base text-right focus:outline-none focus:ring-2 focus:ring-primary"
+                        className="scheme-light w-20 border border-border rounded-md bg-surface px-2 py-1.5 text-base text-right text-text focus:outline-none focus:ring-2 focus:ring-primary"
                         placeholder="0"
                         aria-label={`Cantidad para ${metric.label}`}
                       />
@@ -654,7 +654,7 @@ export function OkrDailyLogPage() {
                           onFocus={(e) => e.currentTarget.select()}
                           onBlur={() => handleEntryBlur(metricKey)}
                           disabled={saving}
-                          className="w-20 border border-border rounded-md px-2 py-1.5 text-base text-right focus:outline-none focus:ring-2 focus:ring-primary"
+                          className="scheme-light w-20 border border-border rounded-md bg-surface px-2 py-1.5 text-base text-right text-text focus:outline-none focus:ring-2 focus:ring-primary"
                           placeholder="0"
                           aria-label={`Cantidad para ${metric.label}`}
                         />

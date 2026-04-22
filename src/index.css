@@ -9,7 +9,8 @@
 
 @layer base {
   html {
-    color-scheme: light dark;
+    /* Fuerza scrollbars / inputs nativos en estilo claro aunque el SO esté en oscuro */
+    color-scheme: light;
   }
 
   * {
