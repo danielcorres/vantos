@@ -16,6 +16,11 @@ export function RootLayout() {
   const navigate = useNavigate()
   const { pathname, search } = location
 
+  // PKCE / magic link: el intercambio debe montarse de inmediato; bloquear el Outlet con loading
+  // deja al usuario en un loader infinito hasta que expire el código en la URL.
+  const allowOutletWhileAuthLoading =
+    pathname === '/auth/callback' || pathname === '/auth/reset'
+
   useEffect(() => {
     if (!sessionUserId || role == null || loading) return
     if (pathname !== '/' && pathname !== '/login') return
@@ -29,7 +34,7 @@ export function RootLayout() {
     navigate(getHomePathForRole(role), { replace: true })
   }, [sessionUserId, role, loading, pathname, search, navigate])
 
-  if (loading) {
+  if (loading && !allowOutletWhileAuthLoading) {
     return <FullScreenLoader label="Cargando..." />
   }
 

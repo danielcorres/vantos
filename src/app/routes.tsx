@@ -8,6 +8,7 @@ import { RoleGuard } from '../modules/auth/RoleGuard'
 import { PageSkeleton } from '../shared/components/PageSkeleton'
 import { LoginPage } from '../modules/auth/pages/LoginPage'
 import { ResetPasswordPage } from '../modules/auth/pages/ResetPasswordPage'
+import { AuthCallback } from '../pages/AuthCallback'
 import { OkrHomePage } from '../modules/okr/pages/OkrHomePage'
 import { OkrWeekPage } from '../modules/okr/pages/OkrWeekPage'
 import { OkrDailyLogPage } from '../modules/okr/pages/OkrDailyLogPage'
@@ -59,6 +60,11 @@ export const router = createBrowserRouter([
       {
         path: '/auth/reset',
         element: <ResetPasswordPage />,
+      },
+      {
+        path: '/auth/callback',
+        element: <AuthCallback />,
+        errorElement: <RouterErrorPage />,
       },
       {
         path: '/',

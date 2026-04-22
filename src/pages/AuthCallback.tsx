@@ -21,7 +21,7 @@ export function AuthCallback() {
         }
 
         if (data.session) {
-          navigate('/activity', { replace: true })
+          navigate('/', { replace: true })
         } else {
           throw new Error('No se pudo crear la sesión')
         }
