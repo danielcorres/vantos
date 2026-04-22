@@ -332,11 +332,7 @@ export function AssignmentsPage() {
 
   const handleOperativoSlot = async (
     advisorUserId: string,
-    field:
-      | 'seguimiento_user_id'
-      | 'developer_user_id'
-      | 'manager_user_id'
-      | 'recruiter_user_id',
+    field: 'seguimiento_user_id' | 'developer_user_id',
     assignSelf: boolean
   ) => {
     if (!mountedRef.current || !currentUserId) return
@@ -432,7 +428,7 @@ export function AssignmentsPage() {
         <p className="text-sm text-muted mt-1">
           {isAdmin
             ? 'Administra roles y asignaciones de manager, recruiter, seguimiento y developer para cada usuario.'
-            : 'Asignarte a asesores según tu rol (manager, recruiter, seguimiento o developer). Los administradores gestionan el resto.'}
+            : 'Asignarte a asesores en tu rol (seguimiento o developer). Los administradores gestionan el resto.'}
         </p>
       </div>
 
@@ -568,29 +564,6 @@ export function AssignmentsPage() {
                           </option>
                         ))}
                       </select>
-                    ) : profile.role === 'advisor' && !isReadOnly && currentUserRole === 'manager' ? (
-                      <div className="flex flex-col gap-1 items-start">
-                        <span className="text-xs text-text">{nameById(profile.manager_user_id)}</span>
-                        {profile.manager_user_id === currentUserId ? (
-                          <button
-                            type="button"
-                            className="btn btn-ghost text-xs px-2 py-1"
-                            onClick={() => void handleOperativoSlot(profile.user_id, 'manager_user_id', false)}
-                          >
-                            Quitar mi asignación
-                          </button>
-                        ) : profile.manager_user_id ? (
-                          <span className="text-xs text-muted">Otro usuario asignado</span>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn btn-primary text-xs px-2 py-1"
-                            onClick={() => void handleOperativoSlot(profile.user_id, 'manager_user_id', true)}
-                          >
-                            Asignarme
-                          </button>
-                        )}
-                      </div>
                     ) : profile.role === 'advisor' ? (
                       <span className="text-xs text-text">{nameById(profile.manager_user_id)}</span>
                     ) : (
@@ -624,29 +597,6 @@ export function AssignmentsPage() {
                           </option>
                         ))}
                       </select>
-                    ) : profile.role === 'advisor' && !isReadOnly && currentUserRole === 'recruiter' ? (
-                      <div className="flex flex-col gap-1 items-start">
-                        <span className="text-xs text-text">{nameById(profile.recruiter_user_id)}</span>
-                        {profile.recruiter_user_id === currentUserId ? (
-                          <button
-                            type="button"
-                            className="btn btn-ghost text-xs px-2 py-1"
-                            onClick={() => void handleOperativoSlot(profile.user_id, 'recruiter_user_id', false)}
-                          >
-                            Quitar mi asignación
-                          </button>
-                        ) : profile.recruiter_user_id ? (
-                          <span className="text-xs text-muted">Otro usuario asignado</span>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn btn-primary text-xs px-2 py-1"
-                            onClick={() => void handleOperativoSlot(profile.user_id, 'recruiter_user_id', true)}
-                          >
-                            Asignarme
-                          </button>
-                        )}
-                      </div>
                     ) : profile.role === 'advisor' ? (
                       <span className="text-xs text-text">{nameById(profile.recruiter_user_id)}</span>
                     ) : (

@@ -125,12 +125,7 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
     {
       title: 'Configuración',
       visible: (r) =>
-        r === 'owner' ||
-        r === 'director' ||
-        r === 'seguimiento' ||
-        r === 'developer' ||
-        r === 'manager' ||
-        r === 'recruiter',
+        r === 'owner' || r === 'director' || r === 'seguimiento' || r === 'developer',
       items: [
         {
           label: 'Puntajes OKR',
@@ -146,9 +141,7 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
             r === 'owner' ||
             r === 'director' ||
             r === 'seguimiento' ||
-            r === 'developer' ||
-            r === 'manager' ||
-            r === 'recruiter',
+            r === 'developer',
         },
         {
           label: 'Asesores',

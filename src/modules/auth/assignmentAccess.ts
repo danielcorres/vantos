@@ -1,12 +1,5 @@
 /** Roles que pueden abrir la página de Asignaciones (ruta + sidebar + UI). */
-export const ASSIGNMENTS_PAGE_ROLES = [
-  'owner',
-  'director',
-  'seguimiento',
-  'developer',
-  'manager',
-  'recruiter',
-] as const
+export const ASSIGNMENTS_PAGE_ROLES = ['owner', 'director', 'seguimiento', 'developer'] as const
 
 export type AssignmentsPageRole = (typeof ASSIGNMENTS_PAGE_ROLES)[number]
 
