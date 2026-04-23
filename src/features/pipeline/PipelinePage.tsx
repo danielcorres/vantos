@@ -31,11 +31,6 @@ import type { CreateLeadInput } from './pipeline.api'
 import { calendarApi } from '../calendar/api/calendar.api'
 import type { CalendarEvent } from '../calendar/types/calendar.types'
 import { resolveCalModalFromGuidance } from './utils/resolveCalModalFromGuidance'
-import { useAuth } from '../../shared/auth/AuthProvider'
-import { getMyProfile } from '../../lib/profile'
-import { supabase } from '../../lib/supabase'
-import { fetchWeeklyMinimumTargetsForOwner } from '../../modules/okr/dashboard/weeklyMinimumTargets'
-import { buildStageTargetCountMap } from './utils/weeklyStageTargets'
 
 const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
   contactos_nuevos: 'Contactos',
@@ -92,7 +87,6 @@ const initialState: PipelineState = {
 }
 
 export function PipelinePage() {
-  const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<ViewMode>(getStoredViewMode)
@@ -239,7 +233,6 @@ export function PipelinePage() {
   const [tableCounts, setTableCounts] = useState({ activos: 0, archivados: 0 })
   const [tableVisibleCount, setTableVisibleCount] = useState<number | null>(null)
   const [stageLoadMeta, setStageLoadMeta] = useState<Record<string, { total: number; loaded: number }>>({})
-  const [stageTargetCountByStageId, setStageTargetCountByStageId] = useState<Record<string, number>>({})
   const [kanbanStageLoadingMore, setKanbanStageLoadingMore] = useState<string | null>(null)
   const stageLoadMetaRef = useRef(stageLoadMeta)
   useEffect(() => {
@@ -258,16 +251,13 @@ export function PipelinePage() {
   const loadData = async () => {
     dispatch({ type: 'LOAD_START' })
     try {
-      const [profile, stages] = await Promise.all([getMyProfile(), pipelineApi.getStages()])
+      const stages = await pipelineApi.getStages()
       const stageIds = stages.map((s) => s.id)
-      const targetsOwnerId = profile?.manager_user_id ?? user?.id ?? null
-      const [counts, activosTotal, archTotal, { targets }] = await Promise.all([
+      const [counts, activosTotal, archTotal] = await Promise.all([
         pipelineApi.getActiveLeadCountsByStages(stageIds),
         pipelineApi.getActiveLeadsTotalCount(),
         pipelineApi.getArchivedLeadsTotalCount(),
-        fetchWeeklyMinimumTargetsForOwner(supabase, targetsOwnerId),
       ])
-      setStageTargetCountByStageId(buildStageTargetCountMap(stages, targets))
       const pages = await Promise.all(
         stageIds.map((sid) =>
           pipelineApi.getLeadsForStage(sid, { offset: 0, limit: PIPELINE_STAGE_PAGE_SIZE })
@@ -310,19 +300,15 @@ export function PipelinePage() {
   const refreshDataSilent = useCallback(async () => {
     try {
       let stages = state.stages
-      const profile = await getMyProfile()
       if (!stages.length) {
         stages = await pipelineApi.getStages()
       }
       const stageIds = stages.map((s) => s.id)
-      const targetsOwnerId = profile?.manager_user_id ?? user?.id ?? null
-      const [counts, activosTotal, archTotal, { targets }] = await Promise.all([
+      const [counts, activosTotal, archTotal] = await Promise.all([
         pipelineApi.getActiveLeadCountsByStages(stageIds),
         pipelineApi.getActiveLeadsTotalCount(),
         pipelineApi.getArchivedLeadsTotalCount(),
-        fetchWeeklyMinimumTargetsForOwner(supabase, targetsOwnerId),
       ])
-      setStageTargetCountByStageId(buildStageTargetCountMap(stages, targets))
       const pages = await Promise.all(
         stageIds.map((sid) =>
           pipelineApi.getLeadsForStage(sid, { offset: 0, limit: PIPELINE_STAGE_PAGE_SIZE })
@@ -339,7 +325,7 @@ export function PipelinePage() {
     } catch (err: unknown) {
       dispatch({ type: 'LOAD_ERROR', payload: err instanceof Error ? err.message : 'Error al cargar datos' })
     }
-  }, [dispatch, state.stages, user?.id])
+  }, [dispatch, state.stages])
 
   const refreshAffectedStages = useCallback(
     async (fromStageId: string, toStageId: string) => {
@@ -876,7 +862,6 @@ export function PipelinePage() {
             stages={state.stages}
             leads={displayedLeads}
             nextAppointmentByLeadId={nextAppointmentByLeadId}
-            stageTargetCountByStageId={stageTargetCountByStageId}
             stageLoadMeta={stageLoadMeta}
             loadingMoreStageId={kanbanStageLoadingMore}
             onLoadMoreStage={handleLoadMoreStage}

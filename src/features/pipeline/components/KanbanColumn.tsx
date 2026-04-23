@@ -9,10 +9,6 @@ import { LeadCard } from './LeadCard'
 import { sortLeadsByEffectiveNextTouch } from '../utils/effectiveNextTouch'
 import { getStageHelp } from '../utils/stageHelp'
 import { displayStageName } from '../../../shared/utils/stageStyles'
-import {
-  formatPipelineWeeklyTargetDisplay,
-  pipelineTargetIsWeeklyPremiumMxn,
-} from '../utils/weeklyStageTargets'
 
 interface KanbanColumnProps {
   stage: PipelineStage
@@ -21,8 +17,6 @@ interface KanbanColumnProps {
   /** Próxima cita programada por lead_id (batch desde calendario). */
   nextAppointmentByLeadId?: Record<string, CalendarEvent | null>
   schedulingGuidanceByLeadId?: Record<string, SchedulingGuidance>
-  /** Meta semanal (OKR) para esta etapa; cabecera muestra "Meta: N" y total en alerta si está por debajo. */
-  targetCount?: number
   /** Total en servidor para esta etapa (cabecera). Si no viene, se usa leads.length. */
   totalInStage?: number
   loadedInStage?: number
@@ -52,7 +46,6 @@ function KanbanColumnInner({
   leads,
   nextAppointmentByLeadId = EMPTY_APPOINTMENTS,
   schedulingGuidanceByLeadId = EMPTY_GUIDANCE,
-  targetCount,
   totalInStage,
   loadedInStage,
   hasMoreInStage,
@@ -75,11 +68,6 @@ function KanbanColumnInner({
   )
   const stageHelp = useMemo(() => getStageHelp(stage.slug ?? stage.name), [stage.slug, stage.name])
   const headerTotal = totalInStage ?? leads.length
-  const slug = stage.slug ?? ''
-  const totalBelowMeta =
-    !pipelineTargetIsWeeklyPremiumMxn(slug) &&
-    typeof targetCount === 'number' &&
-    headerTotal < targetCount
   const showPartialHint =
     typeof loadedInStage === 'number' &&
     typeof totalInStage === 'number' &&
@@ -129,16 +117,10 @@ function KanbanColumnInner({
           />
         </div>
         <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs">
-          <span className={`tabular-nums ${totalBelowMeta ? 'text-orange-600 font-medium' : 'text-neutral-400'}`}>
+          <span className="tabular-nums text-neutral-400">
             {headerTotal} leads
             {showPartialHint ? (
               <span className="text-neutral-400 font-normal"> · mostrando {loadedInStage}</span>
-            ) : null}
-            {typeof targetCount === 'number' ? (
-              <span className="text-neutral-500 font-normal">
-                {' '}
-                · Meta: {formatPipelineWeeklyTargetDisplay(slug, targetCount)}
-              </span>
             ) : null}
           </span>
         </div>

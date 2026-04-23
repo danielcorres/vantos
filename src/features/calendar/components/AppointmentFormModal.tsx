@@ -252,6 +252,7 @@ export function AppointmentFormModal({
   }, [isOpen, mode, event?.id, initialEditFocus, prefersReducedMotion, event])
 
   const effectiveLeadId = selectedLead?.id ?? initialLeadId ?? null
+  const hasLeadForCreate = effectiveLeadId != null && String(effectiveLeadId).trim() !== ''
   const hasLeadContactFields = !!selectedLead
 
   const defaultNewLeadStageId = useMemo(
@@ -297,6 +298,14 @@ export function AppointmentFormModal({
     }
     if (new Date(starts_at).getTime() >= new Date(ends_at).getTime()) {
       setError('La hora de inicio debe ser anterior a la de fin')
+      return
+    }
+
+    if (
+      mode === 'create' &&
+      (effectiveLeadId == null || String(effectiveLeadId).trim() === '')
+    ) {
+      setError('Selecciona o crea un cliente para poder crear la cita.')
       return
     }
 
@@ -694,7 +703,7 @@ export function AppointmentFormModal({
           <div className="flex flex-col gap-2 pt-2">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (mode === 'create' && !hasLeadForCreate)}
               className="w-full rounded-xl bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary/90 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Guardando…' : mode === 'create' ? 'Crear cita' : 'Guardar cambios'}

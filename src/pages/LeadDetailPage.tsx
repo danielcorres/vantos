@@ -79,14 +79,42 @@ function formatDateTime(dateString: string | null | undefined): string {
   }
 }
 
-// Helper: Validate email format
+/** Email vacío = válido (opcional). Sin espacios; formato razonable tipo user@dominio.ext */
 function isValidEmail(email: string): boolean {
-  if (!email.trim()) return true // Empty is valid (optional field)
-  return email.includes('@')
+  const t = email.trim()
+  if (!t) return true
+  if (/\s/.test(t)) return false
+  // Local @ domain con al menos un punto en el dominio y TLD ≥ 2
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(t) && !t.startsWith('@') && !t.endsWith('@')
 }
 
 function phoneDigits(phone: string): string {
   return (phone || '').replace(/\D/g, '')
+}
+
+const PHONE_DIAL_MX = '52'
+
+/** Interpreta teléfono guardado hacia código de país + dígitos nacionales (solo MX +52 en UI). */
+function parseStoredPhoneForForm(raw: string | null | undefined): { dialCode: string; nationalDigits: string } {
+  const d = phoneDigits(raw || '')
+  if (!d) return { dialCode: PHONE_DIAL_MX, nationalDigits: '' }
+  if (d.startsWith(PHONE_DIAL_MX) && d.length >= 12) {
+    return { dialCode: PHONE_DIAL_MX, nationalDigits: d.slice(2, 12) }
+  }
+  if (d.length === 10) {
+    return { dialCode: PHONE_DIAL_MX, nationalDigits: d }
+  }
+  return { dialCode: PHONE_DIAL_MX, nationalDigits: d.slice(0, 10) }
+}
+
+function composePhoneForSave(dialCode: string, nationalDigits: string): string | null {
+  const n = nationalDigits.replace(/\D/g, '').slice(0, 10)
+  if (!n) return null
+  return `+${dialCode}${n}`
+}
+
+function nationalPhoneDigitsOnly(value: string): string {
+  return value.replace(/\D/g, '').slice(0, 10)
 }
 
 /** Número para wa.me en MX: 10 dígitos -> "52"+digits; ya con 52 y 12–13 dígitos -> as-is; <10 -> "" */
@@ -110,7 +138,7 @@ export function LeadDetailPage() {
 
   // Form state
   const [fullName, setFullName] = useState('')
-  const [phone, setPhone] = useState('')
+  const [phoneNationalDigits, setPhoneNationalDigits] = useState('')
   const [email, setEmail] = useState('')
   const [source, setSource] = useState('')
   const [notes, setNotes] = useState('')
@@ -148,10 +176,11 @@ export function LeadDetailPage() {
 
   const originalSnapshot = useMemo(() => {
     if (!lead) return null
+    const phoneParts = parseStoredPhoneForForm(lead.phone)
     return {
       full_name: lead.full_name || '',
-      phone: lead.phone || '',
-      email: lead.email || '',
+      phoneNationalDigits: phoneParts.nationalDigits,
+      email: (lead.email || '').replace(/\s/g, ''),
       source: lead.source || '',
       notes: lead.notes || '',
       referral_name: lead.referral_name || '',
@@ -160,13 +189,13 @@ export function LeadDetailPage() {
   const currentSnapshot = useMemo(
     () => ({
       full_name: fullName,
-      phone,
+      phoneNationalDigits,
       email,
       source,
       notes,
       referral_name: referralName,
     }),
-    [fullName, phone, email, source, notes, referralName]
+    [fullName, phoneNationalDigits, email, source, notes, referralName]
   )
   // useDirtyState se ejecuta SIEMPRE (Rules of Hooks); la condición solo aplica al valor derivado
   const isDirty = useDirtyState(originalSnapshot, currentSnapshot)
@@ -208,8 +237,9 @@ export function LeadDetailPage() {
   useEffect(() => {
     if (!lead || lead.id !== id) return
     setFullName(lead.full_name || '')
-    setPhone(lead.phone || '')
-    setEmail(lead.email || '')
+    const phoneParts = parseStoredPhoneForForm(lead.phone)
+    setPhoneNationalDigits(phoneParts.nationalDigits)
+    setEmail((lead.email || '').replace(/\s/g, ''))
     setSource(lead.source || '')
     setNotes(lead.notes || '')
     setReferralName(lead.referral_name || '')
@@ -302,8 +332,9 @@ export function LeadDetailPage() {
   const discardChanges = useCallback(() => {
     if (!lead) return
     setFullName(lead.full_name || '')
-    setPhone(lead.phone || '')
-    setEmail(lead.email || '')
+    const phoneParts = parseStoredPhoneForForm(lead.phone)
+    setPhoneNationalDigits(phoneParts.nationalDigits)
+    setEmail((lead.email || '').replace(/\s/g, ''))
     setSource(lead.source || '')
     setNotes(lead.notes || '')
     setReferralName(lead.referral_name || '')
@@ -384,8 +415,14 @@ export function LeadDetailPage() {
       return
     }
 
+    const national = nationalPhoneDigitsOnly(phoneNationalDigits)
+    if (national.length > 0 && national.length < 10) {
+      setError('El teléfono en México debe tener 10 dígitos, o déjalo vacío.')
+      return
+    }
+
     if (email.trim() && !isValidEmail(email)) {
-      setError('El email debe incluir @')
+      setError('Introduce un correo válido (ej. nombre@empresa.com) o déjalo vacío.')
       return
     }
 
@@ -396,7 +433,7 @@ export function LeadDetailPage() {
     try {
       await pipelineApi.updateLead(id, {
         full_name: fullName.trim(),
-        phone: phone.trim() || null,
+        phone: composePhoneForSave(PHONE_DIAL_MX, national),
         email: email.trim() || null,
         source: source.trim() || null,
         notes: notes.trim() || null,
@@ -840,7 +877,7 @@ export function LeadDetailPage() {
         </div>
       )}
 
-      {/* Grid: columna izq. Datos+Actividad (8) | Pipeline + Oportunidad (4) */}
+      {/* Grid: columna izq. Datos+Citas+Actividad (8) | Pipeline + Oportunidad (4) */}
       <div
         className={`grid grid-cols-1 gap-3 lg:grid-cols-12 lg:gap-x-4 lg:gap-y-2 ${prefersReducedMotion ? '' : 'motion-safe:transition-[gap] duration-150'}`}
       >
@@ -865,17 +902,41 @@ export function LeadDetailPage() {
                 />
               </div>
               <div>
-                <label htmlFor="phone" className={FIELD_LABEL}>
+                <label htmlFor="phone_national" className={FIELD_LABEL}>
                   Teléfono
                 </label>
-                <input
-                  id="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  disabled={saving}
-                  className={CONTROL}
-                />
+                <div
+                  className={`flex w-full min-w-0 overflow-hidden rounded-lg border border-neutral-200 bg-white transition-[border-color,box-shadow] duration-150 dark:border-neutral-600 dark:bg-neutral-900 focus-within:border-neutral-400 focus-within:outline-none focus-within:ring-2 focus-within:ring-neutral-200/70 dark:focus-within:ring-neutral-600/40 ${saving ? 'opacity-50' : ''}`}
+                >
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 border-r border-neutral-200 bg-neutral-50 px-2 py-1.5 text-sm text-neutral-700 dark:border-neutral-700 dark:bg-neutral-800/60 dark:text-neutral-200"
+                    title="México"
+                  >
+                    <span className="text-base leading-none" aria-hidden>
+                      🇲🇽
+                    </span>
+                    <span className="font-medium tabular-nums tracking-tight">+52</span>
+                  </span>
+                  <input
+                    id="phone_national"
+                    type="text"
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    value={phoneNationalDigits}
+                    onChange={(e) => setPhoneNationalDigits(nationalPhoneDigitsOnly(e.target.value))}
+                    disabled={saving}
+                    placeholder="5512345678"
+                    maxLength={10}
+                    aria-describedby="phone_national_hint"
+                    className="min-w-0 flex-1 border-0 bg-transparent py-1.5 pl-2 pr-2.5 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-0 dark:text-neutral-100 dark:placeholder:text-neutral-500"
+                  />
+                </div>
+                <p
+                  id="phone_national_hint"
+                  className="mt-1 text-[11px] text-neutral-500 dark:text-neutral-400"
+                >
+                  10 dígitos · solo números (LADA + número)
+                </p>
               </div>
               <div>
                 <label htmlFor="email" className={FIELD_LABEL}>
@@ -884,9 +945,14 @@ export function LeadDetailPage() {
                 <input
                   id="email"
                   type="email"
+                  inputMode="email"
+                  autoComplete="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) =>
+                    setEmail(e.target.value.replace(/\s/g, '').replace(/[\u0000-\u001F\u007F]/g, ''))
+                  }
                   disabled={saving}
+                  maxLength={254}
                   className={CONTROL}
                 />
               </div>
@@ -939,6 +1005,10 @@ export function LeadDetailPage() {
                 />
               </div>
             </div>
+          </div>
+
+          <div className={`${CARD_SURFACE} ${CARD_PAD} ${prefersReducedMotion ? '' : 'motion-safe:transition-shadow duration-150'}`}>
+            <LeadAppointmentsList leadId={id!} />
           </div>
 
           <div className={`${CARD_SURFACE} ${CARD_PAD}`}>
@@ -1178,8 +1248,6 @@ export function LeadDetailPage() {
               )}
             </div>
           </div>
-
-          <LeadAppointmentsList leadId={id!} />
         </div>
       </div>
     </div>
