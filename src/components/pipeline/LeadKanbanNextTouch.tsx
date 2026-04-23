@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import type { CalendarEvent } from '../../features/calendar/types/calendar.types'
-import { getTypeLabel } from '../../features/calendar/utils/pillStyles'
+import { getTypeLabel, getStatusLabel, getStatusPillClass } from '../../features/calendar/utils/pillStyles'
 import type { SchedulingGuidance } from '../../features/calendar/utils/stageSchedulingGuidance'
 import { getNextActionLabel } from '../../shared/utils/nextAction'
 
@@ -22,18 +22,24 @@ export function LeadKanbanNextTouch({
   variant?: Variant
 }) {
   const navigate = useNavigate()
-  const appt = nextAppointment?.status === 'scheduled' ? nextAppointment : null
+  const appt = nextAppointment ?? null
   const legacy = schedulingGuidance == null
 
   if (appt) {
     const label = getNextActionLabel(appt.starts_at)
     const typeLabel = getTypeLabel(appt.type)
+    const isScheduled = appt.status === 'scheduled'
     const isCompact = variant === 'kanban'
     const showReprogramar =
+      isScheduled &&
       onSchedule &&
       !legacy &&
       schedulingGuidance.editEventId != null &&
       schedulingGuidance.editEventId === appt.id
+
+    const chipBorder = isScheduled
+      ? 'border-blue-200 bg-blue-50/90 text-blue-900 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100'
+      : 'border-neutral-200 bg-neutral-50/90 text-neutral-800 dark:border-neutral-600 dark:bg-neutral-900/50 dark:text-neutral-100'
 
     return (
       <div
@@ -43,11 +49,16 @@ export function LeadKanbanNextTouch({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <span
-          className={`inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50/90 px-1.5 py-0.5 text-[11px] text-blue-900 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100 ${isCompact ? 'min-w-0' : ''}`}
+          className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] ${chipBorder} ${isCompact ? 'min-w-0' : ''}`}
           title="Cita en calendario"
         >
           <span className="font-semibold shrink-0">{typeLabel}</span>
           <span className="tabular-nums truncate">{label}</span>
+        </span>
+        <span
+          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${getStatusPillClass(appt.status)}`}
+        >
+          {getStatusLabel(appt.status)}
         </span>
         <button
           type="button"
@@ -65,13 +76,22 @@ export function LeadKanbanNextTouch({
             {schedulingGuidance.buttonLabel}
           </button>
         ) : null}
-        {legacy && onSchedule ? (
+        {isScheduled && legacy && onSchedule ? (
           <button
             type="button"
             onClick={() => onSchedule(leadId)}
             className="shrink-0 text-[11px] font-medium text-blue-800 underline-offset-2 hover:underline dark:text-blue-200"
           >
             Reprogramar
+          </button>
+        ) : null}
+        {!isScheduled && onSchedule ? (
+          <button
+            type="button"
+            onClick={() => onSchedule(leadId)}
+            className="shrink-0 text-[11px] font-medium text-blue-800 underline-offset-2 hover:underline dark:text-blue-200"
+          >
+            {legacy ? 'Agendar' : schedulingGuidance.buttonLabel}
           </button>
         ) : null}
       </div>

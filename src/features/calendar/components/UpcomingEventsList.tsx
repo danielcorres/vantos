@@ -127,11 +127,9 @@ export function UpcomingEventsList({ onEventClick, refreshKey = 0 }: UpcomingEve
                   <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getTypePillClass(ev.type)}`}>
                     {getTypeLabel(ev.type)}
                   </span>
-                  {ev.status !== 'scheduled' && (
-                    <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getStatusPillClass(ev.status)}`}>
-                      {getStatusLabel(ev.status)}
-                    </span>
-                  )}
+                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getStatusPillClass(ev.status)}`}>
+                    {getStatusLabel(ev.status)}
+                  </span>
                   <span className="text-sm text-text truncate min-w-0">
                     {ev.title?.trim() || 'Sin título'}
                   </span>

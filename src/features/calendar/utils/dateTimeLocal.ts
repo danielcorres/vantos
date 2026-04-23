@@ -25,3 +25,20 @@ export function fromDateTimeLocal(value: string): string {
   if (!value || value.length < 16) return ''
   return new Date(value).toISOString()
 }
+
+/** Parte `datetime-local` en `YYYY-MM-DD` y `HH:mm` (hora local). */
+export function splitDateTimeLocal(dateTimeLocal: string): { date: string; time: string } {
+  if (!dateTimeLocal || dateTimeLocal.length < 16) return { date: '', time: '' }
+  const [date, rest] = dateTimeLocal.split('T')
+  const time = (rest ?? '').slice(0, 5)
+  return { date: date ?? '', time: time.length === 5 ? time : '' }
+}
+
+/** Une fecha + hora al formato `datetime-local`. */
+export function joinDateTimeLocal(date: string, time: string): string {
+  const d = (date ?? '').trim()
+  const t = (time ?? '').trim()
+  if (!d) return ''
+  const tt = t.length >= 5 ? t.slice(0, 5) : '09:00'
+  return `${d}T${tt}`
+}

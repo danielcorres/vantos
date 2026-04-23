@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { calendarApi } from '../api/calendar.api'
 import type { CalendarEvent } from '../types/calendar.types'
 import { getWeekRangeFromDate } from '../utils/weekRange'
-import { getTypePillClass, getTypeLabel } from '../utils/pillStyles'
+import { getTypePillClass, getTypeLabel, getStatusPillClass, getStatusLabel } from '../utils/pillStyles'
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -132,6 +132,11 @@ export function CalendarWeekView({ weekStart, onEventClick, refreshKey = 0 }: Ca
                   </span>
                   <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getTypePillClass(ev.type)}`}>
                     {getTypeLabel(ev.type)}
+                  </span>
+                  <span
+                    className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getStatusPillClass(ev.status)}`}
+                  >
+                    {getStatusLabel(ev.status)}
                   </span>
                   <span className="text-sm text-text truncate">
                     {ev.title?.trim() || 'Sin título'}
