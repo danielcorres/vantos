@@ -21,6 +21,7 @@ import { ManagerDashboardPage } from '../pages/manager/ManagerDashboardPage'
 import { AdvisorWeekDetailPage } from '../pages/manager/AdvisorWeekDetailPage'
 import { WeeklyMinimumTargetsPage } from '../modules/okr/settings/WeeklyMinimumTargetsPage'
 import { ConsultaPlaybookPage } from '../pages/advisor/ConsultaPlaybookPage'
+import { DocumentationEditPage } from '../pages/advisor/DocumentationEditPage'
 import { DocumentationIndexPage } from '../pages/advisor/DocumentationIndexPage'
 
 const PipelinePage = lazy(() =>
@@ -49,6 +50,8 @@ const ADVISOR_AREA_ROLES = ['advisor', 'owner', 'manager', 'recruiter', 'directo
 const PIPELINE_ROLES = ['advisor', 'manager', 'owner'] as const
 const PIPELINE_SETTINGS_ROLES = ['manager', 'owner'] as const
 const ADVISOR_SETTINGS_ROLES = ['owner', 'director', 'seguimiento', 'developer'] as const
+/** Edición de HTML en Documentación (solo owner y director). */
+const DOCUMENTATION_EDIT_ROLES = ['owner', 'director'] as const
 
 export const router = createBrowserRouter([
   {
@@ -117,6 +120,14 @@ export const router = createBrowserRouter([
           {
             index: true,
             element: <DocumentationIndexPage />,
+          },
+          {
+            path: 'playbook/edit',
+            element: (
+              <RoleGuard allowedRoles={[...DOCUMENTATION_EDIT_ROLES]}>
+                <DocumentationEditPage />
+              </RoleGuard>
+            ),
           },
           {
             path: 'playbook',
