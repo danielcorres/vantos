@@ -40,7 +40,8 @@ const PipelineSettingsPage = lazy(() =>
   import('../pages/PipelineSettingsPage').then((m) => ({ default: m.PipelineSettingsPage }))
 )
 
-const OWNER_ROLES = ['owner', 'director', 'seguimiento'] as const
+/** Acceso a /owner/assignments (Directivo + líderes con self-claim) */
+const ASSIGNMENTS_PAGE_ROLES = ['owner', 'director', 'seguimiento', 'manager', 'recruiter'] as const
 const OWNER_DASHBOARD_ROLES = ['owner', 'director', 'seguimiento'] as const
 const ADVISOR_AREA_ROLES = ['advisor', 'owner', 'manager', 'recruiter', 'director', 'seguimiento', 'developer', 'super_admin'] as const
 const PIPELINE_ROLES = ['advisor', 'manager', 'owner'] as const
@@ -182,7 +183,7 @@ export const router = createBrowserRouter([
       {
         path: 'owner/assignments',
         element: (
-          <RoleGuard allowedRoles={[...OWNER_ROLES]}>
+          <RoleGuard allowedRoles={[...ASSIGNMENTS_PAGE_ROLES]}>
             <AssignmentsPage />
           </RoleGuard>
         ),

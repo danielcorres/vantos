@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import {
   IconHome,
   IconCalendarDays,
@@ -61,8 +61,12 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
   // Obtener home path dinámicamente
   const homePath = getHomePathForRole(role)
 
+  const assignmentsNavLabel =
+    role === 'owner' || role === 'director' ? 'Asignaciones' : 'Mi equipo'
+
   // Definir estructura del menú
-  const menuSections: MenuSection[] = [
+  const menuSections: MenuSection[] = useMemo(
+    () => [
     {
       title: 'Principal',
       visible: () => true,
@@ -118,7 +122,12 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
     {
       title: 'Configuración',
       visible: (r) =>
-        r === 'owner' || r === 'director' || r === 'seguimiento' || r === 'developer',
+        r === 'owner' ||
+        r === 'director' ||
+        r === 'seguimiento' ||
+        r === 'developer' ||
+        r === 'manager' ||
+        r === 'recruiter',
       items: [
         {
           label: 'Puntajes OKR',
@@ -127,10 +136,15 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
           visible: (r) => r === 'owner',
         },
         {
-          label: 'Asignaciones',
+          label: assignmentsNavLabel,
           path: '/owner/assignments',
           icon: IconUserCog,
-          visible: (r) => r === 'owner' || r === 'director',
+          visible: (r) =>
+            r === 'owner' ||
+            r === 'director' ||
+            r === 'manager' ||
+            r === 'recruiter' ||
+            r === 'seguimiento',
         },
         {
           label: 'Asesores',
@@ -159,7 +173,9 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
         },
       ],
     },
-  ]
+  ],
+    [assignmentsNavLabel, homePath]
+  )
 
   // Helper para verificar si una ruta está activa
   const checkIsActive = (path: string, exact?: boolean): boolean => {
