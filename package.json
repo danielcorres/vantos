@@ -11,6 +11,7 @@
     "preview": "vite preview",
     "db:link:staging": "supabase link --project-ref cayibyaingcvhzwhfrhy",
     "db:link:prod": "supabase link --project-ref lyvnyjkfgkbrobetzxvs",
+    "db:staging": "bash scripts/db-push-staging.sh",
     "db:push": "supabase db push",
     "db:push:all": "supabase db push --include-all",
     "db:where": "ref=$(tr -d '\\n\\r\\t ' < supabase/.temp/project-ref 2>/dev/null); if [ -n \"$ref\" ]; then printf \"%s\\n\" \"$ref\"; else echo \"NOT LINKED\" && exit 1; fi"
