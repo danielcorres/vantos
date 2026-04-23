@@ -4,6 +4,7 @@ import { CalendarWeekView } from '../features/calendar/components/CalendarWeekVi
 import { UpcomingEventsList } from '../features/calendar/components/UpcomingEventsList'
 import { AppointmentFormModal } from '../features/calendar/components/AppointmentFormModal'
 import type { CalendarEvent } from '../features/calendar/types/calendar.types'
+import type { AppointmentEditFocus } from '../features/calendar/components/AppointmentFormModal'
 import {
   disconnectGoogleCalendar,
   getGoogleCalendarStatus,
@@ -41,6 +42,7 @@ export function CalendarPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+  const [editFocus, setEditFocus] = useState<AppointmentEditFocus | null>(null)
   const [initialLeadId, setInitialLeadId] = useState<string | undefined>(undefined)
   const [googleBanner, setGoogleBanner] = useState<{
     connected: boolean
@@ -105,6 +107,7 @@ export function CalendarPage() {
       setInitialLeadId(leadId)
       setModalMode('create')
       setEditingEvent(null)
+      setEditFocus(null)
       setModalOpen(true)
     }
   }, [searchParams])
@@ -117,19 +120,22 @@ export function CalendarPage() {
     setInitialLeadId(undefined)
     setModalMode('create')
     setEditingEvent(null)
+    setEditFocus(null)
     setModalOpen(true)
   }
 
-  const openEdit = (event: CalendarEvent) => {
+  const openEdit = (event: CalendarEvent, focus?: AppointmentEditFocus) => {
     setInitialLeadId(undefined)
     setModalMode('edit')
     setEditingEvent(event)
+    setEditFocus(focus ?? null)
     setModalOpen(true)
   }
 
   const closeModal = () => {
     setModalOpen(false)
     setEditingEvent(null)
+    setEditFocus(null)
     setInitialLeadId(undefined)
   }
 
@@ -315,12 +321,18 @@ export function CalendarPage() {
       </main>
 
       <AppointmentFormModal
+        key={
+          modalMode === 'edit' && editingEvent
+            ? `edit-${editingEvent.id}-${editFocus ?? 'none'}`
+            : `create-${initialLeadId ?? 'open'}`
+        }
         isOpen={modalOpen}
         onClose={closeModal}
         mode={modalMode}
         event={editingEvent}
         initialLeadId={initialLeadId}
         onSaved={handleSaved}
+        initialEditFocus={modalMode === 'edit' ? editFocus : null}
       />
 
       {googleToast != null && (

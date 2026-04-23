@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import type { PipelineStage, Lead } from '../pipeline.api'
 import type { CalendarEvent } from '../../calendar/types/calendar.types'
+import type { AppointmentEditFocus } from '../../calendar/components/AppointmentFormModal'
 import type { SchedulingGuidance } from '../../calendar/utils/stageSchedulingGuidance'
 import { EmptyState } from '../../../components/pipeline/EmptyState'
 import { InfoPopover } from '../../../shared/components/InfoPopover'
@@ -35,6 +36,11 @@ interface KanbanColumnProps {
   onToast?: (message: string) => void
   onUpdated?: () => void | Promise<void>
   onSchedule?: (leadId: string) => void
+  onEditAppointment?: (args: {
+    leadId: string
+    event: CalendarEvent
+    focus: AppointmentEditFocus
+  }) => void
 }
 
 const EMPTY_APPOINTMENTS: Record<string, CalendarEvent | null> = {}
@@ -59,6 +65,7 @@ function KanbanColumnInner({
   onToast,
   onUpdated,
   onSchedule,
+  onEditAppointment,
 }: KanbanColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -155,6 +162,7 @@ function KanbanColumnInner({
                 onToast={onToast}
                 onUpdated={onUpdated}
                 onSchedule={onSchedule}
+                onEditAppointment={onEditAppointment}
               />
             ))}
             {hasMoreInStage && onLoadMore ? (

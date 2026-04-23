@@ -1,10 +1,17 @@
 import { useNavigate } from 'react-router-dom'
 import type { CalendarEvent } from '../../features/calendar/types/calendar.types'
+import type { AppointmentEditFocus } from '../../features/calendar/components/AppointmentFormModal'
 import { getTypeLabel, getStatusLabel, getStatusPillClass } from '../../features/calendar/utils/pillStyles'
 import type { SchedulingGuidance } from '../../features/calendar/utils/stageSchedulingGuidance'
 import { getNextActionLabel } from '../../shared/utils/nextAction'
 
 type Variant = 'kanban' | 'table'
+
+export type EditAppointmentFromChipArgs = {
+  leadId: string
+  event: CalendarEvent
+  focus: AppointmentEditFocus
+}
 
 /** Cita en calendario (fecha + tipo) o botón Agendar. Misma UX en Kanban y vista lista. */
 export function LeadKanbanNextTouch({
@@ -12,6 +19,7 @@ export function LeadKanbanNextTouch({
   nextAppointment,
   schedulingGuidance,
   onSchedule,
+  onEditAppointment,
   variant = 'kanban',
 }: {
   leadId: string
@@ -19,6 +27,8 @@ export function LeadKanbanNextTouch({
   /** Si viene, CTA y textos de ayuda alineados con la guía de agenda (misma en todas las etapas). */
   schedulingGuidance?: SchedulingGuidance | null
   onSchedule?: (leadId: string) => void
+  /** Abrir edición de cita con foco en fecha/hora o estado (chips). */
+  onEditAppointment?: (args: EditAppointmentFromChipArgs) => void
   variant?: Variant
 }) {
   const navigate = useNavigate()
@@ -41,6 +51,17 @@ export function LeadKanbanNextTouch({
       ? 'border-blue-200 bg-blue-50/90 text-blue-900 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100'
       : 'border-neutral-200 bg-neutral-50/90 text-neutral-800 dark:border-neutral-600 dark:bg-neutral-900/50 dark:text-neutral-100'
 
+    const datetimeChipClass = `inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] ${chipBorder} ${isCompact ? 'min-w-0' : ''} ${
+      onEditAppointment
+        ? 'cursor-pointer hover:brightness-[0.98] dark:hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/50'
+        : ''
+    }`
+    const statusChipClass = `shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${getStatusPillClass(appt.status)} ${
+      onEditAppointment
+        ? 'cursor-pointer hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-neutral-400'
+        : ''
+    }`
+
     return (
       <div
         className={`flex flex-wrap items-center gap-1.5 min-w-0 max-w-full ${isCompact ? '' : 'flex-col items-stretch sm:flex-row sm:items-center'}`}
@@ -48,18 +69,34 @@ export function LeadKanbanNextTouch({
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        <span
-          className={`inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] ${chipBorder} ${isCompact ? 'min-w-0' : ''}`}
-          title="Cita en calendario"
-        >
-          <span className="font-semibold shrink-0">{typeLabel}</span>
-          <span className="tabular-nums truncate">{label}</span>
-        </span>
-        <span
-          className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${getStatusPillClass(appt.status)}`}
-        >
-          {getStatusLabel(appt.status)}
-        </span>
+        {onEditAppointment ? (
+          <button
+            type="button"
+            className={datetimeChipClass}
+            title="Editar fecha y hora"
+            onClick={() => onEditAppointment({ leadId, event: appt, focus: 'datetime' })}
+          >
+            <span className="font-semibold shrink-0">{typeLabel}</span>
+            <span className="tabular-nums truncate">{label}</span>
+          </button>
+        ) : (
+          <span className={datetimeChipClass} title="Cita en calendario">
+            <span className="font-semibold shrink-0">{typeLabel}</span>
+            <span className="tabular-nums truncate">{label}</span>
+          </span>
+        )}
+        {onEditAppointment ? (
+          <button
+            type="button"
+            className={statusChipClass}
+            title="Cambiar estado"
+            onClick={() => onEditAppointment({ leadId, event: appt, focus: 'status' })}
+          >
+            {getStatusLabel(appt.status)}
+          </button>
+        ) : (
+          <span className={statusChipClass}>{getStatusLabel(appt.status)}</span>
+        )}
         <button
           type="button"
           onClick={() => navigate(`/calendar?lead=${encodeURIComponent(leadId)}`)}

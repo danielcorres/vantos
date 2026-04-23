@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { calendarApi } from '../api/calendar.api'
 import type { CalendarEvent } from '../types/calendar.types'
+import type { AppointmentEditFocus } from './AppointmentFormModal'
 import { getWeekRangeFromDate } from '../utils/weekRange'
 import { getTypePillClass, getTypeLabel, getStatusPillClass, getStatusLabel } from '../utils/pillStyles'
 
@@ -26,7 +27,7 @@ function shortLeadId(leadId: string | null): string {
 
 interface CalendarWeekViewProps {
   weekStart: Date
-  onEventClick: (event: CalendarEvent) => void
+  onEventClick: (event: CalendarEvent, focus?: AppointmentEditFocus) => void
   refreshKey?: number
 }
 
@@ -121,30 +122,45 @@ export function CalendarWeekView({ weekStart, onEventClick, refreshKey = 0 }: Ca
               <p className="text-xs text-muted py-2 px-1">Sin eventos</p>
             ) : (
               (eventsByDay[key] ?? []).map((ev) => (
-                <button
+                <div
                   key={ev.id}
-                  type="button"
-                  onClick={() => onEventClick(ev)}
-                  className="w-full text-left rounded-md px-2 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex items-center gap-2 flex-wrap"
+                  role="group"
+                  aria-label="Cita"
+                  className="w-full rounded-md px-2 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex items-center gap-2 flex-wrap"
                 >
-                  <span className="text-xs font-medium tabular-nums text-muted shrink-0">
-                    {formatTime(ev.starts_at)}
-                  </span>
-                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getTypePillClass(ev.type)}`}>
-                    {getTypeLabel(ev.type)}
-                  </span>
-                  <span
-                    className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getStatusPillClass(ev.status)}`}
+                  <button
+                    type="button"
+                    title="Editar fecha y hora"
+                    onClick={() => onEventClick(ev, 'datetime')}
+                    className="inline-flex items-center gap-2 flex-wrap shrink-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  >
+                    <span className="text-xs font-medium tabular-nums text-muted shrink-0">
+                      {formatTime(ev.starts_at)}
+                    </span>
+                    <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getTypePillClass(ev.type)}`}>
+                      {getTypeLabel(ev.type)}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    title="Cambiar estado"
+                    onClick={() => onEventClick(ev, 'status')}
+                    className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${getStatusPillClass(ev.status)}`}
                   >
                     {getStatusLabel(ev.status)}
-                  </span>
-                  <span className="text-sm text-text truncate">
+                  </button>
+                  <button
+                    type="button"
+                    title="Editar cita"
+                    onClick={() => onEventClick(ev)}
+                    className="min-w-0 flex-1 text-left text-sm text-text truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded px-0.5 -mx-0.5"
+                  >
                     {ev.title?.trim() || 'Sin título'}
-                  </span>
-                  {ev.lead_id && (
-                    <span className="text-xs text-muted shrink-0">{shortLeadId(ev.lead_id)}</span>
-                  )}
-                </button>
+                    {ev.lead_id ? (
+                      <span className="text-xs text-muted shrink-0 ml-1">{shortLeadId(ev.lead_id)}</span>
+                    ) : null}
+                  </button>
+                </div>
               ))
             )}
           </div>

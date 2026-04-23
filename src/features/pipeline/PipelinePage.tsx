@@ -15,7 +15,10 @@ import {
 import { KanbanBoard } from './components/KanbanBoard'
 import { LeadCreateModal } from './components/LeadCreateModal'
 import { PostCreateCalendarAskDialog } from './components/PostCreateCalendarAskDialog'
-import { AppointmentFormModal } from '../calendar/components/AppointmentFormModal'
+import {
+  AppointmentFormModal,
+  type AppointmentEditFocus,
+} from '../calendar/components/AppointmentFormModal'
 import type { AppointmentType } from '../calendar/types/calendar.types'
 import { PipelineRecordsView } from './views/PipelineRecordsView'
 import { getWeeklyEntryLeads } from '../productivity/api/drilldown.api'
@@ -113,6 +116,7 @@ export function PipelinePage() {
         leadId: string
         event: CalendarEvent
         helpText?: string | null
+        editFocus?: AppointmentEditFocus
       }
 
   const [calModal, setCalModal] = useState<CalModalState>(null)
@@ -398,6 +402,19 @@ export function PipelinePage() {
     setCalModal(null)
   }, [])
 
+  const openAppointmentEditFromChip = useCallback(
+    (args: { leadId: string; event: CalendarEvent; focus: AppointmentEditFocus }) => {
+      setCalModal({
+        mode: 'edit',
+        leadId: args.leadId,
+        event: args.event,
+        helpText: null,
+        editFocus: args.focus,
+      })
+    },
+    []
+  )
+
   const openScheduleForLead = useCallback(
     async (leadId: string) => {
       const r = await resolveCalModalFromGuidance(leadId, {
@@ -416,6 +433,7 @@ export function PipelinePage() {
           leadId: r.leadId,
           event: r.event,
           helpText: r.helpText,
+          editFocus: undefined,
         })
         return
       }
@@ -870,6 +888,7 @@ export function PipelinePage() {
             onToast={(msg) => setPipelineToast({ type: 'success', message: msg })}
             onUpdated={refreshDataSilent}
             onSchedule={openScheduleForLead}
+            onEditAppointment={openAppointmentEditFromChip}
             schedulingGuidanceByLeadId={schedulingGuidanceByLeadId}
           />
         </div>
@@ -929,7 +948,7 @@ export function PipelinePage() {
 
       {calModal != null && calModal.mode === 'edit' && (
         <AppointmentFormModal
-          key={`edit-${calModal.event.id}`}
+          key={`edit-${calModal.event.id}-${calModal.editFocus ?? 'none'}`}
           isOpen
           onClose={clearCalModal}
           mode="edit"
@@ -938,6 +957,7 @@ export function PipelinePage() {
             void refreshDataSilent()
           }}
           helpText={calModal.helpText ?? null}
+          initialEditFocus={calModal.editFocus ?? null}
         />
       )}
 

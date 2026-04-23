@@ -10,7 +10,10 @@ import {
 import { generateIdempotencyKey } from '../pipeline.store'
 import { LeadCreateModal } from '../components/LeadCreateModal'
 import { PostCreateCalendarAskDialog } from '../components/PostCreateCalendarAskDialog'
-import { AppointmentFormModal } from '../../calendar/components/AppointmentFormModal'
+import {
+  AppointmentFormModal,
+  type AppointmentEditFocus,
+} from '../../calendar/components/AppointmentFormModal'
 import type { AppointmentType } from '../../calendar/types/calendar.types'
 import { PipelineTable } from '../components/PipelineTable'
 import { Toast } from '../../../shared/components/Toast'
@@ -98,6 +101,7 @@ export function PipelineTableView({
         leadId: string
         event: CalendarEvent
         helpText?: string | null
+        editFocus?: AppointmentEditFocus
       }
 
   const [calModal, setCalModal] = useState<CalModalState>(null)
@@ -419,6 +423,19 @@ export function PipelineTableView({
     return [...m.values()]
   }, [pipelineMode, sortedLeads, serverActivosLeads])
 
+  const openAppointmentEditFromChip = useCallback(
+    (args: { leadId: string; event: CalendarEvent; focus: AppointmentEditFocus }) => {
+      setCalModal({
+        mode: 'edit',
+        leadId: args.leadId,
+        event: args.event,
+        helpText: null,
+        editFocus: args.focus,
+      })
+    },
+    []
+  )
+
   const openScheduleForLead = useCallback(
     async (leadId: string) => {
       const r = await resolveCalModalFromGuidance(leadId, {
@@ -440,6 +457,7 @@ export function PipelineTableView({
           leadId: r.leadId,
           event: r.event,
           helpText: r.helpText,
+          editFocus: undefined,
         })
         return
       }
@@ -812,6 +830,7 @@ export function PipelineTableView({
               onUpdated={refreshCurrentMode}
               nextAppointmentByLeadId={mergedNextAppointmentByLeadId}
               onSchedule={openScheduleForLead}
+              onEditAppointment={openAppointmentEditFromChip}
               schedulingGuidanceByLeadId={schedulingGuidanceByLeadId}
             />
             {serverActivosListMode && activosListLoadedCount < serverActivosTotal ? (
@@ -879,7 +898,7 @@ export function PipelineTableView({
 
       {calModal != null && calModal.mode === 'edit' && (
         <AppointmentFormModal
-          key={`edit-${calModal.event.id}`}
+          key={`edit-${calModal.event.id}-${calModal.editFocus ?? 'none'}`}
           isOpen
           onClose={clearCalModal}
           mode="edit"
@@ -888,6 +907,7 @@ export function PipelineTableView({
             void refreshCurrentMode()
           }}
           helpText={calModal.helpText ?? null}
+          initialEditFocus={calModal.editFocus ?? null}
         />
       )}
 

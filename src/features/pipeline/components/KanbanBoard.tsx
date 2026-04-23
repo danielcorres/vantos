@@ -1,6 +1,7 @@
 import * as React from 'react'
 import type { PipelineStage, Lead } from '../pipeline.api'
 import type { CalendarEvent } from '../../calendar/types/calendar.types'
+import type { AppointmentEditFocus } from '../../calendar/components/AppointmentFormModal'
 import type { SchedulingGuidance } from '../../calendar/utils/stageSchedulingGuidance'
 import { sortLeadsByEffectiveNextTouch } from '../utils/effectiveNextTouch'
 import { EmptyState } from '../../../components/pipeline/EmptyState'
@@ -31,6 +32,12 @@ interface KanbanBoardProps {
   onUpdated?: () => void | Promise<void>
   /** Abrir creación de cita en calendario para un lead (tarjeta Kanban). */
   onSchedule?: (leadId: string) => void
+  /** Editar cita desde chips (fecha/hora o estado). */
+  onEditAppointment?: (args: {
+    leadId: string
+    event: CalendarEvent
+    focus: AppointmentEditFocus
+  }) => void
 }
 
 const EMPTY_APPOINTMENTS: Record<string, CalendarEvent | null> = {}
@@ -54,6 +61,7 @@ export function KanbanBoard({
   onToast,
   onUpdated,
   onSchedule,
+  onEditAppointment,
 }: KanbanBoardProps) {
   const stageItems = React.useMemo(
     () => stages.map((s) => ({ id: s.id, name: s.name, position: s.position })),
@@ -163,6 +171,7 @@ export function KanbanBoard({
                   onToast={onToast}
                   onUpdated={onUpdated}
                   onSchedule={onSchedule}
+                  onEditAppointment={onEditAppointment}
                   variant="kanban"
                 />
               ))}
@@ -214,6 +223,7 @@ export function KanbanBoard({
                 onToast={onToast}
                 onUpdated={onUpdated}
                 onSchedule={onSchedule}
+                onEditAppointment={onEditAppointment}
               />
             )
           })}

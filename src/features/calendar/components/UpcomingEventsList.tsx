@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { calendarApi } from '../api/calendar.api'
 import type { CalendarEvent } from '../types/calendar.types'
+import type { AppointmentEditFocus } from './AppointmentFormModal'
 import { getTypePillClass, getStatusPillClass, getTypeLabel, getStatusLabel } from '../utils/pillStyles'
 import { todayLocalYmd, addDaysYmd } from '../../../shared/utils/dates'
 
@@ -48,7 +49,7 @@ const GROUP_LABEL: Record<GroupKey, string> = {
 }
 
 interface UpcomingEventsListProps {
-  onEventClick: (event: CalendarEvent) => void
+  onEventClick: (event: CalendarEvent, focus?: AppointmentEditFocus) => void
   refreshKey?: number
 }
 
@@ -116,27 +117,44 @@ export function UpcomingEventsList({ onEventClick, refreshKey = 0 }: UpcomingEve
           <ul className="space-y-1.5">
             {items.map((ev) => (
               <li key={ev.id}>
-                <button
-                  type="button"
-                  onClick={() => onEventClick(ev)}
-                  className="w-full text-left rounded-lg border border-border bg-bg/50 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex flex-wrap items-center gap-2"
+                <div
+                  role="group"
+                  aria-label="Cita"
+                  className="w-full rounded-lg border border-border bg-bg/50 px-3 py-2 hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex flex-wrap items-center gap-2"
                 >
-                  <span className="text-xs font-medium tabular-nums text-muted shrink-0">
-                    {formatTime(ev.starts_at)}
-                  </span>
-                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getTypePillClass(ev.type)}`}>
-                    {getTypeLabel(ev.type)}
-                  </span>
-                  <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getStatusPillClass(ev.status)}`}>
+                  <button
+                    type="button"
+                    title="Editar fecha y hora"
+                    onClick={() => onEventClick(ev, 'datetime')}
+                    className="inline-flex flex-wrap items-center gap-2 shrink-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  >
+                    <span className="text-xs font-medium tabular-nums text-muted shrink-0">
+                      {formatTime(ev.starts_at)}
+                    </span>
+                    <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getTypePillClass(ev.type)}`}>
+                      {getTypeLabel(ev.type)}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    title="Cambiar estado"
+                    onClick={() => onEventClick(ev, 'status')}
+                    className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${getStatusPillClass(ev.status)}`}
+                  >
                     {getStatusLabel(ev.status)}
-                  </span>
-                  <span className="text-sm text-text truncate min-w-0">
-                    {ev.title?.trim() || 'Sin título'}
-                  </span>
-                  {ev.lead_id && (
-                    <span className="text-xs text-muted shrink-0">{shortLeadId(ev.lead_id)}</span>
-                  )}
-                </button>
+                  </button>
+                  <button
+                    type="button"
+                    title="Editar cita"
+                    onClick={() => onEventClick(ev)}
+                    className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded"
+                  >
+                    <span className="text-sm text-text block truncate">{ev.title?.trim() || 'Sin título'}</span>
+                    {ev.lead_id ? (
+                      <span className="text-xs text-muted">{shortLeadId(ev.lead_id)}</span>
+                    ) : null}
+                  </button>
+                </div>
               </li>
             ))}
           </ul>

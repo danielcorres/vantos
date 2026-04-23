@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react'
 import { calendarApi } from '../api/calendar.api'
 import { pipelineApi, type Lead } from '../../pipeline/pipeline.api'
 import type { CalendarEvent, AppointmentType, AppointmentStatus } from '../types/calendar.types'
@@ -17,6 +17,8 @@ const DURATION_OPTIONS = [30, 45, 60, 90] as const
 const STATUS_OPTIONS: AppointmentStatus[] = ['scheduled', 'completed', 'no_show', 'canceled']
 
 type Mode = 'create' | 'edit'
+
+export type AppointmentEditFocus = 'datetime' | 'status'
 
 export type CreateDefaults = {
   durationMinutes?: number
@@ -43,6 +45,8 @@ interface AppointmentFormModalProps {
   initialTitle?: string | null
   /** Texto de ayuda bajo el título (guía por etapa). */
   helpText?: string | null
+  /** Solo edición: scroll y foco al abrir desde chips (fecha/hora vs estado). */
+  initialEditFocus?: AppointmentEditFocus | null
 }
 
 function computeEndsAt(startsAtValue: string, durationMinutes: number): string {
@@ -84,7 +88,13 @@ export function AppointmentFormModal({
   initialAppointmentType = null,
   initialTitle = null,
   helpText = null,
+  initialEditFocus = null,
 }: AppointmentFormModalProps) {
+  const dateTimeSectionRef = useRef<HTMLDivElement>(null)
+  const dateInputRef = useRef<HTMLInputElement>(null)
+  const statusSectionRef = useRef<HTMLDivElement>(null)
+  const statusFirstButtonRef = useRef<HTMLButtonElement>(null)
+
   const [type, setType] = useState<AppointmentType>('meeting')
   const effectiveType = lockType ?? type
   const [startsAtValue, setStartsAtValue] = useState('')
@@ -210,6 +220,30 @@ export function AppointmentFormModal({
       cancelled = true
     }
   }, [isOpen, mode, initialLeadId])
+
+  useLayoutEffect(() => {
+    if (!isOpen || mode !== 'edit' || !event || !initialEditFocus) return
+    const behavior: ScrollBehavior = prefersReducedMotion ? 'auto' : 'smooth'
+    let raf = 0
+    let t1 = 0
+    let t2 = 0
+    raf = window.requestAnimationFrame(() => {
+      t1 = window.setTimeout(() => {
+        if (initialEditFocus === 'datetime') {
+          dateTimeSectionRef.current?.scrollIntoView({ block: 'nearest', behavior })
+          t2 = window.setTimeout(() => dateInputRef.current?.focus(), 0)
+        } else {
+          statusSectionRef.current?.scrollIntoView({ block: 'nearest', behavior })
+          t2 = window.setTimeout(() => statusFirstButtonRef.current?.focus(), 0)
+        }
+      }, 50)
+    })
+    return () => {
+      window.cancelAnimationFrame(raf)
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+    }
+  }, [isOpen, mode, event?.id, initialEditFocus, prefersReducedMotion, event])
 
   const effectiveLeadId = selectedLead?.id ?? initialLeadId ?? null
   const hasLeadContactFields = !!selectedLead
@@ -453,42 +487,45 @@ export function AppointmentFormModal({
             <p className="text-xs text-muted -mt-2">Elige un cliente para editar teléfono y correo.</p>
           ) : null}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">Fecha</label>
-              <input
-                type="date"
-                value={datePart}
-                onChange={(e) => setDatePart(e.target.value)}
-                className={inputClass}
-                required
-              />
+          <div ref={dateTimeSectionRef} className="space-y-3 scroll-mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">Fecha</label>
+                <input
+                  ref={dateInputRef}
+                  type="date"
+                  value={datePart}
+                  onChange={(e) => setDatePart(e.target.value)}
+                  className={inputClass}
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-muted mb-1">Hora</label>
+                <input
+                  type="time"
+                  value={timePart}
+                  onChange={(e) => setTimePart(e.target.value)}
+                  className={inputClass}
+                  required
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-muted mb-1">Hora</label>
-              <input
-                type="time"
-                value={timePart}
-                onChange={(e) => setTimePart(e.target.value)}
-                className={inputClass}
-                required
-              />
-            </div>
-          </div>
 
-          <div>
-            <label className="block text-xs font-medium text-muted mb-1">Duración</label>
-            <select
-              value={durationMinutes}
-              onChange={(e) => setDurationMinutes(Number(e.target.value))}
-              className={inputClass}
-            >
-              {DURATION_OPTIONS.map((m) => (
-                <option key={m} value={m}>
-                  {m} min
-                </option>
-              ))}
-            </select>
+            <div>
+              <label className="block text-xs font-medium text-muted mb-1">Duración</label>
+              <select
+                value={durationMinutes}
+                onChange={(e) => setDurationMinutes(Number(e.target.value))}
+                className={inputClass}
+              >
+                {DURATION_OPTIONS.map((m) => (
+                  <option key={m} value={m}>
+                    {m} min
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>
@@ -522,13 +559,14 @@ export function AppointmentFormModal({
           </div>
 
           {mode === 'edit' && (
-            <div className="space-y-3 pt-1 border-t border-border">
+            <div ref={statusSectionRef} className="space-y-3 pt-1 border-t border-border scroll-mt-4">
               <div>
                 <label className="block text-xs font-medium text-muted mb-1">Estado</label>
                 <div className="flex flex-wrap gap-2">
                   {STATUS_OPTIONS.map((s) => (
                     <button
                       key={s}
+                      ref={s === STATUS_OPTIONS[0] ? statusFirstButtonRef : undefined}
                       type="button"
                       onClick={() => setStatus(s)}
                       className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${getStatusPillClass(s)} ${

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import type { CalendarEvent } from '../../features/calendar/types/calendar.types'
+import type { AppointmentEditFocus } from '../../features/calendar/components/AppointmentFormModal'
 import type { SchedulingGuidance } from '../../features/calendar/utils/stageSchedulingGuidance'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
@@ -26,6 +27,7 @@ export function LeadCardMobile({
   onToast,
   onUpdated: _onUpdated,
   onSchedule,
+  onEditAppointment,
   variant = 'default',
 }: {
   lead: Lead
@@ -41,6 +43,11 @@ export function LeadCardMobile({
   onToast?: (message: string) => void
   onUpdated?: () => void | Promise<void>
   onSchedule?: (leadId: string) => void
+  onEditAppointment?: (args: {
+    leadId: string
+    event: CalendarEvent
+    focus: AppointmentEditFocus
+  }) => void
   variant?: LeadCardMobileVariant
 }) {
   const navigate = useNavigate()
@@ -112,6 +119,7 @@ export function LeadCardMobile({
               nextAppointment={nextAppointment}
               schedulingGuidance={schedulingGuidance}
               onSchedule={onSchedule}
+              onEditAppointment={onEditAppointment}
               variant="kanban"
             />
           </div>
@@ -144,6 +152,7 @@ export function LeadCardMobile({
               nextAppointment={nextAppointment}
               schedulingGuidance={schedulingGuidance}
               onSchedule={onSchedule}
+              onEditAppointment={onEditAppointment}
               variant="table"
             />
           </div>

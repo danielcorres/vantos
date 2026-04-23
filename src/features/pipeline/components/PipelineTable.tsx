@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Lead } from '../pipeline.api'
 import type { CalendarEvent } from '../../calendar/types/calendar.types'
+import type { AppointmentEditFocus } from '../../calendar/components/AppointmentFormModal'
 import type { SchedulingGuidance } from '../../calendar/utils/stageSchedulingGuidance'
 import { displayStageName, getStageAccentStyle } from '../../../shared/utils/stageStyles'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
@@ -36,6 +37,11 @@ type PipelineTableProps = {
   nextAppointmentByLeadId?: Record<string, CalendarEvent | null>
   schedulingGuidanceByLeadId?: Record<string, SchedulingGuidance>
   onSchedule?: (leadId: string) => void
+  onEditAppointment?: (args: {
+    leadId: string
+    event: CalendarEvent
+    focus: AppointmentEditFocus
+  }) => void
 }
 
 const TH_BASE = 'px-4 py-2 text-left text-xs font-medium text-neutral-500'
@@ -68,6 +74,7 @@ export function PipelineTable({
   nextAppointmentByLeadId = {},
   schedulingGuidanceByLeadId = {},
   onSchedule,
+  onEditAppointment,
 }: PipelineTableProps) {
   const showGrouped = groupByStage && groupedSections.length > 0
   const prefersReducedMotion = useReducedMotion()
@@ -179,6 +186,7 @@ export function PipelineTable({
                             onToast={onToast}
                             onUpdated={onUpdated}
                             onSchedule={onSchedule}
+                            onEditAppointment={onEditAppointment}
                             variant="table"
                           />
                         )
@@ -206,6 +214,7 @@ export function PipelineTable({
               onToast={onToast}
               onUpdated={onUpdated}
               onSchedule={onSchedule}
+              onEditAppointment={onEditAppointment}
               variant="table"
             />
             )
@@ -302,6 +311,7 @@ export function PipelineTable({
                                 onToast={onToast}
                                 onUpdated={onUpdated}
                                 onSchedule={onSchedule}
+                                onEditAppointment={onEditAppointment}
                               />
                             )
                           })
@@ -327,6 +337,7 @@ export function PipelineTable({
                     onToast={onToast}
                     onUpdated={onUpdated}
                     onSchedule={onSchedule}
+                    onEditAppointment={onEditAppointment}
                   />
                   )
                 })}

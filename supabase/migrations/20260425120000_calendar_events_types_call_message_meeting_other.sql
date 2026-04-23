@@ -1,7 +1,14 @@
 -- calendar_events.type: call | message | meeting | other (UI: Llamada, Mensaje, Reunión, Otro)
 -- Migra first_meeting/closing → meeting, follow_up → message; actualiza CHECK, RPC y vista KPI.
+--
+-- Importante: hay que DROP del CHECK *antes* de los UPDATE. Si no, Postgres sigue aplicando el
+-- CHECK antiguo (solo first_meeting|closing|follow_up) y rechaza type = 'meeting'.
 
--- 1) Datos existentes (antes de cambiar el CHECK)
+-- 1) Quitar restricción antigua para poder escribir los nuevos valores
+alter table public.calendar_events
+  drop constraint if exists calendar_events_type_check;
+
+-- 2) Migrar datos legacy (y cualquier valor fuera del nuevo conjunto → other)
 update public.calendar_events
 set type = 'meeting'
 where type in ('first_meeting', 'closing');
@@ -10,17 +17,19 @@ update public.calendar_events
 set type = 'message'
 where type = 'follow_up';
 
--- 2) Sustituir restricción CHECK en type
-alter table public.calendar_events
-  drop constraint if exists calendar_events_type_check;
+update public.calendar_events
+set type = 'other'
+where type is not null
+  and type not in ('call', 'message', 'meeting', 'other');
 
+-- 3) Nuevo CHECK
 alter table public.calendar_events
   add constraint calendar_events_type_check
   check (type in ('call', 'message', 'meeting', 'other'));
 
 comment on column public.calendar_events.type is 'Canal de la cita: call | message | meeting | other';
 
--- 3) RPC: resumen por lead (hitos y próxima cita programada)
+-- 4) RPC: resumen por lead (hitos y próxima cita programada)
 create or replace function public.get_calendar_scheduling_summaries(p_lead_ids uuid[])
 returns table (
   lead_id uuid,
@@ -80,7 +89,7 @@ as $$
   left join nxt n on n.lead_id = i.lead_id;
 $$;
 
--- 4) Vista KPI: última reunión completada antes de ganar (antes type = closing)
+-- 5) Vista KPI: última reunión completada antes de ganar (antes type = closing)
 create or replace view public.pipeline_kpi_close_to_won as
 with closing_before_won as (
   select

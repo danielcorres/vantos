@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import type { CalendarEvent } from '../../features/calendar/types/calendar.types'
+import type { AppointmentEditFocus } from '../../features/calendar/components/AppointmentFormModal'
 import type { SchedulingGuidance } from '../../features/calendar/utils/stageSchedulingGuidance'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
@@ -26,6 +27,7 @@ function LeadRowDesktopInner({
   onToast,
   onUpdated: _onUpdated,
   onSchedule,
+  onEditAppointment,
 }: {
   lead: Lead
   stages: PipelineStageLite[]
@@ -40,6 +42,11 @@ function LeadRowDesktopInner({
   onToast?: (message: string) => void
   onUpdated?: () => void | Promise<void>
   onSchedule?: (leadId: string) => void
+  onEditAppointment?: (args: {
+    leadId: string
+    event: CalendarEvent
+    focus: AppointmentEditFocus
+  }) => void
 }) {
   const navigate = useNavigate()
   const phone = lead.phone?.trim() ?? ''
@@ -134,6 +141,7 @@ function LeadRowDesktopInner({
           nextAppointment={nextAppointment}
           schedulingGuidance={schedulingGuidance}
           onSchedule={onSchedule}
+          onEditAppointment={onEditAppointment}
           variant="table"
         />
       </td>

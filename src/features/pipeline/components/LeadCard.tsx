@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import type { Lead, PipelineStage } from '../pipeline.api'
 import type { CalendarEvent } from '../../calendar/types/calendar.types'
+import type { AppointmentEditFocus } from '../../calendar/components/AppointmentFormModal'
 import type { SchedulingGuidance } from '../../calendar/utils/stageSchedulingGuidance'
 import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
 import { LeadTemperatureChip } from '../../../components/pipeline/LeadTemperatureChip'
@@ -29,6 +30,11 @@ interface LeadCardProps {
   onToast?: (message: string) => void
   onUpdated?: () => void | Promise<void>
   onSchedule?: (leadId: string) => void
+  onEditAppointment?: (args: {
+    leadId: string
+    event: CalendarEvent
+    focus: AppointmentEditFocus
+  }) => void
 }
 
 const stagesToLite = (stages: PipelineStage[]): PipelineStageLite[] =>
@@ -44,6 +50,7 @@ export function LeadCard({
   onToast: _onToast,
   onUpdated: _onUpdated,
   onSchedule,
+  onEditAppointment,
 }: LeadCardProps) {
   const navigate = useNavigate()
   const stagesLite = stagesToLite(stages)
@@ -100,6 +107,7 @@ export function LeadCard({
           nextAppointment={nextAppointment}
           schedulingGuidance={schedulingGuidance}
           onSchedule={onSchedule}
+          onEditAppointment={onEditAppointment}
           variant="kanban"
         />
       </div>
