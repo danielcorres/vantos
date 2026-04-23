@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, useLayoutEffect, Fragment } from 'react'
 import { calendarApi } from '../api/calendar.api'
-import { pipelineApi, type Lead } from '../../pipeline/pipeline.api'
+import { pipelineApi, type Lead, type PipelineStage } from '../../pipeline/pipeline.api'
+import { LeadCreateModal } from '../../pipeline/components/LeadCreateModal'
 import type { CalendarEvent, AppointmentType, AppointmentStatus } from '../types/calendar.types'
 import { APPOINTMENT_TYPES } from '../types/calendar.types'
 import {
@@ -113,6 +114,10 @@ export function AppointmentFormModal({
   const [phoneEdit, setPhoneEdit] = useState('')
   const [emailEdit, setEmailEdit] = useState('')
 
+  const [leadCreateOpen, setLeadCreateOpen] = useState(false)
+  const [pipelineStages, setPipelineStages] = useState<PipelineStage[]>([])
+  const [leadCreateLoading, setLeadCreateLoading] = useState(false)
+
   const lockedLead = initialLeadId != null && initialLeadId !== ''
 
   const { date: datePart, time: timePart } = useMemo(() => splitDateTimeLocal(startsAtValue), [startsAtValue])
@@ -131,6 +136,7 @@ export function AppointmentFormModal({
     setClientDraft('')
     setPhoneEdit('')
     setEmailEdit('')
+    setLeadCreateOpen(false)
   }, [])
 
   useEffect(() => {
@@ -247,6 +253,39 @@ export function AppointmentFormModal({
 
   const effectiveLeadId = selectedLead?.id ?? initialLeadId ?? null
   const hasLeadContactFields = !!selectedLead
+
+  const defaultNewLeadStageId = useMemo(
+    () => pipelineStages.find((s) => s.slug === 'contactos_nuevos')?.id,
+    [pipelineStages]
+  )
+
+  const openLeadCreate = useCallback(async () => {
+    setError(null)
+    try {
+      if (pipelineStages.length === 0) {
+        setLeadCreateLoading(true)
+        const list = await pipelineApi.getStages()
+        setPipelineStages(list)
+        setLeadCreateLoading(false)
+        if (list.length === 0) {
+          setError('No hay etapas de pipeline configuradas. No se puede crear el lead.')
+          return
+        }
+      }
+      setLeadCreateOpen(true)
+    } catch (err) {
+      setLeadCreateLoading(false)
+      setError(err instanceof Error ? err.message : 'No se pudieron cargar las etapas')
+    }
+  }, [pipelineStages.length])
+
+  const handleLeadCreatedFromModal = useCallback((lead: Lead) => {
+    setSelectedLead(lead)
+    setPhoneEdit(lead.phone ?? '')
+    setEmailEdit(lead.email ?? '')
+    setClientDraft('')
+    setLeadCreateOpen(false)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -372,6 +411,7 @@ export function AppointmentFormModal({
   }
 
   return (
+    <Fragment>
     <div
       className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50 p-0 sm:p-4"
       onClick={handleClose}
@@ -419,22 +459,34 @@ export function AppointmentFormModal({
             </div>
           )}
           {mode === 'create' && !(lockedLead && !selectedLead) && (
-            <AppointmentLeadPicker
-              locked={lockedLead}
-              draft={clientDraft}
-              onDraftChange={setClientDraft}
-              selectedLead={selectedLead}
-              onSelectLead={(L) => {
-                setSelectedLead(L)
-                setPhoneEdit(L.phone ?? '')
-                setEmailEdit(L.email ?? '')
-              }}
-              onClear={() => {
-                setSelectedLead(null)
-                setPhoneEdit('')
-                setEmailEdit('')
-              }}
-            />
+            <div className="space-y-2">
+              <AppointmentLeadPicker
+                locked={lockedLead}
+                draft={clientDraft}
+                onDraftChange={setClientDraft}
+                selectedLead={selectedLead}
+                onSelectLead={(L) => {
+                  setSelectedLead(L)
+                  setPhoneEdit(L.phone ?? '')
+                  setEmailEdit(L.email ?? '')
+                }}
+                onClear={() => {
+                  setSelectedLead(null)
+                  setPhoneEdit('')
+                  setEmailEdit('')
+                }}
+              />
+              {!lockedLead && !selectedLead ? (
+                <button
+                  type="button"
+                  onClick={() => void openLeadCreate()}
+                  disabled={leadCreateLoading}
+                  className="text-sm font-medium text-primary hover:underline disabled:opacity-50"
+                >
+                  {leadCreateLoading ? 'Cargando…' : '+ Crear lead nuevo'}
+                </button>
+              ) : null}
+            </div>
           )}
 
           {mode === 'edit' && event?.lead_id && !selectedLead && (
@@ -658,5 +710,19 @@ export function AppointmentFormModal({
         </form>
       </div>
     </div>
+
+    {mode === 'create' && !lockedLead && pipelineStages.length > 0 ? (
+      <LeadCreateModal
+        stages={pipelineStages}
+        isOpen={leadCreateOpen}
+        onClose={() => setLeadCreateOpen(false)}
+        onSubmit={(data) => pipelineApi.createLead(data)}
+        onLeadCreated={handleLeadCreatedFromModal}
+        defaultStageId={defaultNewLeadStageId}
+        initialFullName={clientDraft.trim() || undefined}
+        overlayClassName="z-[60]"
+      />
+    ) : null}
+    </Fragment>
   )
 }

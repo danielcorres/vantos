@@ -11,6 +11,10 @@ interface LeadCreateModalProps {
   /** Tras crear el lead con éxito (antes de cerrar el modal). */
   onLeadCreated?: (lead: Lead) => void
   defaultStageId?: string
+  /** Al abrir, prellenar nombre (ej. texto del buscador en otra pantalla). */
+  initialFullName?: string
+  /** Clases del overlay fijo (p. ej. z-[60] para apilar sobre otro modal). */
+  overlayClassName?: string
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -25,6 +29,8 @@ export function LeadCreateModal({
   onSubmit,
   onLeadCreated,
   defaultStageId,
+  initialFullName,
+  overlayClassName,
 }: LeadCreateModalProps) {
   const [fullName, setFullName] = useState('')
   const [phone, setPhone] = useState('')
@@ -39,6 +45,12 @@ export function LeadCreateModal({
       setStageId(validDefault ? defaultStageId : (stages.find((s) => s.slug === 'contactos_nuevos')?.id ?? stages[0].id))
     }
   }, [isOpen, stages, defaultStageId])
+
+  useEffect(() => {
+    if (!isOpen) return
+    setFullName((initialFullName ?? '').trim())
+    setPhone('')
+  }, [isOpen, initialFullName])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -78,9 +90,11 @@ export function LeadCreateModal({
 
   if (!isOpen) return null
 
+  const overlayZ = overlayClassName?.trim() || 'z-50'
+
   return (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+      className={`fixed inset-0 bg-black/50 flex items-center justify-center p-4 ${overlayZ}`}
       onClick={handleClose}
       style={{
         animation: prefersReducedMotion ? 'none' : 'fadeIn 150ms ease-out',

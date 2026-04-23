@@ -1,4 +1,3 @@
-import { useNavigate } from 'react-router-dom'
 import type { CalendarEvent } from '../../features/calendar/types/calendar.types'
 import type { AppointmentEditFocus } from '../../features/calendar/components/AppointmentFormModal'
 import { getTypeLabel, getStatusLabel, getStatusPillClass } from '../../features/calendar/utils/pillStyles'
@@ -31,7 +30,6 @@ export function LeadKanbanNextTouch({
   onEditAppointment?: (args: EditAppointmentFromChipArgs) => void
   variant?: Variant
 }) {
-  const navigate = useNavigate()
   const appt = nextAppointment ?? null
   const legacy = schedulingGuidance == null
 
@@ -40,12 +38,6 @@ export function LeadKanbanNextTouch({
     const typeLabel = getTypeLabel(appt.type)
     const isScheduled = appt.status === 'scheduled'
     const isCompact = variant === 'kanban'
-    const showReprogramar =
-      isScheduled &&
-      onSchedule &&
-      !legacy &&
-      schedulingGuidance.editEventId != null &&
-      schedulingGuidance.editEventId === appt.id
 
     const chipBorder = isScheduled
       ? 'border-blue-200 bg-blue-50/90 text-blue-900 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100'
@@ -97,31 +89,6 @@ export function LeadKanbanNextTouch({
         ) : (
           <span className={statusChipClass}>{getStatusLabel(appt.status)}</span>
         )}
-        <button
-          type="button"
-          onClick={() => navigate(`/calendar?lead=${encodeURIComponent(leadId)}`)}
-          className="shrink-0 text-[11px] font-medium text-blue-700 underline-offset-2 hover:underline dark:text-blue-300"
-        >
-          Calendario
-        </button>
-        {showReprogramar ? (
-          <button
-            type="button"
-            onClick={() => onSchedule(leadId)}
-            className="shrink-0 text-[11px] font-medium text-blue-800 underline-offset-2 hover:underline dark:text-blue-200"
-          >
-            {schedulingGuidance.buttonLabel}
-          </button>
-        ) : null}
-        {isScheduled && legacy && onSchedule ? (
-          <button
-            type="button"
-            onClick={() => onSchedule(leadId)}
-            className="shrink-0 text-[11px] font-medium text-blue-800 underline-offset-2 hover:underline dark:text-blue-200"
-          >
-            Reprogramar
-          </button>
-        ) : null}
         {!isScheduled && onSchedule ? (
           <button
             type="button"
