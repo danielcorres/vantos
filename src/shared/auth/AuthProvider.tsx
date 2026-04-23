@@ -1,6 +1,10 @@
 import { createContext, useContext, useEffect, useState, useRef, useCallback } from 'react'
 import { supabase } from '../../lib/supabase'
 import { getSystemOwnerId, clearSystemOwnerCache } from '../../lib/systemOwner'
+import {
+  ACCESS_BLOCKED_DEFAULT_MESSAGE,
+  ACCESS_BLOCKED_FLASH_KEY,
+} from './accessBlockedFlash'
 import type { User, Session, AuthError } from '@supabase/supabase-js'
 
 const IS_DEV = import.meta.env.DEV
@@ -55,6 +59,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const lastUserIdRef = useRef<string | null>(null)
 
   const loadUserRole = useCallback(async (userId: string) => {
+    if (!userId) {
+      roleLoadInProgressRef.current = false
+      return
+    }
+
     // Prevenir ejecución múltiple
     if (roleLoadInProgressRef.current) {
       if (IS_DEV) {
@@ -72,7 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Cargar role desde public.profiles usando user_id
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('role, user_id')
+        .select('role, user_id, account_status')
         .eq('user_id', userId)
         .single()
 
@@ -111,6 +120,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         roleLoadInProgressRef.current = false
         return
+      }
+
+      if (profileData) {
+        const accountStatus =
+          (profileData as { account_status?: string | null }).account_status ?? 'active'
+        if (accountStatus === 'suspended') {
+          sessionStorage.setItem(ACCESS_BLOCKED_FLASH_KEY, ACCESS_BLOCKED_DEFAULT_MESSAGE)
+          try {
+            await supabase.auth.signOut({ scope: 'global' })
+          } catch (signErr) {
+            if (IS_DEV) {
+              console.debug('[AuthProvider] signOut por cuenta suspendida:', signErr)
+            }
+          }
+          clearSystemOwnerCache()
+          lastUserIdRef.current = null
+          if (mountedRef.current) {
+            setUser(null)
+            setSession(null)
+            setRole(null)
+            setSystemOwnerId(null)
+            setError(null)
+          }
+          roleLoadInProgressRef.current = false
+          return
+        }
       }
 
       // Si profileData existe y tiene role

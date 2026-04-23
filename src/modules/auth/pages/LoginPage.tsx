@@ -5,9 +5,20 @@ import { isNetworkError } from '../../../lib/supabaseErrorHandler'
 import { useAuth } from '../useAuth'
 import { getHomePathForRole } from '../getHomePathForRole'
 import { LoginBranding } from '../../../components/auth/LoginBranding'
+import {
+  ACCESS_BLOCKED_DEFAULT_MESSAGE,
+  ACCESS_BLOCKED_FLASH_KEY,
+} from '../../../shared/auth/accessBlockedFlash'
 
 const EMAIL_STORAGE_KEY = 'vant_last_email'
 const FORGOT_COOLDOWN_SECONDS = 45
+const RESEND_CONFIRM_COOLDOWN_SECONDS = 60
+
+function isEmailNotConfirmedError(err: unknown): boolean {
+  if (!(err instanceof Error)) return false
+  const m = err.message.toLowerCase()
+  return m.includes('email not confirmed') || m.includes('email_not_confirmed')
+}
 
 type Mode = 'login' | 'register' | 'forgot'
 
@@ -36,6 +47,9 @@ export function LoginPage() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [signupSuccess, setSignupSuccess] = useState(false)
+  const [signupAwaitingEmail, setSignupAwaitingEmail] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
+  const [resendLoading, setResendLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [forgotPasswordLoading, setForgotPasswordLoading] = useState(false)
@@ -58,6 +72,33 @@ export function LoginPage() {
       localStorage.setItem(EMAIL_STORAGE_KEY, email)
     }
   }, [email])
+
+  // Mensaje tras suspensión (AuthProvider) o ?reason=suspended
+  useEffect(() => {
+    const flash = sessionStorage.getItem(ACCESS_BLOCKED_FLASH_KEY)
+    if (flash) {
+      setError(flash)
+      sessionStorage.removeItem(ACCESS_BLOCKED_FLASH_KEY)
+    }
+    const reason = searchParams.get('reason')
+    if (reason === 'suspended') {
+      setError((prev) => prev ?? ACCESS_BLOCKED_DEFAULT_MESSAGE)
+      const nextParam = searchParams.get('next')
+      const qs =
+        nextParam && nextParam.startsWith('/') && !nextParam.startsWith('//')
+          ? `?next=${encodeURIComponent(nextParam)}`
+          : ''
+      navigate(`/login${qs}`, { replace: true })
+    }
+  }, [searchParams, navigate])
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const id = setInterval(() => {
+      setResendCooldown((c) => Math.max(0, c - 1))
+    }, 1000)
+    return () => clearInterval(id)
+  }, [resendCooldown])
 
   // Autofocus input de email al entrar en modo forgot
   useEffect(() => {
@@ -93,10 +134,12 @@ export function LoginPage() {
           return
         }
 
-        const { error } = await supabase.auth.signUp({
+        const redirectTo = `${window.location.origin}/auth/callback`
+        const { data: signUpData, error } = await supabase.auth.signUp({
           email,
           password,
           options: {
+            emailRedirectTo: redirectTo,
             data: {
               first_name: firstName.trim(),
               last_name: lastName.trim(),
@@ -105,8 +148,14 @@ export function LoginPage() {
         })
         if (error) throw error
 
-        // No navegar, mostrar mensaje de confirmación
-        setSignupSuccess(true)
+        if (signUpData.session) {
+          // Confirmación de email desactivada en el proyecto Supabase: la sesión ya existe.
+          setSignupSuccess(false)
+          setSignupAwaitingEmail(false)
+        } else {
+          setSignupSuccess(true)
+          setSignupAwaitingEmail(!!signUpData.user)
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -122,8 +171,10 @@ export function LoginPage() {
       let errorMessage = 'Error al autenticar'
 
       if (err instanceof Error) {
-        // Mejorar mensajes de error
-        if (err.message.includes('Invalid login credentials') || err.message.includes('Email not confirmed')) {
+        if (isEmailNotConfirmedError(err)) {
+          errorMessage =
+            'Debes confirmar tu correo antes de entrar. Revisa tu bandeja (y spam) o usa «Reenviar confirmación».'
+        } else if (err.message.includes('Invalid login credentials')) {
           errorMessage = 'Correo o contraseña incorrectos'
         } else if (isNetworkError(err)) {
           errorMessage = 'No se pudo conectar. Reintenta.'
@@ -141,10 +192,32 @@ export function LoginPage() {
   const handleBackToSignIn = () => {
     setMode('login')
     setSignupSuccess(false)
+    setSignupAwaitingEmail(false)
+    setResendCooldown(0)
     setFirstName('')
     setLastName('')
     setPassword('')
     setError(null)
+  }
+
+  const handleResendSignupEmail = async () => {
+    const trimmed = email.trim()
+    if (!trimmed || resendCooldown > 0 || resendLoading) return
+    setResendLoading(true)
+    setError(null)
+    try {
+      const { error: resErr } = await supabase.auth.resend({
+        type: 'signup',
+        email: trimmed,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+      })
+      if (resErr) throw resErr
+      setResendCooldown(RESEND_CONFIRM_COOLDOWN_SECONDS)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'No se pudo reenviar el correo')
+    } finally {
+      setResendLoading(false)
+    }
   }
 
   const handleBackToLoginFromForgot = () => {
@@ -191,7 +264,9 @@ export function LoginPage() {
           </h1>
           <p className="text-sm text-slate-400 text-center mb-6">
             {signupSuccess
-              ? 'Confirma tu correo'
+              ? signupAwaitingEmail
+                ? 'Confirma tu correo'
+                : 'Cuenta lista'
               : mode === 'forgot'
                 ? 'Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.'
                 : mode === 'register'
@@ -203,10 +278,29 @@ export function LoginPage() {
             <div className="space-y-4">
               <div className="p-4 bg-green-950/60 border border-green-800/60 rounded-md text-sm text-green-200">
                 <p className="font-semibold mb-1">¡Registro exitoso!</p>
-                <p>
-                  Te enviamos un correo de confirmación a <strong>{email}</strong>. Revisa tu bandeja de entrada y spam.
-                </p>
+                {signupAwaitingEmail ? (
+                  <p>
+                    Revisa tu correo en <strong>{email}</strong> y abre el enlace de confirmación para activar tu
+                    cuenta. Si no llega nada, revisa spam o reenvía el mensaje.
+                  </p>
+                ) : (
+                  <p>Tu cuenta está activa. Puedes iniciar sesión con el correo y la contraseña que elegiste.</p>
+                )}
               </div>
+              {signupAwaitingEmail && (
+                <button
+                  type="button"
+                  onClick={() => void handleResendSignupEmail()}
+                  disabled={resendLoading || resendCooldown > 0}
+                  className="w-full py-2.5 rounded-lg text-sm font-semibold bg-slate-800 text-slate-100 ring-1 ring-white/10 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {resendLoading
+                    ? 'Enviando…'
+                    : resendCooldown > 0
+                      ? `Reenviar en ${resendCooldown}s`
+                      : 'Reenviar correo de confirmación'}
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleBackToSignIn}
@@ -387,21 +481,35 @@ export function LoginPage() {
             </button>
 
               {mode === 'login' && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setError(null)
-                    setForgotCooldownRemaining(0)
-                    setForgotCooldownActive(false)
-                    setForgotNotice(null)
-                    setPassword('')
-                    setMode('forgot')
-                  }}
-                  disabled={loading}
-                  className="w-full text-sm text-slate-400 hover:text-slate-200 hover:underline disabled:opacity-50 transition-colors"
-                >
-                  ¿Olvidaste tu contraseña?
-                </button>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError(null)
+                      setForgotCooldownRemaining(0)
+                      setForgotCooldownActive(false)
+                      setForgotNotice(null)
+                      setPassword('')
+                      setMode('forgot')
+                    }}
+                    disabled={loading}
+                    className="w-full text-sm text-slate-400 hover:text-slate-200 hover:underline disabled:opacity-50 transition-colors"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void handleResendSignupEmail()}
+                    disabled={loading || !email.trim() || resendLoading || resendCooldown > 0}
+                    className="w-full text-sm text-slate-400 hover:text-slate-200 hover:underline disabled:opacity-50 transition-colors"
+                  >
+                    {resendLoading
+                      ? 'Enviando…'
+                      : resendCooldown > 0
+                        ? `Reenviar confirmación en ${resendCooldown}s`
+                        : 'Reenviar correo de confirmación'}
+                  </button>
+                </div>
               )}
 
               <button
@@ -409,6 +517,8 @@ export function LoginPage() {
                 onClick={() => {
                   setMode(mode === 'register' ? 'login' : 'register')
                   setSignupSuccess(false)
+                  setSignupAwaitingEmail(false)
+                  setResendCooldown(0)
                   setFirstName('')
                   setLastName('')
                   setError(null)

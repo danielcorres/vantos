@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../../../../lib/supabase'
 import type {
+  AccountStatus,
   AssignmentProfile,
   AdvisorSeguimientoRow,
   EditableRole,
@@ -8,7 +9,15 @@ import type {
 } from '../types'
 
 const PROFILE_SELECT =
-  'user_id, full_name, display_name, role, manager_user_id, recruiter_user_id, manager_assigned_by, manager_assigned_at, recruiter_assigned_by, recruiter_assigned_at'
+  'user_id, full_name, display_name, role, account_status, manager_user_id, recruiter_user_id, manager_assigned_by, manager_assigned_at, recruiter_assigned_by, recruiter_assigned_at'
+
+function rowsToProfiles(rows: unknown[] | null | undefined): AssignmentProfile[] {
+  return (rows || []).map((row) => ({
+    ...(row as AssignmentProfile),
+    account_status:
+      (row as { account_status?: AccountStatus }).account_status ?? 'active',
+  })) as AssignmentProfile[]
+}
 
 export function useDirectorAssignments(canLoad: boolean) {
   const [profiles, setProfiles] = useState<AssignmentProfile[]>([])
@@ -35,7 +44,7 @@ export function useDirectorAssignments(canLoad: boolean) {
       if (prRes.error) throw prRes.error
       if (segRes.error) throw segRes.error
       if (!mountedRef.current) return
-      setProfiles((prRes.data || []) as AssignmentProfile[])
+      setProfiles(rowsToProfiles(prRes.data || []))
       setSeguimientoLinks((segRes.data || []) as AdvisorSeguimientoRow[])
     } catch (e) {
       console.error('[useDirectorAssignments]', e)
@@ -115,6 +124,43 @@ export function useDirectorAssignments(canLoad: boolean) {
         delete snapshotsRef.current[userId]
       } catch (err) {
         console.error('[useDirectorAssignments] role', err)
+        if (snapshotsRef.current[userId]) {
+          setProfiles((prev) =>
+            prev.map((p) => (p.user_id === userId ? snapshotsRef.current[userId] : p))
+          )
+          delete snapshotsRef.current[userId]
+        }
+        if (mountedRef.current) {
+          setRowState(userId, 'error')
+          clearRowStateSoon(userId, 3000)
+        }
+      }
+    },
+    [profiles, saveProfile, setRowState, clearRowStateSoon]
+  )
+
+  const handleAccountStatusChange = useCallback(
+    async (userId: string, ownerUserId: string | null, next: AccountStatus) => {
+      if (!mountedRef.current) return
+      if (userId === ownerUserId) return
+
+      const profile = profiles.find((p) => p.user_id === userId)
+      if (profile) snapshotsRef.current[userId] = { ...profile }
+
+      setRowState(userId, 'saving')
+      setProfiles((prev) =>
+        prev.map((p) => (p.user_id === userId ? { ...p, account_status: next } : p))
+      )
+
+      try {
+        const updated = await saveProfile(userId, { account_status: next })
+        if (!mountedRef.current) return
+        setProfiles((prev) => prev.map((p) => (p.user_id === userId ? updated : p)))
+        setRowState(userId, 'saved')
+        clearRowStateSoon(userId, 2000)
+        delete snapshotsRef.current[userId]
+      } catch (err) {
+        console.error('[useDirectorAssignments] account_status', err)
         if (snapshotsRef.current[userId]) {
           setProfiles((prev) =>
             prev.map((p) => (p.user_id === userId ? snapshotsRef.current[userId] : p))
@@ -271,6 +317,7 @@ export function useDirectorAssignments(canLoad: boolean) {
     rowSaveStates,
     refetch: load,
     handleRoleChange,
+    handleAccountStatusChange,
     handleManagerRecruiterChange,
     addSeguimientoLink,
     removeSeguimientoLink,
@@ -312,8 +359,8 @@ export function useLeaderSelfAssign(canLoad: boolean, kind: LeaderKind, myUserId
         if (mRes.error) throw mRes.error
         if (aRes.error) throw aRes.error
         if (!mountedRef.current) return
-        setMine((mRes.data || []) as AssignmentProfile[])
-        setAvailable((aRes.data || []) as AssignmentProfile[])
+        setMine(rowsToProfiles(mRes.data || []))
+        setAvailable(rowsToProfiles(aRes.data || []))
       } else if (kind === 'recruiter') {
         const [mRes, aRes] = await Promise.all([
           supabase
@@ -332,8 +379,8 @@ export function useLeaderSelfAssign(canLoad: boolean, kind: LeaderKind, myUserId
         if (mRes.error) throw mRes.error
         if (aRes.error) throw aRes.error
         if (!mountedRef.current) return
-        setMine((mRes.data || []) as AssignmentProfile[])
-        setAvailable((aRes.data || []) as AssignmentProfile[])
+        setMine(rowsToProfiles(mRes.data || []))
+        setAvailable(rowsToProfiles(aRes.data || []))
       } else {
         const { data: links, error: lErr } = await supabase
           .from('advisor_seguimiento')
@@ -347,7 +394,7 @@ export function useLeaderSelfAssign(canLoad: boolean, kind: LeaderKind, myUserId
           .eq('role', 'advisor')
           .order('full_name', { ascending: true, nullsFirst: false })
         if (advErr) throw advErr
-        const all = (allAdv || []) as AssignmentProfile[]
+        const all = rowsToProfiles(allAdv || [])
         if (!mountedRef.current) return
         setMine(all.filter((p) => mineIds.has(p.user_id)))
         setAvailable(all.filter((p) => !mineIds.has(p.user_id)))

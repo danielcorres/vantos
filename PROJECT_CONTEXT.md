@@ -34,6 +34,13 @@ VANT está diseñado para ser usado **todos los días** como sistema de operaci�
   - RPCs
   - Migraciones
 
+### Configuración Auth en el Dashboard de Supabase (operación manual)
+
+- **Authentication → Providers → Email**: activar **Confirm email** para exigir confirmación antes del primer acceso con contraseña.
+- **Authentication → URL configuration**: **Site URL** al origen de producción de la app. En **Redirect URLs** incluir `{origen}/auth/callback` para cada entorno (producción y desarrollo, p. ej. `http://localhost:5173/auth/callback` según el puerto de Vite).
+- Opcional: **Authentication → Email templates** en español (asunto y cuerpo de confirmación y recuperación).
+- El frontend envía `emailRedirectTo` apuntando a `/auth/callback` en el alta y en el reenvío de confirmación.
+
 ---
 
 ## 3. ESTADO ACTUAL DEL PROYECTO (ENERO 2026)

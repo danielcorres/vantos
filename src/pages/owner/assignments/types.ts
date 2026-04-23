@@ -6,11 +6,14 @@ export type AssignmentProfileRole =
   | 'director'
   | 'seguimiento'
 
+export type AccountStatus = 'active' | 'suspended'
+
 export type AssignmentProfile = {
   user_id: string
   full_name: string | null
   display_name: string | null
   role: AssignmentProfileRole
+  account_status: AccountStatus
   manager_user_id: string | null
   recruiter_user_id: string | null
   manager_assigned_by: string | null
