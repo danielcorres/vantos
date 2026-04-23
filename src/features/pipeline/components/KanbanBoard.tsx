@@ -16,6 +16,8 @@ interface KanbanBoardProps {
   nextAppointmentByLeadId?: Record<string, CalendarEvent | null>
   /** Guía de CTA / reprogramar por lead (slug + historial de citas). */
   schedulingGuidanceByLeadId?: Record<string, SchedulingGuidance>
+  /** Meta semanal por stage_id (encabezado de columna). */
+  stageTargetCountByStageId?: Record<string, number>
   /** Totales por etapa y cuántos están cargados (Kanban paginado). */
   stageLoadMeta?: Record<string, { total: number; loaded: number }>
   loadingMoreStageId?: string | null
@@ -33,12 +35,14 @@ interface KanbanBoardProps {
 
 const EMPTY_APPOINTMENTS: Record<string, CalendarEvent | null> = {}
 const EMPTY_GUIDANCE: Record<string, SchedulingGuidance> = {}
+const EMPTY_STAGE_TARGETS: Record<string, number> = {}
 
 export function KanbanBoard({
   stages,
   leads,
   nextAppointmentByLeadId = EMPTY_APPOINTMENTS,
   schedulingGuidanceByLeadId = EMPTY_GUIDANCE,
+  stageTargetCountByStageId = EMPTY_STAGE_TARGETS,
   stageLoadMeta = {},
   loadingMoreStageId = null,
   onLoadMoreStage,
@@ -197,6 +201,7 @@ export function KanbanBoard({
                 leads={leadsByStage.get(stage.id) ?? emptyLeads}
                 nextAppointmentByLeadId={nextAppointmentByLeadId}
                 schedulingGuidanceByLeadId={schedulingGuidanceByLeadId}
+                targetCount={stageTargetCountByStageId[stage.id]}
                 totalInStage={meta?.total}
                 loadedInStage={meta?.loaded}
                 hasMoreInStage={meta != null && meta.loaded < meta.total}

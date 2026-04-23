@@ -29,6 +29,31 @@ export function todayLocalYmd(): string {
 }
 
 /**
+ * Primer instante (UTC ISO) en el que el calendario civil en `timeZone` ya es `ymd`.
+ * Útil para consultas tipo "eventos desde inicio de hoy en Monterrey".
+ */
+export function startOfYmdInTimeZoneISO(ymd: string, timeZone = TZ_MTY): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) {
+    return new Date().toISOString()
+  }
+  let lo = Date.UTC(y, m - 1, d - 1, 0, 0, 0)
+  let hi = Date.UTC(y, m - 1, d + 2, 0, 0, 0)
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2)
+    const fy = formatYmdInTz(new Date(mid), timeZone)
+    if (fy < ymd) lo = mid + 1
+    else hi = mid
+  }
+  return new Date(lo).toISOString()
+}
+
+/** Inicio del día de hoy en America/Monterrey como ISO UTC. */
+export function startOfTodayMonterreyISO(): string {
+  return startOfYmdInTimeZoneISO(todayLocalYmd(), TZ_MTY)
+}
+
+/**
  * Sumar o restar días a una fecha YYYY-MM-DD
  * @param ymd Fecha en formato YYYY-MM-DD
  * @param delta Número de días a sumar (positivo) o restar (negativo)

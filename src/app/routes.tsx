@@ -9,7 +9,7 @@ import { PageSkeleton } from '../shared/components/PageSkeleton'
 import { LoginPage } from '../modules/auth/pages/LoginPage'
 import { ResetPasswordPage } from '../modules/auth/pages/ResetPasswordPage'
 import { AuthCallback } from '../pages/AuthCallback'
-import { OkrHomePage } from '../modules/okr/pages/OkrHomePage'
+import { HomeIndexPage } from '../pages/HomeIndexPage'
 import { OkrWeekPage } from '../modules/okr/pages/OkrWeekPage'
 import { OkrDailyLogPage } from '../modules/okr/pages/OkrDailyLogPage'
 import { OkrScoringPage } from '../modules/okr/pages/OkrScoringPage'
@@ -81,7 +81,7 @@ export const router = createBrowserRouter([
         index: true,
         element: (
           <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
-            <OkrHomePage />
+            <HomeIndexPage />
           </RoleGuard>
         ),
       },

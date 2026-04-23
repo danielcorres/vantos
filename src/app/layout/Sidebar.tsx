@@ -89,7 +89,7 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
           visible: (r) => r === 'advisor' || r === 'manager' || r === 'owner',
         },
         {
-          label: 'Qué hacer hoy',
+          label: 'Próximas citas',
           path: '/focus',
           icon: IconFocus,
           visible: (r) => r === 'advisor' || r === 'manager' || r === 'owner',

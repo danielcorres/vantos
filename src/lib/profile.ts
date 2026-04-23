@@ -17,6 +17,8 @@ export interface Profile {
   key_activation_date?: string | null
   connection_date?: string | null
   advisor_status?: string | null
+  /** Manager asignado (advisors); viene de `select('*')` en getMyProfile. */
+  manager_user_id?: string | null
   /** Conservado en BD; no se edita desde Mi perfil (hitos usan alta de clave + conexión). */
   contract_signed_at?: string | null
   created_at: string
