@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { Toast } from '../../../shared/components/Toast'
 import { getSystemOwnerId } from '../../../lib/systemOwner'
 import { useDirectorAssignments } from './hooks/useAssignments'
-import type { AccountStatus, AssignmentProfile } from './types'
+import type { AssignmentProfile } from './types'
 import { isEditableAssignmentRole } from './types'
 import { getAssignmentDisplayName, formatAssignedAt } from './utils'
 import { roleLabelEs } from './copy'
@@ -29,7 +29,6 @@ export function DirectorAssignmentsView() {
     rowSaveStates,
     refetch,
     handleRoleChange,
-    handleAccountStatusChange,
     handleManagerRecruiterChange,
     addSeguimientoLink,
     removeSeguimientoLink,
@@ -196,8 +195,7 @@ export function DirectorAssignmentsView() {
                 <th className="text-left p-3 font-medium text-text">Usuario</th>
                 <th className="text-left p-3 font-medium text-text">Rol</th>
                 <th className="text-left p-3 font-medium text-text">Líderes</th>
-                <th className="text-left p-3 font-medium text-text">Acceso</th>
-                <th className="text-left p-3 font-medium text-text">Sinc.</th>
+                <th className="text-left p-3 font-medium text-text">Estado</th>
               </tr>
             </thead>
             <tbody>
@@ -269,29 +267,6 @@ export function DirectorAssignmentsView() {
                         </div>
                       ) : (
                         <span className="text-muted text-xs">—</span>
-                      )}
-                    </td>
-                    <td className="p-3">
-                      {!isReadOnly ? (
-                        <select
-                          value={profile.account_status}
-                          disabled={saveState === 'saving'}
-                          onChange={(e) =>
-                            void handleAccountStatusChange(
-                              profile.user_id,
-                              ownerUserId,
-                              e.target.value as AccountStatus
-                            )
-                          }
-                          className="text-sm rounded-md border border-border bg-background px-2 py-1.5 text-text focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:opacity-50"
-                        >
-                          <option value="active">Activo</option>
-                          <option value="suspended">Suspendido</option>
-                        </select>
-                      ) : (
-                        <span className="text-xs text-muted">
-                          {profile.account_status === 'suspended' ? 'Suspendido' : 'Activo'}
-                        </span>
                       )}
                     </td>
                     <td className="p-3">
