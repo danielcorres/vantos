@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import type { CalendarEvent } from '../../features/calendar/types/calendar.types'
+import type { AppointmentType, CalendarEvent } from '../../features/calendar/types/calendar.types'
 import { getTypeLabel } from '../../features/calendar/utils/pillStyles'
 import { getNextActionLabel } from '../../shared/utils/nextAction'
 import { NextActionActions } from './NextActionActions'
@@ -7,8 +7,8 @@ import { NextActionActions } from './NextActionActions'
 type Variant = 'kanban' | 'table'
 
 /**
- * Una sola fila: prioriza próxima cita del calendario; si no hay, muestra próximo paso del pipeline.
- * Citas: enlace al calendario con lead pre-cargado. Próximo paso: edición con NextActionActions.
+ * Kanban: cita programada o botón Agendar (calendario).
+ * Tabla: prioriza cita; si no hay, muestra próximo paso del pipeline (NextActionActions).
  */
 export function LeadKanbanNextTouch({
   leadId,
@@ -17,16 +17,20 @@ export function LeadKanbanNextTouch({
   nextAppointment,
   onUpdated,
   onToast,
+  onSchedule,
   variant = 'kanban',
   openExternally,
   onExternalClose,
 }: {
   leadId: string
-  nextActionAt: string | null
-  nextActionType: string | null
+  /** Solo se usa en variant `table`. */
+  nextActionAt?: string | null
+  nextActionType?: string | null
   nextAppointment: CalendarEvent | null | undefined
   onUpdated?: () => void | Promise<void>
   onToast?: (msg: string) => void
+  /** Kanban: abrir modal de cita ligado al lead. */
+  onSchedule?: (leadId: string, initialType?: AppointmentType | null) => void
   variant?: Variant
   openExternally?: boolean
   onExternalClose?: () => void
@@ -64,16 +68,51 @@ export function LeadKanbanNextTouch({
     )
   }
 
+  if (variant === 'table') {
+    return (
+      <div
+        className="flex flex-col gap-1.5 min-w-0 max-w-full"
+        data-stop-rowclick="true"
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        {onSchedule ? (
+          <button
+            type="button"
+            onClick={() => onSchedule(leadId, null)}
+            className="self-start rounded-md border border-dashed border-neutral-300 bg-neutral-50/80 px-2 py-0.5 text-[11px] font-medium text-neutral-700 hover:bg-neutral-100"
+          >
+            Agendar
+          </button>
+        ) : null}
+        <NextActionActions
+          leadId={leadId}
+          nextActionAt={nextActionAt ?? null}
+          nextActionType={nextActionType ?? null}
+          onUpdated={onUpdated}
+          onToast={onToast}
+          variant="table"
+          openExternally={openExternally}
+          onExternalClose={onExternalClose}
+        />
+      </div>
+    )
+  }
+
   return (
-    <NextActionActions
-      leadId={leadId}
-      nextActionAt={nextActionAt}
-      nextActionType={nextActionType}
-      onUpdated={onUpdated}
-      onToast={onToast}
-      variant={variant === 'table' ? 'table' : 'kanban'}
-      openExternally={openExternally}
-      onExternalClose={onExternalClose}
-    />
+    <div
+      className="flex flex-wrap items-center gap-1.5 min-w-0 max-w-full"
+      data-stop-rowclick="true"
+      onClick={(e) => e.stopPropagation()}
+      onMouseDown={(e) => e.stopPropagation()}
+    >
+      <button
+        type="button"
+        onClick={() => onSchedule?.(leadId, null)}
+        className="inline-flex items-center rounded-md border border-dashed border-neutral-300 bg-neutral-50/80 px-2 py-0.5 text-[11px] font-medium text-neutral-700 hover:bg-neutral-100 hover:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
+      >
+        Agendar
+      </button>
+    </div>
   )
 }

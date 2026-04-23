@@ -23,6 +23,7 @@ export function LeadCardMobile({
   onMoveStage,
   onToast,
   onUpdated,
+  onSchedule,
   variant = 'default',
 }: {
   lead: Lead
@@ -36,6 +37,7 @@ export function LeadCardMobile({
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
   onToast?: (message: string) => void
   onUpdated?: () => void | Promise<void>
+  onSchedule?: (leadId: string) => void
   variant?: LeadCardMobileVariant
 }) {
   const navigate = useNavigate()
@@ -109,6 +111,7 @@ export function LeadCardMobile({
               nextAppointment={nextAppointment}
               onUpdated={onUpdated}
               onToast={onToast}
+              onSchedule={onSchedule}
               variant="kanban"
             />
           </div>
@@ -143,6 +146,7 @@ export function LeadCardMobile({
               nextAppointment={nextAppointment}
               onUpdated={onUpdated}
               onToast={onToast}
+              onSchedule={onSchedule}
               variant="table"
             />
           </div>

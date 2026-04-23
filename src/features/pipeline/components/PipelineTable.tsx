@@ -33,6 +33,7 @@ type PipelineTableProps = {
   onToast?: (message: string) => void
   onUpdated?: () => void | Promise<void>
   nextAppointmentByLeadId?: Record<string, CalendarEvent | null>
+  onSchedule?: (leadId: string) => void
 }
 
 const TH_BASE = 'px-4 py-2 text-left text-xs font-medium text-neutral-500'
@@ -63,6 +64,7 @@ export function PipelineTable({
   onToast,
   onUpdated,
   nextAppointmentByLeadId = {},
+  onSchedule,
 }: PipelineTableProps) {
   const showGrouped = groupByStage && groupedSections.length > 0
   const prefersReducedMotion = useReducedMotion()
@@ -172,6 +174,7 @@ export function PipelineTable({
                             onMoveStage={onMoveStage}
                             onToast={onToast}
                             onUpdated={onUpdated}
+                            onSchedule={onSchedule}
                             variant="table"
                           />
                         )
@@ -197,6 +200,7 @@ export function PipelineTable({
               onMoveStage={onMoveStage}
               onToast={onToast}
               onUpdated={onUpdated}
+              onSchedule={onSchedule}
               variant="table"
             />
             )
@@ -291,6 +295,7 @@ export function PipelineTable({
                                 onMoveStage={onMoveStage}
                                 onToast={onToast}
                                 onUpdated={onUpdated}
+                                onSchedule={onSchedule}
                               />
                             )
                           })
@@ -314,6 +319,7 @@ export function PipelineTable({
                     onMoveStage={onMoveStage}
                     onToast={onToast}
                     onUpdated={onUpdated}
+                    onSchedule={onSchedule}
                   />
                   )
                 })}

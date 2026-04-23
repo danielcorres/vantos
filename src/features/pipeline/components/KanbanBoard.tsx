@@ -24,6 +24,8 @@ interface KanbanBoardProps {
   onCreateLead?: (stageId: string) => void
   onToast?: (message: string) => void
   onUpdated?: () => void | Promise<void>
+  /** Abrir creación de cita en calendario para un lead (tarjeta Kanban). */
+  onSchedule?: (leadId: string) => void
 }
 
 const EMPTY_APPOINTMENTS: Record<string, CalendarEvent | null> = {}
@@ -42,6 +44,7 @@ export function KanbanBoard({
   onCreateLead,
   onToast,
   onUpdated,
+  onSchedule,
 }: KanbanBoardProps) {
   const stageItems = React.useMemo(
     () => stages.map((s) => ({ id: s.id, name: s.name, position: s.position })),
@@ -149,6 +152,7 @@ export function KanbanBoard({
                   onMoveStage={onMoveStage}
                   onToast={onToast}
                   onUpdated={onUpdated}
+                  onSchedule={onSchedule}
                   variant="kanban"
                 />
               ))}
@@ -197,6 +201,7 @@ export function KanbanBoard({
                 onMoveStage={onMoveStage}
                 onToast={onToast}
                 onUpdated={onUpdated}
+                onSchedule={onSchedule}
               />
             )
           })}

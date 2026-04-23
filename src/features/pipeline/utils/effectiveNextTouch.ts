@@ -8,18 +8,17 @@ import {
 } from '../../../shared/utils/nextAction'
 
 /**
- * Fecha efectiva para prioridad Kanban: si hay cita programada, usa su inicio;
- * si no, el próximo paso del lead (`next_action_at`).
+ * Fecha efectiva para prioridad Kanban: solo citas programadas en calendario.
+ * (La próxima acción del pipeline ya no ordena el tablero.)
  */
 export function getEffectiveNextTouchIso(
   nextAppointment: CalendarEvent | null | undefined,
-  next_action_at: string | null | undefined
+  _next_action_at?: string | null | undefined
 ): string | null | undefined {
   if (nextAppointment?.status === 'scheduled' && nextAppointment.starts_at?.trim()) {
     return nextAppointment.starts_at
   }
-  const na = next_action_at?.trim()
-  return na || null
+  return null
 }
 
 export function getEffectiveNextTouchUrgency(

@@ -29,6 +29,7 @@ interface KanbanColumnProps {
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
   onToast?: (message: string) => void
   onUpdated?: () => void | Promise<void>
+  onSchedule?: (leadId: string) => void
 }
 
 const EMPTY_APPOINTMENTS: Record<string, CalendarEvent | null> = {}
@@ -49,6 +50,7 @@ function KanbanColumnInner({
   onMoveStage,
   onToast,
   onUpdated,
+  onSchedule,
 }: KanbanColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -141,12 +143,12 @@ function KanbanColumnInner({
                 key={lead.id}
                 lead={lead}
                 stages={stages}
-                stageName={stage.name}
                 nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
                 onDragStart={onDragStart}
                 onMoveStage={onMoveStage}
                 onToast={onToast}
                 onUpdated={onUpdated}
+                onSchedule={onSchedule}
               />
             ))}
             {hasMoreInStage && onLoadMore ? (

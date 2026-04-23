@@ -11,10 +11,7 @@ import { generateIdempotencyKey } from '../pipeline.store'
 import { LeadCreateModal } from '../components/LeadCreateModal'
 import { PostCreateCalendarAskDialog } from '../components/PostCreateCalendarAskDialog'
 import { AppointmentFormModal } from '../../calendar/components/AppointmentFormModal'
-import {
-  suggestPostCreateAppointmentTitle,
-  suggestPostCreateAppointmentType,
-} from '../utils/postCreateCalendarSuggestions'
+import type { AppointmentType } from '../../calendar/types/calendar.types'
 import { NextActionModal } from '../../../components/pipeline/NextActionModal'
 import { PipelineTable } from '../components/PipelineTable'
 import { Toast } from '../../../shared/components/Toast'
@@ -81,12 +78,11 @@ export function PipelineTableView({
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
-  const [postCreateAsk, setPostCreateAsk] = useState<{
-    lead: Lead
-    next_action_at: string | null
-    next_action_type: string | null
+  const [postCreateAskLead, setPostCreateAskLead] = useState<Lead | null>(null)
+  const [calModal, setCalModal] = useState<{
+    leadId: string
+    initialAppointmentType?: AppointmentType | null
   } | null>(null)
-  const [postCreateApptOpen, setPostCreateApptOpen] = useState(false)
   const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({})
   const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -371,17 +367,13 @@ export function PipelineTableView({
     }
   }
 
-  const clearPostCreateCalendar = useCallback(() => {
-    setPostCreateAsk(null)
-    setPostCreateApptOpen(false)
+  const clearCalModal = useCallback(() => {
+    setCalModal(null)
   }, [])
 
-  const handleLeadCreatedForCalendar = useCallback(
-    (lead: Lead, meta: { next_action_at: string | null; next_action_type: string | null }) => {
-      setPostCreateAsk({ lead, ...meta })
-    },
-    []
-  )
+  const handleLeadCreatedForCalendar = useCallback((lead: Lead) => {
+    setPostCreateAskLead(lead)
+  }, [])
 
   const handleCreateLead = async (data: CreateLeadInput) => {
     const newLead = await pipelineApi.createLead(data)
@@ -747,6 +739,7 @@ export function PipelineTableView({
               onToast={onToast ?? ((msg) => setToast({ type: 'success', message: msg }))}
               onUpdated={refreshCurrentMode}
               nextAppointmentByLeadId={mergedNextAppointmentByLeadId}
+              onSchedule={(leadId) => setCalModal({ leadId, initialAppointmentType: null })}
             />
             {serverActivosListMode && activosListLoadedCount < serverActivosTotal ? (
               <div className="flex justify-center py-2">
@@ -774,30 +767,28 @@ export function PipelineTableView({
       />
 
       <PostCreateCalendarAskDialog
-        isOpen={postCreateAsk != null && !postCreateApptOpen}
-        onYes={() => setPostCreateApptOpen(true)}
-        onNo={clearPostCreateCalendar}
+        isOpen={postCreateAskLead != null}
+        onSelect={(type) => {
+          const lead = postCreateAskLead
+          if (!lead) return
+          setCalModal({ leadId: lead.id, initialAppointmentType: type })
+          setPostCreateAskLead(null)
+        }}
+        onSkip={() => setPostCreateAskLead(null)}
       />
 
-      {postCreateAsk != null && (
+      {calModal != null && (
         <AppointmentFormModal
-          isOpen={postCreateApptOpen}
-          onClose={clearPostCreateCalendar}
+          key={`${calModal.leadId}-${calModal.initialAppointmentType ?? 'default'}`}
+          isOpen
+          onClose={clearCalModal}
           mode="create"
           onSaved={() => {
             void refreshCurrentMode()
           }}
-          initialLeadId={postCreateAsk.lead.id}
+          initialLeadId={calModal.leadId}
           createDefaults={{ durationMinutes: 30 }}
-          initialStartsAtIso={postCreateAsk.next_action_at}
-          initialAppointmentType={suggestPostCreateAppointmentType(
-            postCreateAsk.lead,
-            postCreateAsk.next_action_type,
-            stages
-          )}
-          initialTitle={
-            suggestPostCreateAppointmentTitle(postCreateAsk.lead, postCreateAsk.next_action_type) || null
-          }
+          initialAppointmentType={calModal.initialAppointmentType ?? undefined}
         />
       )}
 

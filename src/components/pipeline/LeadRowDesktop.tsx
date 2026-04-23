@@ -23,6 +23,7 @@ function LeadRowDesktopInner({
   onMoveStage,
   onToast,
   onUpdated,
+  onSchedule,
 }: {
   lead: Lead
   stages: PipelineStageLite[]
@@ -35,6 +36,7 @@ function LeadRowDesktopInner({
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
   onToast?: (message: string) => void
   onUpdated?: () => void | Promise<void>
+  onSchedule?: (leadId: string) => void
 }) {
   const navigate = useNavigate()
   const phone = lead.phone?.trim() ?? ''
@@ -131,6 +133,7 @@ function LeadRowDesktopInner({
           nextAppointment={nextAppointment}
           onUpdated={onUpdated}
           onToast={onToast}
+          onSchedule={onSchedule}
           variant="table"
         />
       </td>
