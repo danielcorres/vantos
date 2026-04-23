@@ -72,12 +72,20 @@ export function CalendarPage() {
       setGoogleToast({ type: 'success', message: 'Google Calendar conectado correctamente.' })
       void refreshGoogleStatus()
     } else if (g === 'error') {
-      setGoogleToast({ type: 'error', message: 'No se pudo conectar Google Calendar. Revisa la configuración o inténtalo de nuevo.' })
+      const reason = searchParams.get('reason')
+      const detail = reason ? decodeURIComponent(reason.replace(/\+/g, ' ')) : ''
+      setGoogleToast({
+        type: 'error',
+        message: detail
+          ? `No se pudo conectar Google Calendar: ${detail}`
+          : 'No se pudo conectar Google Calendar. Revisa la configuración o inténtalo de nuevo.',
+      })
     }
     setSearchParams(
       (prev) => {
         const n = new URLSearchParams(prev)
         n.delete('google_calendar')
+        n.delete('reason')
         return n
       },
       { replace: true }
@@ -148,21 +156,21 @@ export function CalendarPage() {
   const isCurrentWeek = getMondayOf(new Date()).getTime() === weekStart.getTime()
 
   const handleConnectGoogle = async () => {
-    const url = await startGoogleCalendarOAuth()
-    if (url) {
-      window.location.href = url
+    const r = await startGoogleCalendarOAuth({ returnPath: '/calendar' })
+    if (r.ok) {
+      window.location.href = r.authUrl
       return
     }
-    setGoogleToast({ type: 'error', message: 'No se pudo iniciar la conexión con Google.' })
+    setGoogleToast({ type: 'error', message: r.message })
   }
 
   const handleDisconnectGoogle = async () => {
-    const ok = await disconnectGoogleCalendar()
-    if (ok) {
+    const r = await disconnectGoogleCalendar()
+    if (r.ok) {
       setGoogleToast({ type: 'success', message: 'Google Calendar desconectado.' })
       void refreshGoogleStatus()
     } else {
-      setGoogleToast({ type: 'error', message: 'No se pudo desconectar.' })
+      setGoogleToast({ type: 'error', message: r.message })
     }
   }
 

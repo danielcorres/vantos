@@ -1,5 +1,12 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { getMyProfile, upsertMyProfile, type Profile } from '../lib/profile'
+import {
+  disconnectGoogleCalendar,
+  getGoogleCalendarStatus,
+  startGoogleCalendarOAuth,
+} from '../features/calendar/api/googleCalendarEdge'
+import { subscribeGoogleCalendarSyncErrors } from '../features/calendar/utils/googleCalendarSyncListeners'
 import { Toast } from '../shared/components/Toast'
 import { useUserRole } from '../shared/hooks/useUserRole'
 
@@ -35,6 +42,7 @@ function formatBirthDisplay(ymd: string): string {
 const VALID_ADVISOR_STATUS = new Set(['asesor_12_meses', 'nueva_generacion', 'consolidado'])
 
 export function ProfilePage() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { role, loading: roleLoading } = useUserRole()
 
   const [profile, setProfile] = useState<Profile | null>(null)
@@ -48,6 +56,62 @@ export function ProfilePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [googleBanner, setGoogleBanner] = useState<{
+    connected: boolean
+    google_email: string | null
+  } | null>(null)
+  const [googleBannerLoading, setGoogleBannerLoading] = useState(false)
+  const [googleToast, setGoogleToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+
+  const refreshGoogleStatus = useCallback(async () => {
+    setGoogleBannerLoading(true)
+    try {
+      const s = await getGoogleCalendarStatus()
+      setGoogleBanner(s ?? { connected: false, google_email: null })
+    } catch {
+      setGoogleBanner({ connected: false, google_email: null })
+    } finally {
+      setGoogleBannerLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (loading) return
+    void refreshGoogleStatus()
+  }, [loading, refreshGoogleStatus])
+
+  useEffect(() => {
+    const g = searchParams.get('google_calendar')
+    if (!g) return
+    if (g === 'connected') {
+      setGoogleToast({ type: 'success', message: 'Google Calendar conectado correctamente.' })
+      void refreshGoogleStatus()
+    } else if (g === 'error') {
+      const reason = searchParams.get('reason')
+      const detail = reason ? decodeURIComponent(reason.replace(/\+/g, ' ')) : ''
+      setGoogleToast({
+        type: 'error',
+        message: detail
+          ? `No se pudo conectar Google Calendar: ${detail}`
+          : 'No se pudo conectar Google Calendar. Revisa la configuración o inténtalo de nuevo.',
+      })
+    }
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev)
+        n.delete('google_calendar')
+        n.delete('reason')
+        return n
+      },
+      { replace: true }
+    )
+  }, [searchParams, setSearchParams, refreshGoogleStatus])
+
+  useEffect(() => {
+    return subscribeGoogleCalendarSyncErrors((msg) => {
+      setGoogleToast({ type: 'error', message: msg })
+    })
+  }, [])
 
   const roleForPerm = useMemo(() => {
     if (profile !== null) return profile.role
@@ -164,6 +228,25 @@ export function ProfilePage() {
     }
   }
 
+  const handleConnectGoogle = async () => {
+    const r = await startGoogleCalendarOAuth({ returnPath: '/profile' })
+    if (r.ok) {
+      window.location.href = r.authUrl
+      return
+    }
+    setGoogleToast({ type: 'error', message: r.message })
+  }
+
+  const handleDisconnectGoogle = async () => {
+    const r = await disconnectGoogleCalendar()
+    if (r.ok) {
+      setGoogleToast({ type: 'success', message: 'Google Calendar desconectado.' })
+      void refreshGoogleStatus()
+    } else {
+      setGoogleToast({ type: 'error', message: r.message })
+    }
+  }
+
   if (loading) {
     return (
       <div className="text-center p-8">
@@ -184,6 +267,55 @@ export function ProfilePage() {
       <div>
         <h1 className="text-2xl font-bold mb-1">Mi perfil</h1>
         <p className="text-sm text-muted">Actualiza tu información personal. Los datos de hitos pueden tener permisos distintos.</p>
+      </div>
+
+      <div className="card p-6">
+        <h2 className="text-base font-semibold text-text mb-1">Google Calendar</h2>
+        <p className="text-sm text-muted mb-4">
+          Conecta tu cuenta de Google aquí para sincronizar las citas que gestionas en Vant con tu calendario
+          personal. Puedes desconectarla en cualquier momento.
+        </p>
+        {googleBannerLoading ? (
+          <p className="text-sm text-muted">Comprobando conexión…</p>
+        ) : googleBanner != null ? (
+          <div className="rounded-lg border border-border bg-bg/80 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-text">
+            <div className="min-w-0">
+              {googleBanner.connected ? (
+                <span className="text-neutral-700 dark:text-neutral-200">
+                  Cuenta conectada
+                  {googleBanner.google_email ? (
+                    <span className="text-muted"> ({googleBanner.google_email})</span>
+                  ) : null}
+                  . Las citas nuevas o editadas se envían a Google Calendar.
+                </span>
+              ) : (
+                <span className="text-neutral-700 dark:text-neutral-200">
+                  No hay cuenta de Google vinculada. Al conectar, las citas se podrán sincronizar con tu Google
+                  Calendar.
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {googleBanner.connected ? (
+                <button
+                  type="button"
+                  onClick={() => void handleDisconnectGoogle()}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-text hover:bg-black/5"
+                >
+                  Desconectar Google
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleConnectGoogle()}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                >
+                  Conectar Google Calendar
+                </button>
+              )}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="card p-6">
@@ -351,6 +483,16 @@ export function ProfilePage() {
 
       {toast && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
+      )}
+      {googleToast != null && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] max-w-md w-[calc(100%-2rem)]">
+          <Toast
+            type={googleToast.type}
+            message={googleToast.message}
+            onClose={() => setGoogleToast(null)}
+            durationMs={4200}
+          />
+        </div>
       )}
     </div>
   )

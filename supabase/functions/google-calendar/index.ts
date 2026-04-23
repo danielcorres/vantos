@@ -34,8 +34,17 @@ async function hmacSha256B64Url(secret: string, message: string): Promise<string
     .replaceAll('=', '')
 }
 
-async function makeState(userId: string, secret: string): Promise<string> {
-  const payload = JSON.stringify({ uid: userId, exp: Date.now() + 15 * 60 * 1000 })
+/** Rutas permitidas tras OAuth (abierto en el mismo origen que APP_SITE_URL). */
+const ALLOWED_OAUTH_RETURN = new Set(['/profile', '/calendar'])
+
+function normalizeOAuthReturnPath(rp: unknown): string {
+  if (typeof rp === 'string' && ALLOWED_OAUTH_RETURN.has(rp)) return rp
+  return '/calendar'
+}
+
+async function makeState(userId: string, secret: string, returnPath: string): Promise<string> {
+  const rp = normalizeOAuthReturnPath(returnPath)
+  const payload = JSON.stringify({ uid: userId, exp: Date.now() + 15 * 60 * 1000, rp })
   const pB64 = btoa(payload).replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '')
   const sig = await hmacSha256B64Url(secret, pB64)
   return `${pB64}.${sig}`
@@ -48,7 +57,10 @@ function b64UrlToUtf8(s: string): string {
   return atob(b)
 }
 
-async function verifyState(state: string, secret: string): Promise<string | null> {
+async function verifyState(
+  state: string,
+  secret: string
+): Promise<{ userId: string; returnPath: string } | null> {
   const parts = state.split('.')
   if (parts.length !== 2) return null
   const [pB64, sig] = parts
@@ -58,10 +70,17 @@ async function verifyState(state: string, secret: string): Promise<string | null
     const payload = JSON.parse(b64UrlToUtf8(pB64))
     if (typeof payload.exp !== 'number' || Date.now() > payload.exp) return null
     if (typeof payload.uid !== 'string') return null
-    return payload.uid as string
+    return { userId: payload.uid as string, returnPath: normalizeOAuthReturnPath(payload.rp) }
   } catch {
     return null
   }
+}
+
+/** Para redirects de error cuando aún no se pudo verificar el state completo. */
+async function returnPathFromStateParam(state: string | null, secret: string): Promise<string> {
+  if (!state || state.length < 8) return '/calendar'
+  const v = await verifyState(state, secret)
+  return v?.returnPath ?? '/calendar'
 }
 
 async function exchangeCode(
@@ -150,14 +169,20 @@ Deno.serve(async (req: Request) => {
     const state = url.searchParams.get('state')
     const err = url.searchParams.get('error')
     if (err) {
-      return Response.redirect(`${appSiteUrl}/calendar?google_calendar=error&reason=${encodeURIComponent(err)}`, 302)
+      const rp = await returnPathFromStateParam(state, stateSecret)
+      return Response.redirect(
+        `${appSiteUrl}${rp}?google_calendar=error&reason=${encodeURIComponent(err)}`,
+        302
+      )
     }
     if (!code || !state) {
-      return Response.redirect(`${appSiteUrl}/calendar?google_calendar=error&reason=missing`, 302)
+      const rp = await returnPathFromStateParam(state, stateSecret)
+      return Response.redirect(`${appSiteUrl}${rp}?google_calendar=error&reason=missing`, 302)
     }
     try {
-      const userId = await verifyState(state, stateSecret)
-      if (!userId) throw new Error('invalid_state')
+      const verified = await verifyState(state, stateSecret)
+      if (!verified) throw new Error('invalid_state')
+      const { userId, returnPath } = verified
       const tokens = await exchangeCode(code, redirectUri, googleClientId, googleClientSecret)
       if (!tokens.refresh_token) {
         throw new Error('no_refresh_token_prompt_consent')
@@ -179,10 +204,14 @@ Deno.serve(async (req: Request) => {
         { onConflict: 'user_id' }
       )
       if (upErr) throw upErr
-      return Response.redirect(`${appSiteUrl}/calendar?google_calendar=connected`, 302)
+      return Response.redirect(`${appSiteUrl}${returnPath}?google_calendar=connected`, 302)
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'oauth_failed'
-      return Response.redirect(`${appSiteUrl}/calendar?google_calendar=error&reason=${encodeURIComponent(msg)}`, 302)
+      const rp = await returnPathFromStateParam(state, stateSecret)
+      return Response.redirect(
+        `${appSiteUrl}${rp}?google_calendar=error&reason=${encodeURIComponent(msg)}`,
+        302
+      )
     }
   }
 
@@ -207,7 +236,7 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'invalid_jwt' }, 401)
   }
 
-  let body: { action?: string; eventId?: string; op?: string }
+  let body: { action?: string; eventId?: string; op?: string; returnPath?: string }
   try {
     body = await req.json()
   } catch {
@@ -233,7 +262,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (body.action === 'oauth-start') {
-    const state = await makeState(user.id, stateSecret)
+    const state = await makeState(user.id, stateSecret, normalizeOAuthReturnPath(body.returnPath))
     const scope = encodeURIComponent('https://www.googleapis.com/auth/calendar.events')
     const ru = encodeURIComponent(redirectUri)
     const authUrl =
