@@ -14,6 +14,8 @@ type Tab = 'people' | 'teams' | 'audit'
 
 export function DirectorAssignmentsView() {
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
+  /** Evita pintar la tabla antes de conocer el owner de sistema (protección de filas). */
+  const [ownerResolved, setOwnerResolved] = useState(false)
   const [tab, setTab] = useState<Tab>('people')
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [popoverAdvisor, setPopoverAdvisor] = useState<AssignmentProfile | null>(null)
@@ -34,7 +36,23 @@ export function DirectorAssignmentsView() {
   } = useDirectorAssignments(true)
 
   useEffect(() => {
-    void getSystemOwnerId().then((id) => setOwnerUserId(id))
+    let cancelled = false
+    void getSystemOwnerId()
+      .then((id) => {
+        if (!cancelled) {
+          setOwnerUserId(id)
+          setOwnerResolved(true)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setOwnerUserId(null)
+          setOwnerResolved(true)
+        }
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   const managers = useMemo(() => profiles.filter((p) => p.role === 'manager'), [profiles])
@@ -114,7 +132,7 @@ export function DirectorAssignmentsView() {
     return r
   }
 
-  if (loading) {
+  if (loading || !ownerResolved) {
     return (
       <div className="text-center p-8">
         <span className="text-muted">Cargando asignaciones…</span>

@@ -64,9 +64,11 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
   const assignmentsNavLabel =
     role === 'owner' || role === 'director' ? 'Asignaciones' : 'Mi equipo'
 
-  // Definir estructura del menú
-  const menuSections: MenuSection[] = useMemo(
-    () => [
+  // Definir estructura del menú (regenerar al cambiar rol o carga de auth)
+  const menuSections: MenuSection[] = useMemo(() => {
+    void role
+    void authLoading
+    return [
     {
       title: 'Principal',
       visible: () => true,
@@ -173,9 +175,8 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
         },
       ],
     },
-  ],
-    [assignmentsNavLabel, homePath]
-  )
+  ]
+  }, [assignmentsNavLabel, homePath, role, authLoading])
 
   // Helper para verificar si una ruta está activa
   const checkIsActive = (path: string, exact?: boolean): boolean => {
