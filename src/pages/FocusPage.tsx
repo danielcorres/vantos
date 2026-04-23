@@ -8,9 +8,10 @@ import { todayLocalYmd, addDaysYmd } from '../shared/utils/dates'
 type StatusFilter = 'all' | 'overdue' | 'today' | 'future'
 
 const APPOINTMENT_TYPE_LABELS: Record<string, string> = {
-  first_meeting: 'Primera reunión',
-  closing: 'Cierre',
-  follow_up: 'Seguimiento',
+  call: 'Llamada',
+  message: 'Mensaje',
+  meeting: 'Reunión',
+  other: 'Otro',
 }
 
 function formatHumanDate(dateString: string | null | undefined): string {

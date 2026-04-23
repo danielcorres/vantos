@@ -1,9 +1,10 @@
 import type { AppointmentType, AppointmentStatus } from '../types/calendar.types'
 
 const TYPE_CLASS: Record<AppointmentType, string> = {
-  first_meeting: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
-  closing: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200',
-  follow_up: 'bg-slate-100 text-slate-700 dark:bg-slate-700/40 dark:text-slate-200',
+  call: 'bg-sky-100 text-sky-800 dark:bg-sky-900/40 dark:text-sky-200',
+  message: 'bg-violet-100 text-violet-800 dark:bg-violet-900/40 dark:text-violet-200',
+  meeting: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200',
+  other: 'bg-slate-100 text-slate-700 dark:bg-slate-700/40 dark:text-slate-200',
 }
 
 const STATUS_CLASS: Record<AppointmentStatus, string> = {
@@ -14,9 +15,10 @@ const STATUS_CLASS: Record<AppointmentStatus, string> = {
 }
 
 const TYPE_LABEL: Record<AppointmentType, string> = {
-  first_meeting: 'Primera cita',
-  closing: 'Cierre',
-  follow_up: 'Seguimiento',
+  call: 'Llamada',
+  message: 'Mensaje',
+  meeting: 'Reunión',
+  other: 'Otro',
 }
 
 const STATUS_LABEL: Record<AppointmentStatus, string> = {

@@ -21,7 +21,7 @@ const scheduledFirst = (id: string): CalendarEvent => ({
   id,
   owner_user_id: 'u',
   lead_id: lead().id,
-  type: 'first_meeting',
+  type: 'meeting',
   status: 'scheduled',
   starts_at: new Date(Date.now() + 864e5).toISOString(),
   ends_at: new Date(Date.now() + 864e5 + 36e5).toISOString(),
@@ -39,7 +39,7 @@ describe('getSchedulingGuidance', () => {
     const g = getSchedulingGuidance(lead(), 'contactos_nuevos', null, emptySummary())
     expect(g.mode).toBe('agendar')
     expect(g.buttonLabel).toBe('Agendar')
-    expect(g.suggestedType).toBe('follow_up')
+    expect(g.suggestedType).toBe('meeting')
     expect(g.suggestedTitle).toContain('Cita:')
     expect(g.editEventId).toBeNull()
     expect(g.helpText).toContain('tipo de cita')
@@ -58,7 +58,7 @@ describe('getSchedulingGuidance', () => {
     expect(g.mode).toBe('reprogramar')
     expect(g.buttonLabel).toBe('Reprogramar')
     expect(g.editEventId).toBe(ap.id)
-    expect(g.suggestedType).toBe('first_meeting')
+    expect(g.suggestedType).toBe('meeting')
   })
 
   it('citas_agendadas con primera completada y sin cita → agendar (tipo libre en modal)', () => {
@@ -68,6 +68,6 @@ describe('getSchedulingGuidance', () => {
     }
     const g = getSchedulingGuidance(lead(), 'citas_agendadas', null, sum)
     expect(g.mode).toBe('agendar')
-    expect(g.suggestedType).toBe('follow_up')
+    expect(g.suggestedType).toBe('meeting')
   })
 })

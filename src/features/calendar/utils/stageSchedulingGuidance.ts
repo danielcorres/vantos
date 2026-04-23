@@ -53,7 +53,7 @@ export function getSchedulingGuidance(
   return {
     mode: 'agendar',
     buttonLabel: 'Agendar',
-    suggestedType: 'follow_up',
+    suggestedType: 'meeting',
     suggestedTitle: `Cita: ${nm}`,
     editEventId: null,
     helpText: 'Elige el tipo de cita en el formulario.',

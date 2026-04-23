@@ -4,7 +4,11 @@
  * RLS: owner_user_id = auth.uid()
  */
 
-export type AppointmentType = 'first_meeting' | 'closing' | 'follow_up'
+/** Slugs en BD; etiquetas en español en UI (Llamada, Mensaje, Reunión, Otro). */
+export type AppointmentType = 'call' | 'message' | 'meeting' | 'other'
+
+/** Orden estable para selects y validación en cliente. */
+export const APPOINTMENT_TYPES: readonly AppointmentType[] = ['call', 'message', 'meeting', 'other'] as const
 
 export type AppointmentStatus = 'scheduled' | 'completed' | 'no_show' | 'canceled'
 

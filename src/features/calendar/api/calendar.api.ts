@@ -266,7 +266,7 @@ export const calendarApi = {
     if (error) throw new Error(error.message)
     const event = normalizeEvent(data as Record<string, unknown>)
 
-    if (event.lead_id && (event.type === 'first_meeting' || event.type === 'closing')) {
+    if (event.lead_id && (event.type === 'meeting' || event.type === 'call')) {
       await tryMoveLeadToStageForAppointment(event.lead_id, event.id, event.type)
     }
     void invokeGoogleCalendarSync(event.id, 'upsert')

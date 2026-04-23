@@ -2,13 +2,14 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { calendarApi } from '../api/calendar.api'
 import { pipelineApi, type Lead } from '../../pipeline/pipeline.api'
 import type { CalendarEvent, AppointmentType, AppointmentStatus } from '../types/calendar.types'
+import { APPOINTMENT_TYPES } from '../types/calendar.types'
 import {
   toDateTimeLocal,
   fromDateTimeLocal,
   splitDateTimeLocal,
   joinDateTimeLocal,
 } from '../utils/dateTimeLocal'
-import { getStatusPillClass, getStatusLabel } from '../utils/pillStyles'
+import { getStatusPillClass, getStatusLabel, getTypeLabel } from '../utils/pillStyles'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 import { AppointmentLeadPicker } from './AppointmentLeadPicker'
 
@@ -32,7 +33,7 @@ interface AppointmentFormModalProps {
   /** Al crear desde LeadDetail: prellenar lead_id y usar defaults (duración 30, inicio now+1h redondeado a 30 min). */
   initialLeadId?: string | null
   createDefaults?: CreateDefaults
-  /** Bloquear tipo de cita (ej. flujo post-creación lead: first_meeting o closing). */
+  /** Bloquear tipo de cita (selector deshabilitado; se usa este valor). */
   lockType?: AppointmentType | null
   /** Inicio sugerido (ISO) al crear con lead; si es inválido se usa createDefaults / ahora+offset. */
   initialStartsAtIso?: string | null
@@ -84,7 +85,7 @@ export function AppointmentFormModal({
   initialTitle = null,
   helpText = null,
 }: AppointmentFormModalProps) {
-  const [type, setType] = useState<AppointmentType>('first_meeting')
+  const [type, setType] = useState<AppointmentType>('meeting')
   const effectiveType = lockType ?? type
   const [startsAtValue, setStartsAtValue] = useState('')
   const [durationMinutes, setDurationMinutes] = useState(60)
@@ -107,7 +108,7 @@ export function AppointmentFormModal({
   const { date: datePart, time: timePart } = useMemo(() => splitDateTimeLocal(startsAtValue), [startsAtValue])
 
   const resetForm = useCallback(() => {
-    setType('first_meeting')
+    setType('meeting')
     setStartsAtValue('')
     setDurationMinutes(60)
     setNotesBody('')
@@ -153,7 +154,7 @@ export function AppointmentFormModal({
         }
       }
     } else if (mode === 'create') {
-      setType(lockType ?? initialAppointmentType ?? 'first_meeting')
+      setType(lockType ?? initialAppointmentType ?? 'meeting')
       const duration = initialLeadId != null ? (createDefaults?.durationMinutes ?? 30) : 60
       setDurationMinutes(duration)
       setNotesBody('')
@@ -272,8 +273,10 @@ export function AppointmentFormModal({
         if (leadId && status === 'completed') {
           const nowIso = new Date().toISOString()
           const patch: { cita_realizada_at?: string; propuesta_presentada_at?: string } = {}
-          if (effectiveType === 'first_meeting' && markCitaRealizada) patch.cita_realizada_at = nowIso
-          if (effectiveType === 'closing' && markPropuestaPresentada) patch.propuesta_presentada_at = nowIso
+          if ((effectiveType === 'meeting' || effectiveType === 'call') && markCitaRealizada) {
+            patch.cita_realizada_at = nowIso
+          }
+          if (effectiveType === 'meeting' && markPropuestaPresentada) patch.propuesta_presentada_at = nowIso
           if (Object.keys(patch).length > 0) {
             try {
               await pipelineApi.updateLead(leadId, patch)
@@ -489,6 +492,25 @@ export function AppointmentFormModal({
           </div>
 
           <div>
+            <label className="block text-xs font-medium text-muted mb-1">Tipo de cita</label>
+            <select
+              value={effectiveType}
+              onChange={(e) => setType(e.target.value as AppointmentType)}
+              disabled={lockType != null}
+              className={`${inputClass} ${lockType != null ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              {APPOINTMENT_TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {getTypeLabel(t)}
+                </option>
+              ))}
+            </select>
+            {lockType != null ? (
+              <p className="text-[11px] text-muted mt-1">El tipo está fijado para este flujo.</p>
+            ) : null}
+          </div>
+
+          <div>
             <label className="block text-xs font-medium text-muted mb-1">Notas (opcional)</label>
             <textarea
               value={notesBody}
@@ -522,7 +544,7 @@ export function AppointmentFormModal({
               {event?.lead_id && status === 'completed' && (
                 <div className="rounded-lg border border-border/80 bg-surface/40 px-3 py-2 space-y-2">
                   <p className="text-xs font-medium text-text">Hitos en el lead (opcional)</p>
-                  {effectiveType === 'first_meeting' && (
+                  {(effectiveType === 'meeting' || effectiveType === 'call') && (
                     <label className="flex items-start gap-2 text-xs text-text cursor-pointer">
                       <input
                         type="checkbox"
@@ -533,7 +555,7 @@ export function AppointmentFormModal({
                       <span>Registrar cita inicial realizada (fecha de hoy)</span>
                     </label>
                   )}
-                  {effectiveType === 'closing' && (
+                  {effectiveType === 'meeting' && (
                     <label className="flex items-start gap-2 text-xs text-text cursor-pointer">
                       <input
                         type="checkbox"
