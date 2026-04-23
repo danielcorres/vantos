@@ -46,4 +46,10 @@ export const METRIC_MINIMUM_CONFIGS: MetricMinimumConfig[] = [
     label: getMetricLabel('policies_paid', 'long'),
     tooltip: 'Pólizas emitidas/pagadas.',
   },
+  {
+    key: 'written_premium_weekly_mxn',
+    label: getMetricLabel('written_premium_weekly_mxn', 'long'),
+    tooltip:
+      'Meta semanal de prima emitida en pesos MXN (columna Pólizas Pagadas en pipeline / hub). Distinto del conteo de pólizas.',
+  },
 ]

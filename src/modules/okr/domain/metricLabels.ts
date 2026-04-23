@@ -41,6 +41,7 @@ const METRIC_LABELS_LONG: Record<string, string> = {
   applications_submitted: 'Solicitudes ingresadas',
   referrals: 'Referidos',
   policies_paid: 'Pólizas pagadas',
+  written_premium_weekly_mxn: 'Prima emitida semanal (MXN)',
 }
 
 // Labels cortos: textos compactos para strings tipo "Hoy" o chips (pero consistentes)
@@ -54,6 +55,7 @@ const METRIC_LABELS_SHORT: Record<string, string> = {
   applications_submitted: 'Solicitudes',
   referrals: 'Referidos',
   policies_paid: 'Pólizas',
+  written_premium_weekly_mxn: 'Prima semanal',
 }
 
 // Mantener compatibilidad: exportar METRIC_LABELS como alias de LONG

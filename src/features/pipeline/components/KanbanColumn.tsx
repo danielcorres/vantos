@@ -8,6 +8,10 @@ import { LeadCard } from './LeadCard'
 import { sortLeadsByEffectiveNextTouch } from '../utils/effectiveNextTouch'
 import { getStageHelp } from '../utils/stageHelp'
 import { displayStageName } from '../../../shared/utils/stageStyles'
+import {
+  formatPipelineWeeklyTargetDisplay,
+  pipelineTargetIsWeeklyPremiumMxn,
+} from '../utils/weeklyStageTargets'
 
 interface KanbanColumnProps {
   stage: PipelineStage
@@ -64,7 +68,11 @@ function KanbanColumnInner({
   )
   const stageHelp = useMemo(() => getStageHelp(stage.slug ?? stage.name), [stage.slug, stage.name])
   const headerTotal = totalInStage ?? leads.length
-  const totalBelowMeta = typeof targetCount === 'number' && headerTotal < targetCount
+  const slug = stage.slug ?? ''
+  const totalBelowMeta =
+    !pipelineTargetIsWeeklyPremiumMxn(slug) &&
+    typeof targetCount === 'number' &&
+    headerTotal < targetCount
   const showPartialHint =
     typeof loadedInStage === 'number' &&
     typeof totalInStage === 'number' &&
@@ -120,7 +128,10 @@ function KanbanColumnInner({
               <span className="text-neutral-400 font-normal"> · mostrando {loadedInStage}</span>
             ) : null}
             {typeof targetCount === 'number' ? (
-              <span className="text-neutral-500 font-normal"> · Meta: {targetCount}</span>
+              <span className="text-neutral-500 font-normal">
+                {' '}
+                · Meta: {formatPipelineWeeklyTargetDisplay(slug, targetCount)}
+              </span>
             ) : null}
           </span>
         </div>

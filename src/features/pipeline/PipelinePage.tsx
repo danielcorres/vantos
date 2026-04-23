@@ -35,12 +35,12 @@ import { fetchWeeklyMinimumTargetsForOwner } from '../../modules/okr/dashboard/w
 import { buildStageTargetCountMap } from './utils/weeklyStageTargets'
 
 const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
-  contactos_nuevos: 'Prospecto',
-  citas_agendadas: 'Diagnóstico',
-  casos_abiertos: 'Propuesta',
-  citas_cierre: 'Decisión',
-  solicitudes_ingresadas: 'Emisión',
-  casos_ganados: 'Ganado (Cerrado)',
+  contactos_nuevos: 'Contactos',
+  citas_agendadas: 'Citas Agendadas',
+  casos_abiertos: 'Casos Abiertos',
+  citas_cierre: 'Citas de Cierre',
+  solicitudes_ingresadas: 'Solicitudes Ingresadas',
+  casos_ganados: 'Pólizas Pagadas',
 }
 
 function isValidWeekStartYmd(s: string): boolean {

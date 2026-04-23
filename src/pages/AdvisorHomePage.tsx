@@ -16,14 +16,19 @@ import {
 import { displayStageName } from '../shared/utils/stageStyles'
 import { STAGE_SLUGS_ORDER } from '../features/productivity/types/productivity.types'
 import type { StageSlug } from '../features/productivity/types/productivity.types'
-import { weeklyTargetForPipelineSlug } from '../features/pipeline/utils/weeklyStageTargets'
+import {
+  formatPipelineWeeklyTargetDisplay,
+  pipelineTargetIsWeeklyPremiumMxn,
+  weeklyTargetForPipelineSlug,
+} from '../features/pipeline/utils/weeklyStageTargets'
 import type { LeadSchedulingSummary } from '../features/calendar/utils/stageSchedulingGuidance'
 import { resolveCalModalFromGuidance } from '../features/pipeline/utils/resolveCalModalFromGuidance'
 import { AppointmentFormModal } from '../features/calendar/components/AppointmentFormModal'
 import type { AppointmentType } from '../features/calendar/types/calendar.types'
 import { Toast } from '../shared/components/Toast'
 
-const EMBUDO_SLUGS: StageSlug[] = STAGE_SLUGS_ORDER.filter((s) => s !== 'casos_ganados')
+/** Todas las etapas del embudo, incluida Pólizas Pagadas (`casos_ganados`). */
+const EMBUDO_SLUGS: StageSlug[] = [...STAGE_SLUGS_ORDER]
 
 type CalModalState =
   | null
@@ -267,7 +272,10 @@ export function AdvisorHomePage() {
             if (!st) return null
             const count = countsByStageId[st.id] ?? 0
             const target = weeklyTargetForPipelineSlug(slug, targetsMap)
-            const bajo = target != null && count < target
+            const bajo =
+              target != null &&
+              !pipelineTargetIsWeeklyPremiumMxn(slug) &&
+              count < target
             return (
               <li key={slug}>
                 <Link
@@ -281,8 +289,8 @@ export function AdvisorHomePage() {
                       {target != null ? (
                         <>
                           {' / '}
-                          {target}
-                          {!bajo ? ' ✓' : null}
+                          {formatPipelineWeeklyTargetDisplay(slug, target)}
+                          {!pipelineTargetIsWeeklyPremiumMxn(slug) && !bajo ? ' ✓' : null}
                         </>
                       ) : null}
                     </span>
