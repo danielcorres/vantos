@@ -28,6 +28,12 @@ interface AppointmentFormModalProps {
   createDefaults?: CreateDefaults
   /** Bloquear tipo de cita (ej. flujo post-creación lead: first_meeting o closing). Oculta selector de tipo. */
   lockType?: AppointmentType | null
+  /** Inicio sugerido (ISO) al crear con lead; si es inválido se usa createDefaults / ahora+offset. */
+  initialStartsAtIso?: string | null
+  /** Tipo inicial sugerido (sin lockType). */
+  initialAppointmentType?: AppointmentType | null
+  /** Título inicial al crear (ej. seguimiento desde pipeline). */
+  initialTitle?: string | null
 }
 
 function computeEndsAt(startsAtValue: string, durationMinutes: number): string {
@@ -62,6 +68,9 @@ export function AppointmentFormModal({
   initialLeadId = null,
   createDefaults,
   lockType = null,
+  initialStartsAtIso = null,
+  initialAppointmentType = null,
+  initialTitle = null,
 }: AppointmentFormModalProps) {
   const [type, setType] = useState<AppointmentType>('first_meeting')
   const effectiveType = lockType ?? type
@@ -105,21 +114,45 @@ export function AppointmentFormModal({
       setMeetingLink(event.meeting_link ?? '')
       setStatus(event.status)
     } else if (mode === 'create') {
-      setType(lockType ?? 'first_meeting')
+      setType(lockType ?? initialAppointmentType ?? 'first_meeting')
       const duration = initialLeadId != null ? (createDefaults?.durationMinutes ?? 30) : 60
       setDurationMinutes(duration)
-      setTitle('')
+      const trimmedTitle = initialTitle?.trim() ?? ''
+      setTitle(trimmedTitle)
       setNotes('')
       setLocation('')
       setMeetingLink('')
       setStatus('scheduled')
       setError(null)
       setShowDeleteConfirm(false)
-      const startDate =
-        initialLeadId != null ? getDefaultStartForLead(createDefaults) : (() => { const n = new Date(); n.setMinutes(n.getMinutes() + 15); n.setSeconds(0, 0); return n })()
+      let startDate: Date
+      if (initialLeadId != null) {
+        const iso = initialStartsAtIso?.trim() ?? ''
+        if (iso !== '') {
+          const parsed = new Date(iso)
+          startDate = Number.isNaN(parsed.getTime()) ? getDefaultStartForLead(createDefaults) : parsed
+        } else {
+          startDate = getDefaultStartForLead(createDefaults)
+        }
+      } else {
+        const n = new Date()
+        n.setMinutes(n.getMinutes() + 15)
+        n.setSeconds(0, 0)
+        startDate = n
+      }
       setStartsAtValue(toDateTimeLocal(startDate.toISOString()))
     }
-  }, [isOpen, mode, event, initialLeadId, createDefaults, lockType])
+  }, [
+    isOpen,
+    mode,
+    event,
+    initialLeadId,
+    createDefaults,
+    lockType,
+    initialStartsAtIso,
+    initialAppointmentType,
+    initialTitle,
+  ])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

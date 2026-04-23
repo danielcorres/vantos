@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react'
 import type { PipelineStage, Lead } from '../pipeline.api'
+import type { CalendarEvent } from '../../calendar/types/calendar.types'
 import { EmptyState } from '../../../components/pipeline/EmptyState'
 import { InfoPopover } from '../../../shared/components/InfoPopover'
 import { LeadCard } from './LeadCard'
 import {
-  sortLeadsByNextActionPriority,
-  aggregateNextActionColumnCounts,
-} from '../../../shared/utils/nextAction'
+  sortLeadsByEffectiveNextTouch,
+  aggregateEffectiveNextTouchColumnCounts,
+} from '../utils/effectiveNextTouch'
 import { getStageHelp } from '../utils/stageHelp'
 import { displayStageName } from '../../../shared/utils/stageStyles'
 
@@ -14,6 +15,8 @@ interface KanbanColumnProps {
   stage: PipelineStage
   stages: PipelineStage[]
   leads: Lead[]
+  /** Próxima cita programada por lead_id (batch desde calendario). */
+  nextAppointmentByLeadId?: Record<string, CalendarEvent | null>
   /** Total en servidor para esta etapa (cabecera). Si no viene, se usa leads.length. */
   totalInStage?: number
   loadedInStage?: number
@@ -28,10 +31,13 @@ interface KanbanColumnProps {
   onUpdated?: () => void | Promise<void>
 }
 
+const EMPTY_APPOINTMENTS: Record<string, CalendarEvent | null> = {}
+
 function KanbanColumnInner({
   stage,
   stages,
   leads,
+  nextAppointmentByLeadId = EMPTY_APPOINTMENTS,
   totalInStage,
   loadedInStage,
   hasMoreInStage,
@@ -46,8 +52,14 @@ function KanbanColumnInner({
 }: KanbanColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
-  const sortedLeads = useMemo(() => sortLeadsByNextActionPriority(leads), [leads])
-  const counts = useMemo(() => aggregateNextActionColumnCounts(leads), [leads])
+  const sortedLeads = useMemo(
+    () => sortLeadsByEffectiveNextTouch(leads, nextAppointmentByLeadId),
+    [leads, nextAppointmentByLeadId]
+  )
+  const counts = useMemo(
+    () => aggregateEffectiveNextTouchColumnCounts(leads, nextAppointmentByLeadId),
+    [leads, nextAppointmentByLeadId]
+  )
   const stageHelp = useMemo(() => getStageHelp(stage.slug ?? stage.name), [stage.slug, stage.name])
   const headerTotal = totalInStage ?? counts.total
   const showPartialHint =
@@ -130,6 +142,7 @@ function KanbanColumnInner({
                 lead={lead}
                 stages={stages}
                 stageName={stage.name}
+                nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
                 onDragStart={onDragStart}
                 onMoveStage={onMoveStage}
                 onToast={onToast}

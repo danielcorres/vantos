@@ -22,6 +22,7 @@ function normalizeEvent(row: Record<string, unknown>): CalendarEvent {
     notes: (row.notes as string | null) ?? null,
     location: (row.location as string | null) ?? null,
     meeting_link: (row.meeting_link as string | null) ?? null,
+    google_event_id: (row.google_event_id as string | null) ?? null,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   }
@@ -55,6 +56,47 @@ async function getStageIdBySlug(slug: CalendarStageSlug): Promise<string | null>
 
 function calendarStageIdempotencyKey(eventId: string, slug: CalendarStageSlug): string {
   return `calendar:${eventId}:stage:${slug}`
+}
+
+/** Consulta próxima cita programada por lead (una query, sin depender del objeto `calendarApi`). */
+async function queryNextScheduledByLeadIds(leadIds: string[]): Promise<Record<string, CalendarEvent | null>> {
+  if (leadIds.length === 0) return {}
+  const now = new Date().toISOString()
+  const { data, error } = await supabase
+    .from('calendar_events')
+    .select('*')
+    .in('lead_id', leadIds)
+    .eq('status', 'scheduled')
+    .gte('starts_at', now)
+    .order('starts_at', { ascending: true })
+
+  if (error) throw new Error(error.message)
+  const events = (data ?? []).map((row) => normalizeEvent(row as Record<string, unknown>))
+  const map: Record<string, CalendarEvent | null> = {}
+  for (const id of leadIds) map[id] = null
+  for (const ev of events) {
+    if (ev.lead_id && map[ev.lead_id] === null) map[ev.lead_id] = ev
+  }
+  return map
+}
+
+/**
+ * Homologación pipeline: si hay próxima cita `scheduled`, refleja su inicio en `next_action_*` como reunión.
+ * Si no hay citas futuras, no borra `next_action_at` (puede violar CHECK en leads activos).
+ */
+async function syncLeadNextActionFromCalendar(leadId: string): Promise<void> {
+  try {
+    const m = await queryNextScheduledByLeadIds([leadId])
+    const ev = m[leadId]
+    if (ev) {
+      await pipelineApi.updateLead(leadId, {
+        next_action_at: ev.starts_at,
+        next_action_type: 'meeting',
+      })
+    }
+  } catch (e) {
+    console.warn('[calendar] syncLeadNextActionFromCalendar', e)
+  }
 }
 
 async function tryMoveLeadToStageForAppointment(
@@ -136,24 +178,7 @@ export const calendarApi = {
    * Si leadIds está vacío, devuelve {}.
    */
   async getNextScheduledEventByLeadIds(leadIds: string[]): Promise<Record<string, CalendarEvent | null>> {
-    if (leadIds.length === 0) return {}
-    const now = new Date().toISOString()
-    const { data, error } = await supabase
-      .from('calendar_events')
-      .select('*')
-      .in('lead_id', leadIds)
-      .eq('status', 'scheduled')
-      .gte('starts_at', now)
-      .order('starts_at', { ascending: true })
-
-    if (error) throw new Error(error.message)
-    const events = (data ?? []).map((row) => normalizeEvent(row as Record<string, unknown>))
-    const map: Record<string, CalendarEvent | null> = {}
-    for (const id of leadIds) map[id] = null
-    for (const ev of events) {
-      if (ev.lead_id && map[ev.lead_id] === null) map[ev.lead_id] = ev
-    }
-    return map
+    return queryNextScheduledByLeadIds(leadIds)
   },
 
   /**
@@ -188,6 +213,7 @@ export const calendarApi = {
       notes: input.notes ?? null,
       location: input.location ?? null,
       meeting_link: input.meeting_link ?? null,
+      google_event_id: input.google_event_id ?? null,
     }
 
     const { data, error } = await supabase
@@ -201,6 +227,7 @@ export const calendarApi = {
 
     if (event.lead_id) {
       await tryMoveLeadToStageForAppointment(event.lead_id, event.id, input.type)
+      await syncLeadNextActionFromCalendar(event.lead_id)
     }
 
     return event
@@ -228,6 +255,9 @@ export const calendarApi = {
     if (event.lead_id && (event.type === 'first_meeting' || event.type === 'closing')) {
       await tryMoveLeadToStageForAppointment(event.lead_id, event.id, event.type)
     }
+    if (event.lead_id) {
+      await syncLeadNextActionFromCalendar(event.lead_id)
+    }
 
     return event
   },
@@ -241,12 +271,27 @@ export const calendarApi = {
       .single()
 
     if (error) throw new Error(error.message)
-    return normalizeEvent(data as Record<string, unknown>)
+    const event = normalizeEvent(data as Record<string, unknown>)
+    if (event.lead_id) {
+      await syncLeadNextActionFromCalendar(event.lead_id)
+    }
+    return event
   },
 
   async deleteEvent(id: string): Promise<void> {
-    const { error } = await supabase.from('calendar_events').delete().eq('id', id)
+    const { data: existing, error: selErr } = await supabase
+      .from('calendar_events')
+      .select('lead_id')
+      .eq('id', id)
+      .maybeSingle()
+    if (selErr) throw new Error(selErr.message)
+    const leadId = (existing as { lead_id?: string | null } | null)?.lead_id ?? null
 
+    const { error } = await supabase.from('calendar_events').delete().eq('id', id)
     if (error) throw new Error(error.message)
+
+    if (leadId) {
+      await syncLeadNextActionFromCalendar(leadId)
+    }
   },
 }

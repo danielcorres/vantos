@@ -20,6 +20,8 @@ export interface CalendarEvent {
   notes: string | null
   location: string | null
   meeting_link: string | null
+  /** ID del evento en Google Calendar (integración futura). */
+  google_event_id: string | null
   created_at: string
   updated_at: string
 }
@@ -38,6 +40,7 @@ export type CreateCalendarEventInput = {
   notes?: string | null
   location?: string | null
   meeting_link?: string | null
+  google_event_id?: string | null
 }
 
 export type UpdateCalendarEventInput = Partial<CreateCalendarEventInput>

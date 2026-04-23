@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Lead, PipelineStage } from '../pipeline.api'
+import type { CalendarEvent } from '../../calendar/types/calendar.types'
 import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
 import { LeadTemperatureChip } from '../../../components/pipeline/LeadTemperatureChip'
-import { NextActionActions } from '../../../components/pipeline/NextActionActions'
+import { LeadKanbanNextTouch } from '../../../components/pipeline/LeadKanbanNextTouch'
 import { LeadCardMenu } from '../../../components/pipeline/LeadCardMenu'
 import { isLikelyNeverMoved } from '../../../shared/utils/leadUtils'
-import { getNextActionUrgency } from '../../../shared/utils/nextAction'
+import { getEffectiveNextTouchUrgency } from '../utils/effectiveNextTouch'
 import type { PipelineStageLite } from '../../../components/pipeline/LeadProgressDots'
 
 const URGENCY_BAR: Record<ReturnType<typeof getNextActionUrgency>, string> = {
@@ -21,6 +22,8 @@ interface LeadCardProps {
   lead: Lead
   stages: PipelineStage[]
   stageName: string | undefined
+  /** Próxima cita programada (calendario); si existe, tiene prioridad sobre `next_action_at` en la tarjeta. */
+  nextAppointment?: CalendarEvent | null
   onDragStart: (e: React.DragEvent, lead: Lead) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
   onToast?: (message: string) => void
@@ -30,11 +33,19 @@ interface LeadCardProps {
 const stagesToLite = (stages: PipelineStage[]): PipelineStageLite[] =>
   stages.map((s) => ({ id: s.id, name: s.name, position: s.position }))
 
-export function LeadCard({ lead, stages, onDragStart, onMoveStage, onToast, onUpdated }: LeadCardProps) {
+export function LeadCard({
+  lead,
+  stages,
+  nextAppointment,
+  onDragStart,
+  onMoveStage,
+  onToast,
+  onUpdated,
+}: LeadCardProps) {
   const navigate = useNavigate()
   const stagesLite = stagesToLite(stages)
   const [nextActionModalOpen, setNextActionModalOpen] = useState(false)
-  const urgency = getNextActionUrgency(lead.next_action_at)
+  const urgency = getEffectiveNextTouchUrgency(nextAppointment, lead.next_action_at)
   const barClass = URGENCY_BAR[urgency]
 
   return (
@@ -89,12 +100,13 @@ export function LeadCard({ lead, stages, onDragStart, onMoveStage, onToast, onUp
           </span>
         )}
       </div>
-      {/* Próximo paso */}
+      {/* Próxima cita (calendario) o próximo paso (pipeline) */}
       <div className="mt-1.5 flex items-center min-w-0">
-        <NextActionActions
+        <LeadKanbanNextTouch
           leadId={lead.id}
           nextActionAt={lead.next_action_at}
           nextActionType={lead.next_action_type}
+          nextAppointment={nextAppointment}
           onUpdated={onUpdated}
           onToast={onToast}
           variant="kanban"

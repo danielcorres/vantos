@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
+import type { CalendarEvent } from '../../features/calendar/types/calendar.types'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
 import { IconMail, IconPhone, IconUser } from '../../app/layout/icons'
@@ -9,13 +10,14 @@ import type { PipelineStageLite } from './LeadProgressDots'
 import { LeadSourceTag } from './LeadSourceTag'
 import { LeadTemperatureChip } from './LeadTemperatureChip'
 import { MoveStageButton } from './MoveStageButton'
-import { NextActionActions } from './NextActionActions'
+import { LeadKanbanNextTouch } from './LeadKanbanNextTouch'
 
 function LeadRowDesktopInner({
   lead,
   stages,
   stageName,
   stageSlug,
+  nextAppointment,
   isHighlight,
   onRowClick,
   onMoveStage,
@@ -25,6 +27,7 @@ function LeadRowDesktopInner({
   lead: Lead
   stages: PipelineStageLite[]
   stageName: string | undefined
+  nextAppointment?: CalendarEvent | null
   /** Slug para estilos (colores); opcional. */
   stageSlug?: string
   isHighlight?: boolean
@@ -121,10 +124,11 @@ function LeadRowDesktopInner({
 
       {/* Próximo paso */}
       <td className="hidden lg:table-cell px-4 py-2 align-middle border-b border-dashed border-neutral-200/60 min-w-[165px]">
-        <NextActionActions
+        <LeadKanbanNextTouch
           leadId={lead.id}
           nextActionAt={lead.next_action_at}
           nextActionType={lead.next_action_type}
+          nextAppointment={nextAppointment}
           onUpdated={onUpdated}
           onToast={onToast}
           variant="table"

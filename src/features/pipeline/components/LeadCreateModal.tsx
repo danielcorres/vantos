@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { PipelineStage, CreateLeadInput, LeadTemperature } from '../pipeline.api'
+import type { PipelineStage, CreateLeadInput, LeadTemperature, Lead } from '../pipeline.api'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 import { displayStageName } from '../../../shared/utils/stageStyles'
 import { NextActionModal } from '../../../components/pipeline/NextActionModal'
@@ -8,7 +8,12 @@ interface LeadCreateModalProps {
   stages: PipelineStage[]
   isOpen: boolean
   onClose: () => void
-  onSubmit: (data: CreateLeadInput) => Promise<void>
+  onSubmit: (data: CreateLeadInput) => Promise<Lead>
+  /** Tras crear el lead con éxito (antes de cerrar el modal). */
+  onLeadCreated?: (
+    lead: Lead,
+    meta: { next_action_at: string | null; next_action_type: string | null }
+  ) => void
   defaultStageId?: string
   /** Llamado cuando el usuario cancela el NextActionModal (no se crea el lead) */
   onCancelNextAction?: () => void
@@ -33,10 +38,13 @@ export function LeadCreateModal({
   isOpen,
   onClose,
   onSubmit,
+  onLeadCreated,
   defaultStageId,
   onCancelNextAction,
 }: LeadCreateModalProps) {
   const [fullName, setFullName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [source, setSource] = useState(DEFAULT_SOURCE)
   const [stageId, setStageId] = useState(stages[0]?.id ?? '')
   const [notes, setNotes] = useState('')
@@ -71,6 +79,8 @@ export function LeadCreateModal({
     setError(null)
     setPendingCreateData({
       full_name: fullName.trim(),
+      phone: phone.trim() || undefined,
+      email: email.trim() || undefined,
       source: source || undefined,
       notes: notes.trim() || undefined,
       stage_id: stageId,
@@ -96,7 +106,11 @@ export function LeadCreateModal({
         next_action_at: next_action_at ?? undefined,
         next_action_type: normalizedType,
       }
-      await onSubmit(payload)
+      const lead = await onSubmit(payload)
+      onLeadCreated?.(lead, {
+        next_action_at: payload.next_action_at ?? null,
+        next_action_type: normalizedType ?? null,
+      })
       setShowNextAction(false)
       setPendingCreateData(null)
       handleClose()
@@ -111,6 +125,8 @@ export function LeadCreateModal({
 
   const handleClose = () => {
     setFullName('')
+    setPhone('')
+    setEmail('')
     setSource(DEFAULT_SOURCE)
     setNotes('')
     setTemperature('')
@@ -175,6 +191,38 @@ export function LeadCreateModal({
               className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
               placeholder="Nombre completo"
             />
+          </div>
+
+          {/* Teléfono y email */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label htmlFor="create_phone" className="block text-xs font-medium text-muted mb-1">
+                Teléfono
+              </label>
+              <input
+                id="create_phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={loading}
+                className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
+                placeholder="10 dígitos"
+              />
+            </div>
+            <div>
+              <label htmlFor="create_email" className="block text-xs font-medium text-muted mb-1">
+                Email
+              </label>
+              <input
+                id="create_email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={loading}
+                className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
+                placeholder="correo@ejemplo.com"
+              />
+            </div>
           </div>
 
           {/* Fuente */}
@@ -271,7 +319,7 @@ export function LeadCreateModal({
               disabled={loading}
               className="btn btn-primary text-sm font-medium"
             >
-              {loading ? 'Creando...' : 'Crear'}
+              {loading ? 'Guardando...' : 'Siguiente →'}
             </button>
           </div>
         </form>

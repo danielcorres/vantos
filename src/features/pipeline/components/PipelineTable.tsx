@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Lead } from '../pipeline.api'
+import type { CalendarEvent } from '../../calendar/types/calendar.types'
 import { displayStageName, getStageAccentStyle } from '../../../shared/utils/stageStyles'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 
@@ -31,6 +32,7 @@ type PipelineTableProps = {
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
   onToast?: (message: string) => void
   onUpdated?: () => void | Promise<void>
+  nextAppointmentByLeadId?: Record<string, CalendarEvent | null>
 }
 
 const TH_BASE = 'px-4 py-2 text-left text-xs font-medium text-neutral-500'
@@ -41,7 +43,7 @@ function HeaderRow() {
       <th className={TH_BASE}>Nombre</th>
       <th className={TH_BASE}>Teléfono</th>
       <th className={`${TH_BASE} hidden xl:table-cell`}>Email</th>
-      <th className={`${TH_BASE} hidden lg:table-cell min-w-[165px]`}>Próximo paso</th>
+      <th className={`${TH_BASE} hidden lg:table-cell min-w-[165px]`}>Próximo paso / cita</th>
       <th className={`${TH_BASE} text-right`}>Acción</th>
     </tr>
   )
@@ -60,6 +62,7 @@ export function PipelineTable({
   onMoveStage,
   onToast,
   onUpdated,
+  nextAppointmentByLeadId = {},
 }: PipelineTableProps) {
   const showGrouped = groupByStage && groupedSections.length > 0
   const prefersReducedMotion = useReducedMotion()
@@ -163,10 +166,12 @@ export function PipelineTable({
                             stages={stages}
                             stageName={stage.name}
                             stageSlug={stage.slug}
+                            nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
                             isHighlight={isHighlight}
                             onRowClick={onRowClick}
                             onMoveStage={onMoveStage}
                             onToast={onToast}
+                            onUpdated={onUpdated}
                             variant="table"
                           />
                         )
@@ -186,12 +191,14 @@ export function PipelineTable({
               stages={stages}
               stageName={stage?.name}
               stageSlug={stage?.slug}
-                isHighlight={highlightLeadId === lead.id}
-                onRowClick={onRowClick}
-                onMoveStage={onMoveStage}
-                onToast={onToast}
-                variant="table"
-              />
+              nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
+              isHighlight={highlightLeadId === lead.id}
+              onRowClick={onRowClick}
+              onMoveStage={onMoveStage}
+              onToast={onToast}
+              onUpdated={onUpdated}
+              variant="table"
+            />
             )
           })}
     </div>
@@ -278,6 +285,7 @@ export function PipelineTable({
                                 stages={stages}
                                 stageName={stage.name}
                                 stageSlug={stage.slug}
+                                nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
                                 isHighlight={isHighlight}
                                 onRowClick={onRowClick}
                                 onMoveStage={onMoveStage}
@@ -300,6 +308,7 @@ export function PipelineTable({
                     stages={stages}
                     stageName={stage?.name}
                     stageSlug={stage?.slug}
+                    nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
                     isHighlight={highlightLeadId === lead.id}
                     onRowClick={onRowClick}
                     onMoveStage={onMoveStage}

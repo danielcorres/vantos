@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { RouterProvider } from 'react-router-dom'
 import { router } from './routes'
 import { AuthProvider } from '../shared/auth/AuthProvider'
+import { ToastProvider } from '../shared/components/ToastContext'
 
 export default function App() {
   // Tema siempre claro: quitar `dark` de <html> si aparece (Tailwind + extensiones / UA).
@@ -18,7 +19,9 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      <ToastProvider>
+        <RouterProvider router={router} />
+      </ToastProvider>
     </AuthProvider>
   )
 }

@@ -59,7 +59,6 @@ function CardMenuPortal({
       ? [
           ...stages
             .filter((s) => s.id !== lead.stage_id)
-            .slice(0, 5)
             .map((s) => ({
               label: `Mover a ${displayStageName(s.name)}`,
               onClick: () => {

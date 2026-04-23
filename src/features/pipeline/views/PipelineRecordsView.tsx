@@ -1,8 +1,11 @@
 import { PipelineTableView } from './PipelineTableView'
 import type { Lead } from '../pipeline.api'
+import type { CalendarEvent } from '../../calendar/types/calendar.types'
 
 export type PipelineRecordsViewProps = {
   activosLeads?: Lead[] | null
+  /** Próxima cita por lead (misma fuente que Kanban). */
+  nextAppointmentByLeadId?: Record<string, CalendarEvent | null>
   pipelineMode?: 'activos' | 'archivados'
   groupByStage?: boolean
   onCountsChange?: (counts: { activos: number; archivados: number }) => void

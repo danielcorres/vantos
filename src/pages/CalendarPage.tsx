@@ -1,4 +1,5 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { CalendarWeekView } from '../features/calendar/components/CalendarWeekView'
 import { UpcomingEventsList } from '../features/calendar/components/UpcomingEventsList'
 import { AppointmentFormModal } from '../features/calendar/components/AppointmentFormModal'
@@ -6,25 +7,59 @@ import type { CalendarEvent } from '../features/calendar/types/calendar.types'
 
 type ViewMode = 'week' | 'upcoming'
 
+function getMondayOf(date: Date): Date {
+  const d = new Date(date)
+  d.setHours(0, 0, 0, 0)
+  const day = d.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  d.setDate(d.getDate() + diff)
+  return d
+}
+
+function formatWeekLabel(monday: Date): string {
+  const sunday = new Date(monday)
+  sunday.setDate(sunday.getDate() + 6)
+  const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' }
+  const start = monday.toLocaleDateString('es-MX', opts)
+  const end = sunday.toLocaleDateString('es-MX', opts)
+  const year = monday.getFullYear()
+  return `${start} – ${end}, ${year}`
+}
+
 export function CalendarPage() {
+  const [searchParams] = useSearchParams()
   const [viewMode, setViewMode] = useState<ViewMode>('week')
-  const [weekStart] = useState(() => new Date())
+  const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()))
   const [refreshKey, setRefreshKey] = useState(0)
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+  const [initialLeadId, setInitialLeadId] = useState<string | undefined>(undefined)
+
+  // Abrir modal de creación pre-cargado con el lead de ?lead=
+  useEffect(() => {
+    const leadId = searchParams.get('lead')
+    if (leadId) {
+      setInitialLeadId(leadId)
+      setModalMode('create')
+      setEditingEvent(null)
+      setModalOpen(true)
+    }
+  }, [searchParams])
 
   const handleSaved = useCallback(() => {
     setRefreshKey((k) => k + 1)
   }, [])
 
   const openCreate = () => {
+    setInitialLeadId(undefined)
     setModalMode('create')
     setEditingEvent(null)
     setModalOpen(true)
   }
 
   const openEdit = (event: CalendarEvent) => {
+    setInitialLeadId(undefined)
     setModalMode('edit')
     setEditingEvent(event)
     setModalOpen(true)
@@ -33,7 +68,30 @@ export function CalendarPage() {
   const closeModal = () => {
     setModalOpen(false)
     setEditingEvent(null)
+    setInitialLeadId(undefined)
   }
+
+  const goToPrevWeek = () => {
+    setWeekStart((prev) => {
+      const d = new Date(prev)
+      d.setDate(d.getDate() - 7)
+      return d
+    })
+  }
+
+  const goToNextWeek = () => {
+    setWeekStart((prev) => {
+      const d = new Date(prev)
+      d.setDate(d.getDate() + 7)
+      return d
+    })
+  }
+
+  const goToToday = () => {
+    setWeekStart(getMondayOf(new Date()))
+  }
+
+  const isCurrentWeek = getMondayOf(new Date()).getTime() === weekStart.getTime()
 
   return (
     <div className="flex flex-col min-h-0">
@@ -80,6 +138,44 @@ export function CalendarPage() {
             </button>
           </div>
         </div>
+
+        {/* Navegación de semana — solo visible en vista Semana */}
+        {viewMode === 'week' && (
+          <div className="flex items-center gap-2 mt-2">
+            <button
+              type="button"
+              onClick={goToPrevWeek}
+              aria-label="Semana anterior"
+              className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+            <span className="text-sm text-neutral-600 dark:text-neutral-400 min-w-[200px] text-center">
+              {formatWeekLabel(weekStart)}
+            </span>
+            <button
+              type="button"
+              onClick={goToNextWeek}
+              aria-label="Semana siguiente"
+              className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+            </button>
+            {!isCurrentWeek && (
+              <button
+                type="button"
+                onClick={goToToday}
+                className="px-2.5 py-1 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors"
+              >
+                Hoy
+              </button>
+            )}
+          </div>
+        )}
       </header>
 
       <main className="flex-1 overflow-auto p-4">
@@ -103,6 +199,7 @@ export function CalendarPage() {
         onClose={closeModal}
         mode={modalMode}
         event={editingEvent}
+        initialLeadId={initialLeadId}
         onSaved={handleSaved}
       />
     </div>

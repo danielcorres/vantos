@@ -8,6 +8,12 @@ import {
 } from './pipeline.store'
 import { KanbanBoard } from './components/KanbanBoard'
 import { LeadCreateModal } from './components/LeadCreateModal'
+import { PostCreateCalendarAskDialog } from './components/PostCreateCalendarAskDialog'
+import { AppointmentFormModal } from '../calendar/components/AppointmentFormModal'
+import {
+  suggestPostCreateAppointmentTitle,
+  suggestPostCreateAppointmentType,
+} from './utils/postCreateCalendarSuggestions'
 import { PipelineRecordsView } from './views/PipelineRecordsView'
 import { getWeeklyEntryLeads } from '../productivity/api/drilldown.api'
 
@@ -17,6 +23,8 @@ import { Toast } from '../../shared/components/Toast'
 import { displayStageName } from '../../shared/utils/stageStyles'
 import type { CreateLeadInput } from './pipeline.api'
 import { NextActionModal } from '../../components/pipeline/NextActionModal'
+import { calendarApi } from '../calendar/api/calendar.api'
+import type { CalendarEvent } from '../calendar/types/calendar.types'
 
 const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
   contactos_nuevos: 'Prospecto',
@@ -80,6 +88,12 @@ export function PipelinePage() {
   const [state, dispatch] = useReducer(pipelineReducer, initialState)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [createStageId, setCreateStageId] = useState<string | undefined>(undefined)
+  const [postCreateAsk, setPostCreateAsk] = useState<{
+    lead: Lead
+    next_action_at: string | null
+    next_action_type: string | null
+  } | null>(null)
+  const [postCreateApptOpen, setPostCreateApptOpen] = useState(false)
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
   const [pendingMove, setPendingMove] = useState<{
     leadId: string
@@ -102,6 +116,26 @@ export function PipelinePage() {
   useEffect(() => {
     loadData()
   }, [])
+
+  useEffect(() => {
+    if (state.loading || state.leads.length === 0) {
+      setNextAppointmentByLeadId({})
+      return
+    }
+    const ids = [...new Set(state.leads.map((l) => l.id))]
+    let cancelled = false
+    void calendarApi
+      .getNextScheduledEventByLeadIds(ids)
+      .then((map) => {
+        if (!cancelled) setNextAppointmentByLeadId(map)
+      })
+      .catch(() => {
+        if (!cancelled) setNextAppointmentByLeadId({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [state.loading, state.leads])
 
   useEffect(() => {
     setStoredViewMode(activeTab)
@@ -158,6 +192,9 @@ export function PipelinePage() {
   const [tableVisibleCount, setTableVisibleCount] = useState<number | null>(null)
   const [stageLoadMeta, setStageLoadMeta] = useState<Record<string, { total: number; loaded: number }>>({})
   const [kanbanStageLoadingMore, setKanbanStageLoadingMore] = useState<string | null>(null)
+  const [nextAppointmentByLeadId, setNextAppointmentByLeadId] = useState<
+    Record<string, CalendarEvent | null>
+  >({})
   const stageLoadMetaRef = useRef(stageLoadMeta)
   useEffect(() => {
     stageLoadMetaRef.current = stageLoadMeta
@@ -304,10 +341,21 @@ export function PipelinePage() {
   const handleCreateLead = async (data: CreateLeadInput) => {
     const newLead = await pipelineApi.createLead(data)
     dispatch({ type: 'CREATE_LEAD', payload: newLead })
-    setIsModalOpen(false)
-    setCreateStageId(undefined)
     await refreshAffectedStages(newLead.stage_id, newLead.stage_id)
+    return newLead
   }
+
+  const clearPostCreateCalendar = useCallback(() => {
+    setPostCreateAsk(null)
+    setPostCreateApptOpen(false)
+  }, [])
+
+  const handleLeadCreatedForCalendar = useCallback(
+    (lead: Lead, meta: { next_action_at: string | null; next_action_type: string | null }) => {
+      setPostCreateAsk({ lead, ...meta })
+    },
+    []
+  )
 
   const handleCreateLeadFromStage = useCallback((stageId: string) => {
     setCreateStageId(stageId)
@@ -357,6 +405,11 @@ export function PipelinePage() {
       try {
         await pipelineApi.moveLeadStage(draggedLead.id, toStageId, idempotencyKey)
         await refreshAffectedStages(fromStageId, toStageId)
+        const stageName = state.stages.find((s) => s.id === toStageId)?.name
+        setPipelineToast({
+          type: 'success',
+          message: stageName ? `Movido a ${displayStageName(stageName)}` : 'Etapa actualizada',
+        })
       } catch {
         dispatch({
           type: 'MOVE_ROLLBACK',
@@ -693,6 +746,7 @@ export function PipelinePage() {
       {activeTab === 'records' && (
         <PipelineRecordsView
           activosLeads={activeTab === 'records' ? null : displayedLeads}
+          nextAppointmentByLeadId={nextAppointmentByLeadId}
           pipelineMode={pipelineMode}
           groupByStage={groupByStage}
           onCountsChange={setTableCounts}
@@ -729,6 +783,7 @@ export function PipelinePage() {
           <KanbanBoard
             stages={state.stages}
             leads={displayedLeads}
+            nextAppointmentByLeadId={nextAppointmentByLeadId}
             stageLoadMeta={stageLoadMeta}
             loadingMoreStageId={kanbanStageLoadingMore}
             onLoadMoreStage={handleLoadMoreStage}
@@ -752,10 +807,39 @@ export function PipelinePage() {
             setCreateStageId(undefined)
           }}
           onSubmit={handleCreateLead}
+          onLeadCreated={handleLeadCreatedForCalendar}
           onCancelNextAction={() =>
             setPipelineToast({ type: 'info', message: 'Creación cancelada' })
           }
           defaultStageId={createStageId}
+        />
+      )}
+
+      <PostCreateCalendarAskDialog
+        isOpen={postCreateAsk != null && !postCreateApptOpen}
+        onYes={() => setPostCreateApptOpen(true)}
+        onNo={clearPostCreateCalendar}
+      />
+
+      {postCreateAsk != null && (
+        <AppointmentFormModal
+          isOpen={postCreateApptOpen}
+          onClose={clearPostCreateCalendar}
+          mode="create"
+          onSaved={() => {
+            void refreshDataSilent()
+          }}
+          initialLeadId={postCreateAsk.lead.id}
+          createDefaults={{ durationMinutes: 30 }}
+          initialStartsAtIso={postCreateAsk.next_action_at}
+          initialAppointmentType={suggestPostCreateAppointmentType(
+            postCreateAsk.lead,
+            postCreateAsk.next_action_type,
+            state.stages
+          )}
+          initialTitle={
+            suggestPostCreateAppointmentTitle(postCreateAsk.lead, postCreateAsk.next_action_type) || null
+          }
         />
       )}
 

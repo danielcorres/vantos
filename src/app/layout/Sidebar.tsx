@@ -15,6 +15,8 @@ import {
   IconChevronRight,
   IconPipeline,
   IconBookOpen,
+  IconFocus,
+  IconCalendar,
 } from './icons'
 import { useAuth } from '../../shared/auth/AuthProvider'
 import { VantLogo } from '../../components/branding/VantLogo'
@@ -84,6 +86,24 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
           label: 'Pipeline',
           path: '/pipeline',
           icon: IconPipeline,
+          visible: (r) => r === 'advisor' || r === 'manager' || r === 'owner',
+        },
+        {
+          label: 'Qué hacer hoy',
+          path: '/focus',
+          icon: IconFocus,
+          visible: (r) => r === 'advisor' || r === 'manager' || r === 'owner',
+        },
+        {
+          label: 'Calendario',
+          path: '/calendar',
+          icon: IconCalendar,
+          visible: (r) => r === 'advisor' || r === 'manager' || r === 'owner',
+        },
+        {
+          label: 'Productividad',
+          path: '/productividad',
+          icon: IconBarChart3,
           visible: (r) => r === 'advisor' || r === 'manager' || r === 'owner',
         },
         {

@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
+import type { CalendarEvent } from '../../features/calendar/types/calendar.types'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
 import type { PipelineStageLite } from './LeadProgressDots'
@@ -7,7 +8,7 @@ import { LeadCardContent } from './LeadCardContent'
 import { LeadSourceTag } from './LeadSourceTag'
 import { LeadTemperatureChip } from './LeadTemperatureChip'
 import { MoveStageButton } from './MoveStageButton'
-import { NextActionActions } from './NextActionActions'
+import { LeadKanbanNextTouch } from './LeadKanbanNextTouch'
 
 export type LeadCardMobileVariant = 'default' | 'kanban' | 'table'
 
@@ -16,6 +17,7 @@ export function LeadCardMobile({
   stages,
   stageName,
   stageSlug,
+  nextAppointment,
   isHighlight,
   onRowClick,
   onMoveStage,
@@ -26,6 +28,7 @@ export function LeadCardMobile({
   lead: Lead
   stages: PipelineStageLite[]
   stageName: string | undefined
+  nextAppointment?: CalendarEvent | null
   /** Slug para estilos (colores); opcional. Si no se pasa, se usa gris. */
   stageSlug?: string
   isHighlight?: boolean
@@ -99,12 +102,14 @@ export function LeadCardMobile({
             </div>
           </div>
           <div className="mt-1 flex items-center min-w-0">
-            <NextActionActions
+            <LeadKanbanNextTouch
               leadId={lead.id}
               nextActionAt={lead.next_action_at}
               nextActionType={lead.next_action_type}
+              nextAppointment={nextAppointment}
               onUpdated={onUpdated}
               onToast={onToast}
+              variant="kanban"
             />
           </div>
           {moveButtonBlock}
@@ -131,12 +136,14 @@ export function LeadCardMobile({
             </div>
           </div>
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
-            <NextActionActions
+            <LeadKanbanNextTouch
               leadId={lead.id}
               nextActionAt={lead.next_action_at}
               nextActionType={lead.next_action_type}
+              nextAppointment={nextAppointment}
               onUpdated={onUpdated}
               onToast={onToast}
+              variant="table"
             />
           </div>
           {moveButtonBlock}

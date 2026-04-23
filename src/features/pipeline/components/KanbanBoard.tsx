@@ -1,5 +1,7 @@
 import * as React from 'react'
 import type { PipelineStage, Lead } from '../pipeline.api'
+import type { CalendarEvent } from '../../calendar/types/calendar.types'
+import { sortLeadsByEffectiveNextTouch } from '../utils/effectiveNextTouch'
 import { EmptyState } from '../../../components/pipeline/EmptyState'
 import { KanbanColumn } from './KanbanColumn'
 import { LeadCardMobile } from '../../../components/pipeline/LeadCardMobile'
@@ -9,6 +11,8 @@ import type { PipelineStageLite } from '../../../components/pipeline/LeadProgres
 interface KanbanBoardProps {
   stages: PipelineStage[]
   leads: Lead[]
+  /** Próxima cita programada por lead (batch); alinea tarjetas con calendario. */
+  nextAppointmentByLeadId?: Record<string, CalendarEvent | null>
   /** Totales por etapa y cuántos están cargados (Kanban paginado). */
   stageLoadMeta?: Record<string, { total: number; loaded: number }>
   loadingMoreStageId?: string | null
@@ -22,9 +26,12 @@ interface KanbanBoardProps {
   onUpdated?: () => void | Promise<void>
 }
 
+const EMPTY_APPOINTMENTS: Record<string, CalendarEvent | null> = {}
+
 export function KanbanBoard({
   stages,
   leads,
+  nextAppointmentByLeadId = EMPTY_APPOINTMENTS,
   stageLoadMeta = {},
   loadingMoreStageId = null,
   onLoadMoreStage,
@@ -70,10 +77,10 @@ export function KanbanBoard({
     }
   }, [stages, mobileStageId])
 
-  const mobileLeads = React.useMemo(
-    () => leads.filter((l) => l.stage_id === mobileStageId),
-    [leads, mobileStageId]
-  )
+  const mobileLeads = React.useMemo(() => {
+    const inStage = leads.filter((l) => l.stage_id === mobileStageId)
+    return sortLeadsByEffectiveNextTouch(inStage, nextAppointmentByLeadId)
+  }, [leads, mobileStageId, nextAppointmentByLeadId])
 
   const mobileStageName = React.useMemo(
     () => stages.find((s) => s.id === mobileStageId)?.name,
@@ -138,6 +145,7 @@ export function KanbanBoard({
                   stages={stagesLite}
                   stageName={mobileStageName}
                   stageSlug={mobileStageSlug}
+                  nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
                   onMoveStage={onMoveStage}
                   onToast={onToast}
                   onUpdated={onUpdated}
@@ -177,6 +185,7 @@ export function KanbanBoard({
                 stage={stage}
                 stages={stages}
                 leads={leadsByStage.get(stage.id) ?? emptyLeads}
+                nextAppointmentByLeadId={nextAppointmentByLeadId}
                 totalInStage={meta?.total}
                 loadedInStage={meta?.loaded}
                 hasMoreInStage={meta != null && meta.loaded < meta.total}

@@ -5,7 +5,7 @@
 export function getHomePathForRole(role: string | null | undefined): string {
   switch (role) {
     case 'owner':
-      return '/owner/assignments'
+      return '/owner/dashboard'
     case 'director':
       return '/'
     case 'manager':

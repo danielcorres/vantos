@@ -9,6 +9,12 @@ import {
 } from '../pipeline.api'
 import { generateIdempotencyKey } from '../pipeline.store'
 import { LeadCreateModal } from '../components/LeadCreateModal'
+import { PostCreateCalendarAskDialog } from '../components/PostCreateCalendarAskDialog'
+import { AppointmentFormModal } from '../../calendar/components/AppointmentFormModal'
+import {
+  suggestPostCreateAppointmentTitle,
+  suggestPostCreateAppointmentType,
+} from '../utils/postCreateCalendarSuggestions'
 import { NextActionModal } from '../../../components/pipeline/NextActionModal'
 import { PipelineTable } from '../components/PipelineTable'
 import { Toast } from '../../../shared/components/Toast'
@@ -16,6 +22,8 @@ import { formatDateMX } from '../../../shared/utils/dates'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
 import { LeadTemperatureChip } from '../../../components/pipeline/LeadTemperatureChip'
 import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
+import type { CalendarEvent } from '../../calendar/types/calendar.types'
+import { calendarApi } from '../../calendar/api/calendar.api'
 
 const BTN_PRIMARY =
   'h-9 rounded-xl bg-neutral-900 text-white px-4 text-sm font-semibold gap-2 hover:bg-neutral-800 active:scale-[0.98] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-1 flex-shrink-0 inline-flex items-center justify-center'
@@ -34,6 +42,7 @@ function sortLeadsByPriority(leads: Lead[]): Lead[] {
 
 export function PipelineTableView({
   activosLeads = null,
+  nextAppointmentByLeadId,
   pipelineMode = 'activos',
   groupByStage = true,
   onCountsChange,
@@ -47,6 +56,7 @@ export function PipelineTableView({
   onToast,
 }: {
   activosLeads?: Lead[] | null
+  nextAppointmentByLeadId?: Record<string, CalendarEvent | null>
   pipelineMode?: 'activos' | 'archivados'
   groupByStage?: boolean
   onCountsChange?: (counts: { activos: number; archivados: number }) => void
@@ -71,6 +81,12 @@ export function PipelineTableView({
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [postCreateAsk, setPostCreateAsk] = useState<{
+    lead: Lead
+    next_action_at: string | null
+    next_action_type: string | null
+  } | null>(null)
+  const [postCreateApptOpen, setPostCreateApptOpen] = useState(false)
   const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({})
   const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -78,12 +94,20 @@ export function PipelineTableView({
   /** '' = todas; '__null__' = sin clasificar; frio|tibio|caliente */
   const [temperatureFilter, setTemperatureFilter] = useState('')
   const [restoreLeadPending, setRestoreLeadPending] = useState<Lead | null>(null)
+  const [pendingMoveStage, setPendingMoveStage] = useState<{
+    leadId: string
+    fromStageId: string
+    toStageId: string
+  } | null>(null)
   const [serverActivosLeads, setServerActivosLeads] = useState<Lead[]>([])
   const [serverActivosTotal, setServerActivosTotal] = useState(0)
   const [activosListLoadedCount, setActivosListLoadedCount] = useState(0)
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [listLoadingMore, setListLoadingMore] = useState(false)
   const [archivedTotal, setArchivedTotal] = useState(0)
+  const [localNextAppointmentByLeadId, setLocalNextAppointmentByLeadId] = useState<
+    Record<string, CalendarEvent | null>
+  >({})
 
   const weeklyMode = weeklyFilterLeadIds != null && weeklyLoadError == null
 
@@ -166,6 +190,39 @@ export function PipelineTableView({
   const sortedLeads = useMemo(
     () => sortLeadsByPriority(filteredLeads),
     [filteredLeads]
+  )
+
+  const sortedLeadIdsKey = useMemo(
+    () =>
+      [...new Set(sortedLeads.map((l) => l.id))]
+        .sort()
+        .join(','),
+    [sortedLeads]
+  )
+
+  useEffect(() => {
+    if (!sortedLeadIdsKey) {
+      setLocalNextAppointmentByLeadId({})
+      return
+    }
+    const ids = sortedLeadIdsKey.split(',').filter(Boolean)
+    let cancelled = false
+    void calendarApi
+      .getNextScheduledEventByLeadIds(ids)
+      .then((m) => {
+        if (!cancelled) setLocalNextAppointmentByLeadId(m)
+      })
+      .catch(() => {
+        if (!cancelled) setLocalNextAppointmentByLeadId({})
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [sortedLeadIdsKey])
+
+  const mergedNextAppointmentByLeadId = useMemo(
+    () => ({ ...localNextAppointmentByLeadId, ...(nextAppointmentByLeadId ?? {}) }),
+    [localNextAppointmentByLeadId, nextAppointmentByLeadId]
   )
 
   const groupedSections = useMemo(() => {
@@ -314,14 +371,26 @@ export function PipelineTableView({
     }
   }
 
+  const clearPostCreateCalendar = useCallback(() => {
+    setPostCreateAsk(null)
+    setPostCreateApptOpen(false)
+  }, [])
+
+  const handleLeadCreatedForCalendar = useCallback(
+    (lead: Lead, meta: { next_action_at: string | null; next_action_type: string | null }) => {
+      setPostCreateAsk({ lead, ...meta })
+    },
+    []
+  )
+
   const handleCreateLead = async (data: CreateLeadInput) => {
     const newLead = await pipelineApi.createLead(data)
-    setIsCreateModalOpen(false)
     setCollapsedStages((prev) => ({ ...prev, [newLead.stage_id]: false }))
     setHighlightLeadId(newLead.id)
     setTimeout(() => setHighlightLeadId(null), 3000)
     await refreshCurrentMode()
     setToast({ type: 'success', message: 'Lead creado' })
+    return newLead
   }
 
   const handleRowClick = useCallback(
@@ -329,11 +398,9 @@ export function PipelineTableView({
     [navigate]
   )
 
-  const handleMoveStage = async (leadId: string, toStageId: string) => {
+  const executeMoveStage = async (leadId: string, fromStageId: string, toStageId: string) => {
     const lead = baseLeads.find((l) => l.id === leadId)
-    if (!lead || lead.stage_id === toStageId) return
-    const fromStageId = lead.stage_id
-    const prevStageChangedAt = lead.stage_changed_at ?? null
+    const prevStageChangedAt = lead?.stage_changed_at ?? null
     const idempotencyKey = generateIdempotencyKey(leadId, fromStageId, toStageId)
 
     onMoveStageOptimistic?.(leadId, fromStageId, toStageId, prevStageChangedAt)
@@ -348,9 +415,22 @@ export function PipelineTableView({
     } catch (err) {
       clearTimeout(highlightTimeout)
       setHighlightLeadId(null)
-      onMoveStageRollback?.(leadId, fromStageId, prevStageChangedAt)
+      onMoveStageRollback?.(leadId, fromStageId, prevStageChangedAt ?? null)
       setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al mover' })
     }
+  }
+
+  const handleMoveStage = async (leadId: string, toStageId: string) => {
+    const lead = baseLeads.find((l) => l.id === leadId)
+    if (!lead || lead.stage_id === toStageId) return
+    const fromStageId = lead.stage_id
+
+    if (lead.next_action_at == null) {
+      setPendingMoveStage({ leadId, fromStageId, toStageId })
+      return
+    }
+
+    await executeMoveStage(leadId, fromStageId, toStageId)
   }
 
   if (loading) {
@@ -420,7 +500,13 @@ export function PipelineTableView({
             <span className="hidden md:inline">+ Nuevo lead</span>
           </button>
         </div>
-        <LeadCreateModal stages={stages} isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} onSubmit={handleCreateLead} />
+        <LeadCreateModal
+          stages={stages}
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSubmit={handleCreateLead}
+          onLeadCreated={handleLeadCreatedForCalendar}
+        />
       </div>
     )
   }
@@ -660,6 +746,7 @@ export function PipelineTableView({
               onMoveStage={handleMoveStage}
               onToast={onToast ?? ((msg) => setToast({ type: 'success', message: msg }))}
               onUpdated={refreshCurrentMode}
+              nextAppointmentByLeadId={mergedNextAppointmentByLeadId}
             />
             {serverActivosListMode && activosListLoadedCount < serverActivosTotal ? (
               <div className="flex justify-center py-2">
@@ -683,6 +770,54 @@ export function PipelineTableView({
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateLead}
+        onLeadCreated={handleLeadCreatedForCalendar}
+      />
+
+      <PostCreateCalendarAskDialog
+        isOpen={postCreateAsk != null && !postCreateApptOpen}
+        onYes={() => setPostCreateApptOpen(true)}
+        onNo={clearPostCreateCalendar}
+      />
+
+      {postCreateAsk != null && (
+        <AppointmentFormModal
+          isOpen={postCreateApptOpen}
+          onClose={clearPostCreateCalendar}
+          mode="create"
+          onSaved={() => {
+            void refreshCurrentMode()
+          }}
+          initialLeadId={postCreateAsk.lead.id}
+          createDefaults={{ durationMinutes: 30 }}
+          initialStartsAtIso={postCreateAsk.next_action_at}
+          initialAppointmentType={suggestPostCreateAppointmentType(
+            postCreateAsk.lead,
+            postCreateAsk.next_action_type,
+            stages
+          )}
+          initialTitle={
+            suggestPostCreateAppointmentTitle(postCreateAsk.lead, postCreateAsk.next_action_type) || null
+          }
+        />
+      )}
+
+      <NextActionModal
+        isOpen={pendingMoveStage != null}
+        onClose={() => setPendingMoveStage(null)}
+        onSave={async (next_action_at, next_action_type) => {
+          const pending = pendingMoveStage
+          if (!pending) return
+          try {
+            await pipelineApi.updateLead(pending.leadId, { next_action_at, next_action_type })
+          } catch (err) {
+            setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al guardar próxima acción' })
+            throw err
+          }
+          setPendingMoveStage(null)
+          await executeMoveStage(pending.leadId, pending.fromStageId, pending.toStageId)
+        }}
+        title="Define el próximo paso para mover"
+        allowNoDate={false}
       />
 
       <NextActionModal

@@ -12,6 +12,7 @@ import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/Unsa
 import { getStageTagClasses, displayStageName } from '../shared/utils/stageStyles'
 import { NextActionActions } from '../components/pipeline/NextActionActions'
 import { LeadSourceTag } from '../components/pipeline/LeadSourceTag'
+import { LeadAppointmentsList } from '../features/calendar/components/LeadAppointmentsList'
 import type { LeadTemperature } from '../features/pipeline/pipeline.api'
 
 type LeadData = {
@@ -120,6 +121,7 @@ export function LeadDetailPage() {
 
   // Stage change state
   const [selectedStageId, setSelectedStageId] = useState<string>('')
+  const [pendingStageId, setPendingStageId] = useState<string | null>(null)
 
   // Opportunity state
   const [estimatedValue, setEstimatedValue] = useState<string>('')
@@ -470,7 +472,19 @@ export function LeadDetailPage() {
   const handleStageSelectChange = (toStageId: string) => {
     if (!lead || toStageId === lead.stage_id) return
     setSelectedStageId(toStageId)
-    handleMoveStage(toStageId)
+    setPendingStageId(toStageId)
+  }
+
+  const confirmStageChange = () => {
+    if (!pendingStageId) return
+    setPendingStageId(null)
+    handleMoveStage(pendingStageId)
+  }
+
+  const cancelStageChange = () => {
+    if (!lead) return
+    setPendingStageId(null)
+    setSelectedStageId(lead.stage_id)
   }
 
   const handleSaveOpportunity = async () => {
@@ -1011,23 +1025,46 @@ export function LeadDetailPage() {
               {lead.archived_at ? (
                 <p className="py-1.5 text-sm text-neutral-500 dark:text-neutral-400">Restaura el lead para editar la etapa.</p>
               ) : (
-                <select
-                  id="stage_select"
-                  value={selectedStageId}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    if (v && v !== lead.stage_id) handleStageSelectChange(v)
-                    else setSelectedStageId(v)
-                  }}
-                  disabled={moving || stages.length === 0}
-                  className={CONTROL}
-                >
-                  {stages.map((stage) => (
-                    <option key={stage.id} value={stage.id}>
-                      {displayStageName(stage.name)}
-                    </option>
-                  ))}
-                </select>
+                <>
+                  <select
+                    id="stage_select"
+                    value={selectedStageId}
+                    onChange={(e) => {
+                      const v = e.target.value
+                      if (v && v !== lead.stage_id) handleStageSelectChange(v)
+                      else setSelectedStageId(v)
+                    }}
+                    disabled={moving || stages.length === 0}
+                    className={CONTROL}
+                  >
+                    {stages.map((stage) => (
+                      <option key={stage.id} value={stage.id}>
+                        {displayStageName(stage.name)}
+                      </option>
+                    ))}
+                  </select>
+                  {pendingStageId && !moving && (
+                    <div className="mt-2 flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-700/50 dark:bg-amber-900/20">
+                      <span className="flex-1 text-xs text-amber-800 dark:text-amber-300">
+                        ¿Mover a <strong>{displayStageName(stages.find((s) => s.id === pendingStageId)?.name)}</strong>?
+                      </span>
+                      <button
+                        type="button"
+                        onClick={confirmStageChange}
+                        className="shrink-0 rounded-md bg-amber-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-amber-700 transition-colors"
+                      >
+                        Confirmar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelStageChange}
+                        className="shrink-0 rounded-md border border-amber-300 px-2.5 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100 dark:border-amber-600 dark:text-amber-300 transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
             <div className="mt-3">
@@ -1161,6 +1198,8 @@ export function LeadDetailPage() {
               )}
             </div>
           </div>
+
+          <LeadAppointmentsList leadId={id!} />
         </div>
       </div>
     </div>
