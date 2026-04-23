@@ -23,7 +23,6 @@ function CardMenuPortal({
   lead,
   stages,
   onMoveStage,
-  onEditNextAction,
   menuRef,
 }: {
   open: boolean
@@ -32,7 +31,6 @@ function CardMenuPortal({
   lead: Lead
   stages: PipelineStageLite[]
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
-  onEditNextAction?: () => void
   menuRef: React.RefObject<HTMLDivElement | null>
 }) {
   const navigate = useNavigate()
@@ -54,7 +52,6 @@ function CardMenuPortal({
 
   const items = [
     { label: 'Abrir lead', onClick: () => { onClose(); navigate(`/leads/${lead.id}`) } },
-    ...(onEditNextAction ? [{ label: 'Editar próximo paso', onClick: () => { onClose(); onEditNextAction() } }] : []),
     ...(onMoveStage && stages.length > 0
       ? [
           ...stages
@@ -100,13 +97,11 @@ export function LeadCardMenu({
   lead,
   stages,
   onMoveStage,
-  onEditNextAction,
   className = '',
 }: {
   lead: Lead
   stages: PipelineStageLite[]
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
-  onEditNextAction?: () => void
   className?: string
 }) {
   const [open, setOpen] = useState(false)
@@ -157,7 +152,6 @@ export function LeadCardMenu({
         lead={lead}
         stages={stages}
         onMoveStage={onMoveStage}
-        onEditNextAction={onEditNextAction}
         menuRef={menuRef}
       />
     </div>

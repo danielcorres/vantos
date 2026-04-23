@@ -83,25 +83,6 @@ async function queryNextScheduledByLeadIds(leadIds: string[]): Promise<Record<st
   return map
 }
 
-/**
- * Homologación pipeline: si hay próxima cita `scheduled`, refleja su inicio en `next_action_*` como reunión.
- * Si no hay citas futuras, no borra `next_action_at` (puede violar CHECK en leads activos).
- */
-async function syncLeadNextActionFromCalendar(leadId: string): Promise<void> {
-  try {
-    const m = await queryNextScheduledByLeadIds([leadId])
-    const ev = m[leadId]
-    if (ev) {
-      await pipelineApi.updateLead(leadId, {
-        next_action_at: ev.starts_at,
-        next_action_type: 'meeting',
-      })
-    }
-  } catch (e) {
-    console.warn('[calendar] syncLeadNextActionFromCalendar', e)
-  }
-}
-
 async function tryMoveLeadToStageForAppointment(
   leadId: string,
   eventId: string,
@@ -259,7 +240,6 @@ export const calendarApi = {
 
     if (event.lead_id) {
       await tryMoveLeadToStageForAppointment(event.lead_id, event.id, input.type)
-      await syncLeadNextActionFromCalendar(event.lead_id)
     }
 
     void invokeGoogleCalendarSync(event.id, 'upsert')
@@ -289,10 +269,6 @@ export const calendarApi = {
     if (event.lead_id && (event.type === 'first_meeting' || event.type === 'closing')) {
       await tryMoveLeadToStageForAppointment(event.lead_id, event.id, event.type)
     }
-    if (event.lead_id) {
-      await syncLeadNextActionFromCalendar(event.lead_id)
-    }
-
     void invokeGoogleCalendarSync(event.id, 'upsert')
 
     return event
@@ -308,29 +284,14 @@ export const calendarApi = {
 
     if (error) throw new Error(error.message)
     const event = normalizeEvent(data as Record<string, unknown>)
-    if (event.lead_id) {
-      await syncLeadNextActionFromCalendar(event.lead_id)
-    }
     void invokeGoogleCalendarSync(event.id, 'upsert')
     return event
   },
 
   async deleteEvent(id: string): Promise<void> {
-    const { data: existing, error: selErr } = await supabase
-      .from('calendar_events')
-      .select('lead_id')
-      .eq('id', id)
-      .maybeSingle()
-    if (selErr) throw new Error(selErr.message)
-    const leadId = (existing as { lead_id?: string | null } | null)?.lead_id ?? null
-
     await invokeGoogleCalendarSync(id, 'delete')
 
     const { error } = await supabase.from('calendar_events').delete().eq('id', id)
     if (error) throw new Error(error.message)
-
-    if (leadId) {
-      await syncLeadNextActionFromCalendar(leadId)
-    }
   },
 }

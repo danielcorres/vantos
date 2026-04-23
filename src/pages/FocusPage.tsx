@@ -1,27 +1,33 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { pipelineApi, type Lead } from '../features/pipeline/pipeline.api'
+import { calendarApi } from '../features/calendar/api/calendar.api'
+import type { CalendarEvent } from '../features/calendar/types/calendar.types'
 import { todayLocalYmd, addDaysYmd } from '../shared/utils/dates'
 
 type StatusFilter = 'all' | 'overdue' | 'today' | 'future'
 
-// Helper: Format date to human readable (ej: "Hoy", "Ayer", "26 ene")
+const APPOINTMENT_TYPE_LABELS: Record<string, string> = {
+  first_meeting: 'Primera reunión',
+  closing: 'Cierre',
+  follow_up: 'Seguimiento',
+}
+
 function formatHumanDate(dateString: string | null | undefined): string {
   if (!dateString) return ''
   try {
     const date = new Date(dateString)
     const today = todayLocalYmd()
     const dateYmd = date.toISOString().split('T')[0]
-    
+
     if (dateYmd === today) return 'Hoy'
-    
+
     const yesterday = addDaysYmd(today, -1)
     if (dateYmd === yesterday) return 'Ayer'
-    
+
     const tomorrow = addDaysYmd(today, 1)
     if (dateYmd === tomorrow) return 'Mañana'
-    
-    // Formato: "26 ene"
+
     const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
     const day = date.getDate()
     const month = months[date.getMonth()]
@@ -31,53 +37,39 @@ function formatHumanDate(dateString: string | null | undefined): string {
   }
 }
 
-const ACTION_TYPE_LABELS: Record<string, string> = {
-  contact: 'Contacto',
-  meeting: 'Reunión',
-}
-
-function getActionTypeLabel(type: string | null | undefined): string {
+function getAppointmentTypeLabel(type: string | null | undefined): string {
   if (!type) return ''
-  return ACTION_TYPE_LABELS[type] ?? type
+  return APPOINTMENT_TYPE_LABELS[type] ?? type
 }
 
-// Usa next_action_at (el mismo campo que usa el Pipeline y el Kanban)
-function getNextActionStatus(nextActionAt: string | null | undefined): 'overdue' | 'today' | 'future' | 'none' {
-  if (!nextActionAt) return 'none'
-
+/** Comparación por fecha local (YMD del ISO). */
+function getStartsAtStatus(startsAt: string | null | undefined): 'overdue' | 'today' | 'future' | 'none' {
+  if (!startsAt) return 'none'
   const today = todayLocalYmd()
-  const actionYmd = nextActionAt.split('T')[0]
-
-  if (actionYmd < today) return 'overdue'
-  if (actionYmd === today) return 'today'
+  const ymd = startsAt.split('T')[0]
+  if (ymd < today) return 'overdue'
+  if (ymd === today) return 'today'
   return 'future'
 }
 
-function sortLeadsByNextAction(leads: Lead[]): Lead[] {
-  return [...leads].sort((a, b) => {
-    const aStatus = getNextActionStatus(a.next_action_at)
-    const bStatus = getNextActionStatus(b.next_action_at)
+type LeadNextAppointmentRow = {
+  lead: Lead
+  event: CalendarEvent
+}
 
-    const statusOrder: Record<string, number> = { overdue: 0, today: 1, future: 2, none: 3 }
-    const aOrder = statusOrder[aStatus] ?? 3
-    const bOrder = statusOrder[bStatus] ?? 3
-
-    if (aOrder !== bOrder) return aOrder - bOrder
-
-    if (a.next_action_at && b.next_action_at) {
-      return new Date(a.next_action_at).getTime() - new Date(b.next_action_at).getTime()
-    }
-    if (a.next_action_at) return -1
-    if (b.next_action_at) return 1
-
-    return (a.full_name || '').localeCompare(b.full_name || '')
+function sortRows(rows: LeadNextAppointmentRow[]): LeadNextAppointmentRow[] {
+  return [...rows].sort((a, b) => {
+    const ta = new Date(a.event.starts_at).getTime()
+    const tb = new Date(b.event.starts_at).getTime()
+    if (ta !== tb) return ta - tb
+    return (a.lead.full_name || '').localeCompare(b.lead.full_name || '')
   })
 }
 
-function filterLeadsByStatus(leads: Lead[], status: StatusFilter): Lead[] {
-  if (status === 'all') return leads
-  return leads.filter((lead) => {
-    const s = getNextActionStatus(lead.next_action_at)
+function filterRowsByStatus(rows: LeadNextAppointmentRow[], status: StatusFilter): LeadNextAppointmentRow[] {
+  if (status === 'all') return rows
+  return rows.filter((row) => {
+    const s = getStartsAtStatus(row.event.starts_at)
     if (status === 'overdue') return s === 'overdue'
     if (status === 'today') return s === 'today'
     if (status === 'future') return s === 'future'
@@ -85,61 +77,80 @@ function filterLeadsByStatus(leads: Lead[], status: StatusFilter): Lead[] {
   })
 }
 
-// Helper: Filter leads by search text
-function filterLeadsBySearch(leads: Lead[], searchText: string): Lead[] {
-  if (!searchText.trim()) return leads
-  
-  const searchLower = searchText.toLowerCase()
-  return leads.filter((lead) => {
+function filterRowsBySearch(rows: LeadNextAppointmentRow[], searchText: string): LeadNextAppointmentRow[] {
+  if (!searchText.trim()) return rows
+  const q = searchText.toLowerCase()
+  return rows.filter(({ lead }) => {
     const name = (lead.full_name || '').toLowerCase()
     const source = (lead.source || '').toLowerCase()
-    return name.includes(searchLower) || source.includes(searchLower)
+    return name.includes(q) || source.includes(q)
   })
+}
+
+/** Próxima cita programada por lead (la más próxima en el tiempo). */
+function pickNextEventPerLead(events: CalendarEvent[]): CalendarEvent[] {
+  const withLead = events.filter((e): e is CalendarEvent & { lead_id: string } => Boolean(e.lead_id))
+  const byLead = new Map<string, CalendarEvent>()
+  for (const ev of withLead) {
+    const cur = byLead.get(ev.lead_id)
+    if (!cur || new Date(ev.starts_at) < new Date(cur.starts_at)) {
+      byLead.set(ev.lead_id, ev)
+    }
+  }
+  return [...byLead.values()].sort((a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime())
 }
 
 export function FocusPage() {
   const navigate = useNavigate()
-  const [leads, setLeads] = useState<Lead[]>([])
+  const [rows, setRows] = useState<LeadNextAppointmentRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [searchText, setSearchText] = useState('')
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     setError(null)
-
     try {
-      const allLeads = await pipelineApi.getLeads('activos')
-      // Solo leads con next_follow_up_at o sin fecha (para mostrar todos)
-      setLeads(allLeads)
+      const fromPast = new Date()
+      fromPast.setDate(fromPast.getDate() - 60)
+      const events = await calendarApi.listUpcomingEvents({
+        from: fromPast.toISOString(),
+        limit: 300,
+      })
+      const nextPerLead = pickNextEventPerLead(events)
+      const leadIds = nextPerLead.map((e) => e.lead_id as string)
+      const leads = await pipelineApi.getLeadsByIds(leadIds)
+      const leadById = new Map(leads.map((l) => [l.id, l]))
+      const built: LeadNextAppointmentRow[] = []
+      for (const ev of nextPerLead) {
+        const lead = leadById.get(ev.lead_id as string)
+        if (lead) built.push({ lead, event: ev })
+      }
+      setRows(sortRows(built))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar datos')
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  // Filter and sort leads
-  const filteredLeads = useMemo(() => {
-    let filtered = filterLeadsBySearch(leads, searchText)
-    filtered = filterLeadsByStatus(filtered, statusFilter)
-    return sortLeadsByNextAction(filtered)
-  }, [leads, searchText, statusFilter])
+  useEffect(() => {
+    void loadData()
+  }, [loadData])
 
-  // Count by status
+  const filteredRows = useMemo(() => {
+    let list = filterRowsBySearch(rows, searchText)
+    list = filterRowsByStatus(list, statusFilter)
+    return sortRows(list)
+  }, [rows, searchText, statusFilter])
+
   const counts = useMemo(() => {
-    const overdue = leads.filter((l: Lead) => getNextActionStatus(l.next_action_at) === 'overdue').length
-    const today = leads.filter((l: Lead) => getNextActionStatus(l.next_action_at) === 'today').length
-    const future = leads.filter((l: Lead) => getNextActionStatus(l.next_action_at) === 'future').length
-    const none = leads.filter((l: Lead) => getNextActionStatus(l.next_action_at) === 'none').length
-
-    return { total: leads.length, overdue, today, future, none }
-  }, [leads])
+    const overdue = rows.filter((r) => getStartsAtStatus(r.event.starts_at) === 'overdue').length
+    const today = rows.filter((r) => getStartsAtStatus(r.event.starts_at) === 'today').length
+    const future = rows.filter((r) => getStartsAtStatus(r.event.starts_at) === 'future').length
+    return { total: rows.length, overdue, today, future }
+  }, [rows])
 
   if (loading) {
     return (
@@ -147,7 +158,7 @@ export function FocusPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold mb-1">Qué hacer hoy</h1>
-            <p className="text-sm text-muted">Leads que requieren seguimiento</p>
+            <p className="text-sm text-muted">Próximas citas en el calendario</p>
           </div>
         </div>
         <div className="text-center p-8">
@@ -163,12 +174,12 @@ export function FocusPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold mb-1">Qué hacer hoy</h1>
-            <p className="text-sm text-muted">Leads que requieren seguimiento</p>
+            <p className="text-sm text-muted">Próximas citas en el calendario</p>
           </div>
         </div>
         <div className="card p-4 bg-red-50 border border-red-200">
           <p className="text-sm text-red-700 mb-3">{error}</p>
-          <button onClick={() => loadData()} className="btn btn-primary text-sm">
+          <button type="button" onClick={() => void loadData()} className="btn btn-primary text-sm">
             Reintentar
           </button>
         </div>
@@ -176,22 +187,22 @@ export function FocusPage() {
     )
   }
 
-  if (leads.length === 0) {
+  if (rows.length === 0) {
     return (
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold mb-1">Qué hacer hoy</h1>
-            <p className="text-sm text-muted">Leads que requieren seguimiento</p>
+            <p className="text-sm text-muted">Próximas citas en el calendario</p>
           </div>
         </div>
         <div className="card text-center p-12">
-          <p className="mb-4 text-base">No hay leads con próxima acción programada.</p>
-          <p className="text-muted mb-6">Configura el próximo paso en tus leads desde el Pipeline o el Kanban.</p>
-          <button
-            onClick={() => navigate('/pipeline')}
-            className="btn btn-primary"
-          >
+          <p className="mb-4 text-base">No hay citas programadas con lead asociado.</p>
+          <p className="text-muted mb-6">Crea citas desde el pipeline o el calendario.</p>
+          <button type="button" onClick={() => navigate('/calendar')} className="btn btn-primary mr-2">
+            Ir al calendario
+          </button>
+          <button type="button" onClick={() => navigate('/pipeline')} className="btn btn-ghost">
             Ir al Pipeline
           </button>
         </div>
@@ -201,25 +212,23 @@ export function FocusPage() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold mb-1">Qué hacer hoy</h1>
-          <p className="text-sm text-muted">Leads que requieren seguimiento</p>
+          <p className="text-sm text-muted">Próximas citas en el calendario</p>
         </div>
-        <button onClick={() => loadData()} className="btn btn-ghost text-sm">
+        <button type="button" onClick={() => void loadData()} className="btn btn-ghost text-sm">
           Actualizar
         </button>
       </div>
 
-      {/* Counters */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <div className="card p-3">
           <div className="text-xs text-muted mb-1">Total</div>
           <div className="text-xl font-black">{counts.total}</div>
         </div>
         <div className="card p-3 bg-red-50 border border-red-200">
-          <div className="text-xs text-red-700 mb-1">Vencidos</div>
+          <div className="text-xs text-red-700 mb-1">Atrasadas</div>
           <div className="text-xl font-black text-red-700">{counts.overdue}</div>
         </div>
         <div className="card p-3 bg-amber-50 border border-amber-200">
@@ -230,20 +239,15 @@ export function FocusPage() {
           <div className="text-xs text-blue-700 mb-1">Futuro</div>
           <div className="text-xl font-black text-blue-700">{counts.future}</div>
         </div>
-        <div className="card p-3">
-          <div className="text-xs text-muted mb-1">Sin fecha</div>
-          <div className="text-xl font-black">{counts.none}</div>
-        </div>
       </div>
 
-      {/* Filters */}
       <div className="card p-3">
         <div className="flex flex-col gap-3">
-          {/* Status Tabs */}
           <div className="flex gap-1 flex-wrap">
             {(['all', 'overdue', 'today', 'future'] as StatusFilter[]).map((filter) => (
               <button
                 key={filter}
+                type="button"
                 onClick={() => setStatusFilter(filter)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                   statusFilter === filter
@@ -254,15 +258,13 @@ export function FocusPage() {
                 {filter === 'all'
                   ? 'Todos'
                   : filter === 'overdue'
-                    ? 'Vencidos'
+                    ? 'Atrasadas'
                     : filter === 'today'
                       ? 'Hoy'
                       : 'Futuro'}
               </button>
             ))}
           </div>
-
-          {/* Search */}
           <input
             type="text"
             placeholder="Buscar por nombre..."
@@ -273,58 +275,62 @@ export function FocusPage() {
         </div>
       </div>
 
-      {/* Leads List */}
-      {filteredLeads.length === 0 ? (
+      {filteredRows.length === 0 ? (
         <div className="card text-center p-6">
           <p className="text-muted">No hay resultados para los filtros seleccionados.</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filteredLeads.map((lead) => {
-            const actionStatus = getNextActionStatus(lead.next_action_at)
+          {filteredRows.map(({ lead, event }) => {
+            const st = getStartsAtStatus(event.starts_at)
             const statusClass =
-              actionStatus === 'overdue'
+              st === 'overdue'
                 ? 'border-l-4 border-l-red-500 bg-red-50 dark:bg-red-950/20'
-                : actionStatus === 'today'
+                : st === 'today'
                   ? 'border-l-4 border-l-amber-500 bg-amber-50 dark:bg-amber-950/20'
                   : ''
 
             return (
               <div
-                key={lead.id}
+                key={`${lead.id}-${event.id}`}
                 className={`card p-3 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${statusClass}`}
                 onClick={() => navigate(`/leads/${lead.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    navigate(`/leads/${lead.id}`)
+                  }
+                }}
+                role="button"
+                tabIndex={0}
               >
                 <div className="flex items-start justify-between gap-2 mb-1.5">
                   <div className="flex-1 min-w-0">
                     <div className="font-semibold text-sm mb-0.5">{lead.full_name}</div>
                     <div className="flex items-center gap-2 flex-wrap text-xs text-muted">
-                      {lead.source && (
+                      {lead.source ? (
                         <span className="px-2 py-0.5 bg-black/5 dark:bg-white/10 rounded">{lead.source}</span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 </div>
-
                 <div className="space-y-1 text-xs">
-                  {lead.next_action_at ? (
-                    <div className={`flex items-center gap-1.5 px-2 py-1 rounded ${
-                      actionStatus === 'overdue' ? 'text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-900/30' :
-                      actionStatus === 'today' ? 'text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/30' :
-                      'text-muted'
-                    }`}>
-                      {lead.next_action_type && (
-                        <span className="font-medium">{getActionTypeLabel(lead.next_action_type)} ·</span>
-                      )}
-                      <span>
-                        {formatHumanDate(lead.next_action_at)}
-                        {actionStatus === 'overdue' && ' · Vencido'}
-                        {actionStatus === 'today' && ' · Hoy'}
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="text-muted">Sin próxima acción programada</div>
-                  )}
+                  <div
+                    className={`flex items-center gap-1.5 px-2 py-1 rounded ${
+                      st === 'overdue'
+                        ? 'text-red-700 bg-red-100 dark:text-red-300 dark:bg-red-900/30'
+                        : st === 'today'
+                          ? 'text-amber-700 bg-amber-100 dark:text-amber-300 dark:bg-amber-900/30'
+                          : 'text-muted'
+                    }`}
+                  >
+                    <span className="font-medium">{getAppointmentTypeLabel(event.type)} ·</span>
+                    <span>
+                      {formatHumanDate(event.starts_at)}
+                      {st === 'overdue' && ' · Atrasada'}
+                      {st === 'today' && ' · Hoy'}
+                    </span>
+                  </div>
                 </div>
               </div>
             )

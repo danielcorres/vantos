@@ -10,7 +10,6 @@ import { useReducedMotion } from '../shared/hooks/useReducedMotion'
 import { useDirtyState } from '../shared/hooks/useDirtyState'
 import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/UnsavedChangesBar'
 import { getStageTagClasses, displayStageName } from '../shared/utils/stageStyles'
-import { NextActionActions } from '../components/pipeline/NextActionActions'
 import { LeadSourceTag } from '../components/pipeline/LeadSourceTag'
 import { LeadAppointmentsList } from '../features/calendar/components/LeadAppointmentsList'
 import type { LeadTemperature } from '../features/pipeline/pipeline.api'
@@ -31,8 +30,6 @@ type LeadData = {
   archive_reason: string | null
   referral_name: string | null
   lead_condition: string | null
-  next_action_at: string | null
-  next_action_type: string | null
   estimated_value: number | null
   expected_close_at: string | null
   owner_user_id: string | null
@@ -269,7 +266,7 @@ export function LeadDetailPage() {
         supabase
           .from('leads')
           .select(
-            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition,next_action_at,next_action_type,estimated_value,expected_close_at,owner_user_id,temperature'
+            'id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,archived_at,archived_by,archive_reason,referral_name,lead_condition,estimated_value,expected_close_at,owner_user_id,temperature'
           )
           .eq('id', id)
           .single(),
@@ -1094,23 +1091,6 @@ export function LeadDetailPage() {
               {savingTemperature ? (
                 <p className="mt-1 text-xs text-neutral-500 dark:text-neutral-400">Guardando…</p>
               ) : null}
-            </div>
-            <div className="mt-3">
-              <label className={FIELD_LABEL}>Próximo paso</label>
-              {lead.archived_at ? (
-                <p className="py-1 text-sm text-neutral-500 dark:text-neutral-400">—</p>
-              ) : (
-                <NextActionActions
-                  leadId={id!}
-                  nextActionAt={lead.next_action_at}
-                  nextActionType={lead.next_action_type}
-                  onUpdated={loadData}
-                  onToast={(msg) => {
-                    setToast({ kind: 'success', text: msg })
-                    setTimeout(() => setToast(null), TOAST_CLEAR_MS)
-                  }}
-                />
-              )}
             </div>
             <div className="mt-4 border-t border-neutral-100 pt-3 dark:border-neutral-800/80">
               <p className={`${SECTION_LABEL} mb-2`}>Tiempos</p>

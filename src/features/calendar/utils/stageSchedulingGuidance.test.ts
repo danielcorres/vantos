@@ -35,40 +35,39 @@ const scheduledFirst = (id: string): CalendarEvent => ({
 })
 
 describe('getSchedulingGuidance', () => {
-  it('contactos_nuevos sin cita → agendar primera', () => {
+  it('sin cita → agendar en cualquier etapa (slug ignorado)', () => {
     const g = getSchedulingGuidance(lead(), 'contactos_nuevos', null, emptySummary())
-    expect(g.mode).toBe('agendar_primera')
+    expect(g.mode).toBe('agendar')
     expect(g.buttonLabel).toBe('Agendar')
-    expect(g.suggestedType).toBe('first_meeting')
-    expect(g.suggestedTitle).toContain('Cita inicial')
+    expect(g.suggestedType).toBe('follow_up')
+    expect(g.suggestedTitle).toContain('Cita:')
+    expect(g.editEventId).toBeNull()
+    expect(g.helpText).toContain('tipo de cita')
   })
 
-  it('contactos_nuevos con cita → reprogramar', () => {
+  it('solicitudes_ingresadas sin cita → agendar (antes era none)', () => {
+    const g = getSchedulingGuidance(lead(), 'solicitudes_ingresadas', null, emptySummary())
+    expect(g.mode).toBe('agendar')
+    expect(g.buttonLabel).toBe('Agendar')
+    expect(g.editEventId).toBeNull()
+  })
+
+  it('con cita scheduled → reprogramar', () => {
     const ap = scheduledFirst('evt-1')
     const g = getSchedulingGuidance(lead(), 'contactos_nuevos', ap, emptySummary())
+    expect(g.mode).toBe('reprogramar')
     expect(g.buttonLabel).toBe('Reprogramar')
     expect(g.editEventId).toBe(ap.id)
+    expect(g.suggestedType).toBe('first_meeting')
   })
 
-  it('solicitudes_ingresadas → none', () => {
-    const g = getSchedulingGuidance(lead(), 'solicitudes_ingresadas', null, emptySummary())
-    expect(g.mode).toBe('none')
-  })
-
-  it('casos_ganados → revisión anual', () => {
-    const g = getSchedulingGuidance(lead(), 'casos_ganados', null, emptySummary())
-    expect(g.mode).toBe('revision_anual')
-    expect(g.suggestedType).toBe('follow_up')
-    expect(g.buttonLabel).toBe('Revisión anual')
-  })
-
-  it('citas_agendadas con primera completada y sin cita → agendar cierre', () => {
+  it('citas_agendadas con primera completada y sin cita → agendar (tipo libre en modal)', () => {
     const sum: LeadSchedulingSummary = {
       ...emptySummary(),
       has_completed_first: true,
     }
     const g = getSchedulingGuidance(lead(), 'citas_agendadas', null, sum)
-    expect(g.mode).toBe('agendar_cierre')
-    expect(g.suggestedType).toBe('closing')
+    expect(g.mode).toBe('agendar')
+    expect(g.suggestedType).toBe('follow_up')
   })
 })

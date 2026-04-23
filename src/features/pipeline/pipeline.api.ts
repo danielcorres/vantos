@@ -1,17 +1,7 @@
 import { supabase } from '../../lib/supabase'
 
-/** Normaliza next_action_type a solo 'contact' | 'meeting' (compatibilidad con legacy). */
-function normalizeNextActionType(t: string | null | undefined): string | null {
-  const v = (t ?? '').trim().toLowerCase()
-  if (!v) return null
-  if (v === 'meeting' || v === 'contact') return v
-  if (v === 'call' || v === 'follow_up') return 'contact'
-  if (v === 'presentation') return 'meeting'
-  return 'contact'
-}
-
 const LEAD_SELECT_COLUMNS =
-  'id,owner_user_id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,next_follow_up_at,archived_at,archived_by,archive_reason,referral_name,cita_realizada_at,propuesta_presentada_at,cerrado_at,lead_condition,next_action_at,next_action_type,estimated_value,expected_close_at,temperature'
+  'id,owner_user_id,full_name,phone,email,source,notes,stage_id,stage_changed_at,created_at,updated_at,last_contact_at,archived_at,archived_by,archive_reason,referral_name,cita_realizada_at,propuesta_presentada_at,cerrado_at,lead_condition,estimated_value,expected_close_at,temperature'
 
 /** Tamaño de página por etapa en Kanban y página por defecto en listas. */
 export const PIPELINE_STAGE_PAGE_SIZE = 50
@@ -44,7 +34,6 @@ function normalizeLead(row: Record<string, unknown>): Lead {
   return {
     ...row,
     last_contact_at: (row.last_contact_at as string | null) ?? null,
-    next_follow_up_at: (row.next_follow_up_at as string | null) ?? null,
     archived_at: (row.archived_at as string | null) ?? null,
     archived_by: (row.archived_by as string | null) ?? null,
     archive_reason: (row.archive_reason as string | null) ?? null,
@@ -52,8 +41,6 @@ function normalizeLead(row: Record<string, unknown>): Lead {
     propuesta_presentada_at: (row.propuesta_presentada_at as string | null) ?? null,
     cerrado_at: (row.cerrado_at as string | null) ?? null,
     referral_name: (row.referral_name as string | null) ?? null,
-    next_action_at: (row.next_action_at as string | null) ?? null,
-    next_action_type: (row.next_action_type as string | null) ?? null,
     estimated_value: (row.estimated_value as number | null) ?? null,
     expected_close_at: (row.expected_close_at as string | null) ?? null,
     temperature: parseLeadTemperature(row.temperature),
@@ -81,7 +68,6 @@ export type Lead = {
   created_at: string
   updated_at: string
   last_contact_at: string | null
-  next_follow_up_at: string | null
   archived_at: string | null
   archived_by: string | null
   archive_reason: string | null
@@ -90,8 +76,6 @@ export type Lead = {
   cerrado_at: string | null
   referral_name: string | null
   lead_condition: string | null
-  next_action_at: string | null
-  next_action_type: string | null
   estimated_value: number | null
   expected_close_at: string | null
   temperature: LeadTemperature | null
@@ -104,10 +88,6 @@ export type CreateLeadInput = {
   source?: string
   notes?: string
   stage_id: string
-  next_follow_up_at?: string
-  /** Opcional: si no se envía, el lead queda sin próxima acción. */
-  next_action_at?: string | null
-  next_action_type?: string | null
   /** Temperatura de interés; omitir o null = sin clasificar. */
   temperature?: LeadTemperature | null
 }
@@ -196,7 +176,7 @@ export const pipelineApi = {
   },
 
   /**
-   * Activos en una etapa, orden alineado con Kanban (next_action_at asc, nulls last, id).
+   * Activos en una etapa, orden alineado con Kanban (stage_changed_at desc, id).
    */
   async getLeadsForStage(
     stageId: string,
@@ -209,7 +189,7 @@ export const pipelineApi = {
       .select(LEAD_SELECT_COLUMNS)
       .eq('stage_id', stageId)
       .is('archived_at', null)
-      .order('next_action_at', { ascending: true, nullsFirst: false })
+      .order('stage_changed_at', { ascending: false })
       .order('id', { ascending: true })
       .range(opts.offset, end)
     if (error) throw error
@@ -230,7 +210,7 @@ export const pipelineApi = {
 
   /**
    * Lista activos con filtros y total (misma consulta con count).
-   * Orden: next_action_at asc nulls last, id (coherente con Kanban por prioridad de fecha).
+   * Orden: stage_changed_at desc, id.
    */
   async queryActivosLeads(params: ActivosQueryParams): Promise<{ leads: Lead[]; total: number }> {
     if (params.idsIn !== undefined && params.idsIn !== null && params.idsIn.length === 0) {
@@ -267,7 +247,7 @@ export const pipelineApi = {
     }
 
     const { data, error, count } = await q
-      .order('next_action_at', { ascending: true, nullsFirst: false })
+      .order('stage_changed_at', { ascending: false })
       .order('id', { ascending: true })
       .range(params.offset, end)
 
@@ -291,8 +271,6 @@ export const pipelineApi = {
   },
 
   async createLead(input: CreateLeadInput): Promise<Lead> {
-    const normalizedType = normalizeNextActionType(input.next_action_type)
-
     const { data, error } = await supabase
       .from('leads')
       .insert({
@@ -302,9 +280,6 @@ export const pipelineApi = {
         source: input.source || null,
         notes: input.notes || null,
         stage_id: input.stage_id,
-        next_follow_up_at: input.next_follow_up_at || null,
-        next_action_at: input.next_action_at ?? null,
-        next_action_type: normalizedType,
         temperature: input.temperature ?? null,
       })
       .select(LEAD_SELECT_COLUMNS)
@@ -317,9 +292,7 @@ export const pipelineApi = {
       const code = (error as { code?: string })?.code
       const msg = (error as { message?: string })?.message ?? ''
       if (code === '23514') {
-        throw new Error(
-          'Lead activo debe tener Próxima Acción válida. Define fecha o deja el tipo vacío.'
-        )
+        throw new Error('No se pudo crear el lead por una restricción de datos. Revisa los campos.')
       }
       if (code === '22P02') {
         throw new Error('Etapa inválida (UUID). Recarga pipeline.')
@@ -340,7 +313,6 @@ export const pipelineApi = {
     notes?: string | null
     stage_id?: string
     last_contact_at?: string | null
-    next_follow_up_at?: string | null
     archived_at?: string | null
     archived_by?: string | null
     archive_reason?: string | null
@@ -349,16 +321,11 @@ export const pipelineApi = {
     cerrado_at?: string | null
     referral_name?: string | null
     lead_condition?: string | null
-    next_action_at?: string | null
-    next_action_type?: string | null
     estimated_value?: number | null
     expected_close_at?: string | null
     temperature?: LeadTemperature | null
   }): Promise<Lead> {
     const payload = { ...updates }
-    if (payload.next_action_type !== undefined) {
-      payload.next_action_type = normalizeNextActionType(payload.next_action_type)
-    }
 
     const { data, error } = await supabase
       .from('leads')
@@ -370,7 +337,7 @@ export const pipelineApi = {
     if (error) {
       const msg =
         error.code === '23514'
-          ? 'Lead activo debe tener Próxima Acción. Define una fecha o archiva el lead.'
+          ? 'No se pudo guardar por una restricción de datos. Revisa los campos.'
           : error.message
       throw new Error(msg)
     }
@@ -412,14 +379,5 @@ export const pipelineApi = {
     const { error } = await supabase.from('leads').delete().eq('id', leadId)
 
     if (error) throw error
-  },
-
-  /** Registra completado de próximo paso (contact→calls, meeting→meetings_held vía RPC). */
-  async logNextActionCompletion(leadId: string, actionType: 'contact' | 'meeting'): Promise<void> {
-    const { error } = await supabase.rpc('log_next_action_completion', {
-      p_lead_id: leadId,
-      p_action_type: actionType,
-    })
-    if (error) throw new Error(error.message)
   },
 }

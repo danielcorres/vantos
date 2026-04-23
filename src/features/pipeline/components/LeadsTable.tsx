@@ -1,7 +1,5 @@
 import type { Lead } from '../pipeline.api'
-import type { ProximaLabel } from '../utils/proximaLabel'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
-import { todayLocalYmd } from '../../../shared/utils/dates'
 
 type Stage = { id: string; name: string; position: number; slug?: string }
 
@@ -17,7 +15,6 @@ function normalizeWhatsAppNumber(digits: string): string {
   return ''
 }
 
-// Iconos pequeños inline (hit-area p-2, discretos)
 const IconWhatsApp = () => (
   <svg className="size-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
@@ -38,19 +35,15 @@ const IconEmail = () => (
 type LeadsTableProps = {
   leads: Lead[]
   stages: Stage[]
-  getProximaLabel: (stageName: string, next_follow_up_at: string | null | undefined) => ProximaLabel
   onRowClick: (lead: Lead) => void
 }
 
-/** Clase pill de etapa más suave para tabla (pastel muy suave + text oscuro). Resuelve por slug. */
 function getTableStagePillClasses(stageSlug: string | undefined): string {
   const base = getStageTagClasses(stageSlug)
   return `${base} opacity-90`
 }
 
-export function LeadsTable({ leads, stages, getProximaLabel, onRowClick }: LeadsTableProps) {
-  const today = todayLocalYmd()
-
+export function LeadsTable({ leads, stages, onRowClick }: LeadsTableProps) {
   return (
     <div className="overflow-x-auto rounded-xl border border-neutral-200 bg-white shadow-sm">
       <table className="w-full text-sm">
@@ -59,7 +52,6 @@ export function LeadsTable({ leads, stages, getProximaLabel, onRowClick }: Leads
             <th className="py-3 pr-4 text-left text-xs font-medium uppercase tracking-wide text-neutral-500">Lead</th>
             <th className="py-3 pr-4 text-left text-xs font-medium uppercase tracking-wide text-neutral-500">Contacto</th>
             <th className="py-3 pr-4 text-left text-xs font-medium uppercase tracking-wide text-neutral-500">Fuente</th>
-            <th className="py-3 pr-4 text-left text-xs font-medium uppercase tracking-wide text-neutral-500">Próxima</th>
             <th className="py-3 pr-4 text-left text-xs font-medium uppercase tracking-wide text-neutral-500">Etapa</th>
             <th className="py-3 pl-4 text-right text-xs font-medium uppercase tracking-wide text-neutral-500">Acciones</th>
           </tr>
@@ -67,7 +59,7 @@ export function LeadsTable({ leads, stages, getProximaLabel, onRowClick }: Leads
         <tbody className="divide-y divide-neutral-100">
           {leads.length === 0 ? (
             <tr>
-              <td colSpan={6} className="py-10 text-center text-sm text-neutral-500">
+              <td colSpan={5} className="py-10 text-center text-sm text-neutral-500">
                 No hay leads en esta vista.
               </td>
             </tr>
@@ -76,16 +68,10 @@ export function LeadsTable({ leads, stages, getProximaLabel, onRowClick }: Leads
               const stage = stages.find((s) => s.id === lead.stage_id)
               const stageName = stage?.name
               const stageSlug = stage?.slug
-              const proxima = getProximaLabel(stageName ?? '', lead.next_follow_up_at)
               const digits = phoneDigits(lead.phone ?? '')
               const waNumber = normalizeWhatsAppNumber(digits)
               const hasPhone = !!(lead.phone?.trim())
               const hasEmail = !!(lead.email?.trim())
-              const ymd = lead.next_follow_up_at?.split('T')[0]
-              const dateStatus = ymd ? (ymd < today ? 'overdue' : ymd === today ? 'today' : 'normal') : null
-              const [actionPart, datePart] = proxima.line.includes(' · ')
-                ? proxima.line.split(' · ')
-                : [proxima.line, '']
 
               return (
                 <tr
@@ -99,9 +85,7 @@ export function LeadsTable({ leads, stages, getProximaLabel, onRowClick }: Leads
                   </td>
                   <td className="max-w-[180px] py-3 pr-4">
                     <div className="truncate text-sm text-neutral-600">
-                      {lead.phone ? (
-                        <span className="block truncate">{lead.phone}</span>
-                      ) : null}
+                      {lead.phone ? <span className="block truncate">{lead.phone}</span> : null}
                       {lead.email ? (
                         <span className={`block truncate ${lead.phone ? 'mt-0.5' : ''}`}>{lead.email}</span>
                       ) : null}
@@ -116,32 +100,7 @@ export function LeadsTable({ leads, stages, getProximaLabel, onRowClick }: Leads
                     )}
                   </td>
                   <td className="py-3 pr-4">
-                    <span className="text-sm">
-                      <span className="font-medium text-neutral-900">{actionPart}</span>
-                      {datePart ? (
-                        <>
-                          {' · '}
-                          <span
-                            className={
-                              datePart === 'sin fecha'
-                                ? 'text-neutral-400'
-                                : dateStatus === 'overdue'
-                                  ? 'text-red-600'
-                                  : dateStatus === 'today'
-                                    ? 'text-neutral-700'
-                                    : 'text-neutral-500'
-                            }
-                          >
-                            {datePart}
-                          </span>
-                        </>
-                      ) : null}
-                    </span>
-                  </td>
-                  <td className="py-3 pr-4">
-                    <span className={getTableStagePillClasses(stageSlug)}>
-                      {displayStageName(stageName)}
-                    </span>
+                    <span className={getTableStagePillClasses(stageSlug)}>{displayStageName(stageName)}</span>
                   </td>
                   <td className="py-3 pl-4 text-right" onClick={(e) => e.stopPropagation()}>
                     <span className="inline-flex items-center justify-end gap-0.5">

@@ -25,7 +25,6 @@ import { STAGE_SLUGS_ORDER } from '../productivity/types/productivity.types'
 import { Toast } from '../../shared/components/Toast'
 import { displayStageName } from '../../shared/utils/stageStyles'
 import type { CreateLeadInput } from './pipeline.api'
-import { NextActionModal } from '../../components/pipeline/NextActionModal'
 import { calendarApi } from '../calendar/api/calendar.api'
 import type { CalendarEvent } from '../calendar/types/calendar.types'
 import { resolveCalModalFromGuidance } from './utils/resolveCalModalFromGuidance'
@@ -112,11 +111,6 @@ export function PipelinePage() {
 
   const [calModal, setCalModal] = useState<CalModalState>(null)
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
-  const [pendingMove, setPendingMove] = useState<{
-    leadId: string
-    fromStageId: string
-    toStageId: string
-  } | null>(null)
   const kanbanRef = useRef<HTMLDivElement>(null)
 
   const [nextAppointmentByLeadId, setNextAppointmentByLeadId] = useState<
@@ -459,11 +453,6 @@ export function PipelinePage() {
         setDraggedLead(null)
         return
       }
-      if (draggedLead.next_action_at == null) {
-        setPendingMove({ leadId: draggedLead.id, fromStageId, toStageId })
-        setDraggedLead(null)
-        return
-      }
       dispatch({
         type: 'MOVE_OPTIMISTIC',
         payload: {
@@ -503,7 +492,7 @@ export function PipelinePage() {
         setDraggedLead(null)
       }
     },
-    [draggedLead, dispatch, refreshAffectedStages]
+    [draggedLead, dispatch, refreshAffectedStages, state.stages]
   )
 
   /**
@@ -516,11 +505,6 @@ export function PipelinePage() {
     const fromStageId = lead.stage_id
     const prevStageChangedAt = lead.stage_changed_at ?? null
     if (fromStageId === toStageId) return
-
-    if (lead.next_action_at == null) {
-      setPendingMove({ leadId, fromStageId, toStageId })
-      return
-    }
 
     const scrollY = window.scrollY
     const stageName = state.stages.find((s) => s.id === toStageId)?.name
@@ -892,15 +876,18 @@ export function PipelinePage() {
 
       <PostCreateCalendarAskDialog
         isOpen={postCreateAskLead != null}
-        onSelect={(type) => {
+        onAgendar={() => {
           const lead = postCreateAskLead
           if (!lead) return
+          const slug = state.stages.find((s) => s.id === lead.stage_id)?.slug
+          const g = getSchedulingGuidance(lead, slug, null, undefined)
           setCalModal({
             mode: 'create',
             leadId: lead.id,
-            initialAppointmentType: type,
-            lockType: type,
-            helpText: null,
+            initialAppointmentType: g.suggestedType,
+            initialTitle: g.suggestedTitle,
+            lockType: null,
+            helpText: g.helpText,
           })
           setPostCreateAskLead(null)
         }}
@@ -938,45 +925,6 @@ export function PipelinePage() {
           helpText={calModal.helpText ?? null}
         />
       )}
-
-      <NextActionModal
-        isOpen={pendingMove != null}
-        onClose={() => setPendingMove(null)}
-        onSave={async (next_action_at, next_action_type) => {
-          if (!pendingMove) return
-          try {
-            await pipelineApi.updateLead(pendingMove.leadId, { next_action_at, next_action_type })
-          } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : 'No se pudo guardar la próxima acción.'
-            setPipelineToast({ type: 'error', message: msg })
-            return
-          }
-          try {
-            const idempotencyKey = generateIdempotencyKey(
-              pendingMove.leadId,
-              pendingMove.fromStageId,
-              pendingMove.toStageId
-            )
-            await pipelineApi.moveLeadStage(pendingMove.leadId, pendingMove.toStageId, idempotencyKey)
-          } catch {
-            setPipelineToast({
-              type: 'error',
-              message:
-                'Se guardó la próxima acción pero no se pudo mover la etapa. Intenta mover de nuevo.',
-            })
-            await refreshAffectedStages(pendingMove.fromStageId, pendingMove.toStageId)
-            return
-          }
-          await refreshAffectedStages(pendingMove.fromStageId, pendingMove.toStageId)
-          const stageName = state.stages.find((s) => s.id === pendingMove.toStageId)?.name
-          setPipelineToast({
-            type: 'success',
-            message: stageName ? `Movido a ${displayStageName(stageName)}` : 'Etapa actualizada',
-          })
-          setPendingMove(null)
-        }}
-        title="Definir próxima acción para mover"
-      />
 
       {pipelineToast && (
         <Toast

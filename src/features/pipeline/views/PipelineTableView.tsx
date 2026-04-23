@@ -12,7 +12,6 @@ import { LeadCreateModal } from '../components/LeadCreateModal'
 import { PostCreateCalendarAskDialog } from '../components/PostCreateCalendarAskDialog'
 import { AppointmentFormModal } from '../../calendar/components/AppointmentFormModal'
 import type { AppointmentType } from '../../calendar/types/calendar.types'
-import { NextActionModal } from '../../../components/pipeline/NextActionModal'
 import { PipelineTable } from '../components/PipelineTable'
 import { Toast } from '../../../shared/components/Toast'
 import { formatDateMX } from '../../../shared/utils/dates'
@@ -32,15 +31,13 @@ import { resolveCalModalFromGuidance } from '../utils/resolveCalModalFromGuidanc
 const BTN_PRIMARY =
   'h-9 rounded-xl bg-neutral-900 text-white px-4 text-sm font-semibold gap-2 hover:bg-neutral-800 active:scale-[0.98] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-1 flex-shrink-0 inline-flex items-center justify-center'
 
-// Orden dentro de cada etapa: next_follow_up_at asc (más próximo arriba), nulls last.
+// Orden dentro de cada etapa: más reciente cambio de etapa primero.
 function sortLeadsByPriority(leads: Lead[]): Lead[] {
   return [...leads].sort((a, b) => {
-    const aAt = a.next_follow_up_at ? new Date(a.next_follow_up_at).getTime() : null
-    const bAt = b.next_follow_up_at ? new Date(b.next_follow_up_at).getTime() : null
-    if (aAt != null && bAt != null) return aAt - bAt
-    if (aAt != null && bAt == null) return -1
-    if (aAt == null && bAt != null) return 1
-    return 0
+    const ta = new Date(a.stage_changed_at).getTime()
+    const tb = new Date(b.stage_changed_at).getTime()
+    if (ta !== tb) return tb - ta
+    return (a.full_name || '').localeCompare(b.full_name || '')
   })
 }
 
@@ -110,12 +107,6 @@ export function PipelineTableView({
   const [sourceFilter, setSourceFilter] = useState('')
   /** '' = todas; '__null__' = sin clasificar; frio|tibio|caliente */
   const [temperatureFilter, setTemperatureFilter] = useState('')
-  const [restoreLeadPending, setRestoreLeadPending] = useState<Lead | null>(null)
-  const [pendingMoveStage, setPendingMoveStage] = useState<{
-    leadId: string
-    fromStageId: string
-    toStageId: string
-  } | null>(null)
   const [serverActivosLeads, setServerActivosLeads] = useState<Lead[]>([])
   const [serverActivosTotal, setServerActivosTotal] = useState(0)
   const [activosListLoadedCount, setActivosListLoadedCount] = useState(0)
@@ -516,11 +507,6 @@ export function PipelineTableView({
     if (!lead || lead.stage_id === toStageId) return
     const fromStageId = lead.stage_id
 
-    if (lead.next_action_at == null) {
-      setPendingMoveStage({ leadId, fromStageId, toStageId })
-      return
-    }
-
     await executeMoveStage(leadId, fromStageId, toStageId)
   }
 
@@ -767,35 +753,22 @@ export function PipelineTableView({
                             type="button"
                             onClick={(e) => {
                               e.stopPropagation()
-                              const hasNextAction =
-                                lead.next_action_at != null && lead.next_action_at.trim() !== ''
-                              if (hasNextAction) {
-                                pipelineApi
-                                  .updateLead(lead.id, {
-                                    archived_at: null,
-                                    archived_by: null,
-                                    archive_reason: null,
-                                  })
-                                  .then(async () => {
-                                    await loadData()
-                                    await onRefreshActivos?.()
-                                    setToast({ type: 'success', message: 'Restaurado. Ya aparece en Activos.' })
-                                  })
-                                  .catch((err) => {
-                                    console.error('Error al restaurar lead:', err)
-                                    const msg =
-                                      err instanceof Error &&
-                                      (err.message.includes('23514') ||
-                                        err.message.includes('Próxima Acción'))
-                                        ? 'Para restaurar este lead necesitas definir un Próximo paso.'
-                                        : err instanceof Error
-                                          ? err.message
-                                          : 'Error al restaurar'
-                                    setToast({ type: 'error', message: msg })
-                                  })
-                              } else {
-                                setRestoreLeadPending(lead)
-                              }
+                              void pipelineApi
+                                .updateLead(lead.id, {
+                                  archived_at: null,
+                                  archived_by: null,
+                                  archive_reason: null,
+                                })
+                                .then(async () => {
+                                  await loadData()
+                                  await onRefreshActivos?.()
+                                  setToast({ type: 'success', message: 'Restaurado. Ya aparece en Activos.' })
+                                })
+                                .catch((err) => {
+                                  console.error('Error al restaurar lead:', err)
+                                  const msg = err instanceof Error ? err.message : 'Error al restaurar'
+                                  setToast({ type: 'error', message: msg })
+                                })
                             }}
                             className="btn btn-ghost text-xs"
                           >
@@ -868,15 +841,18 @@ export function PipelineTableView({
 
       <PostCreateCalendarAskDialog
         isOpen={postCreateAskLead != null}
-        onSelect={(type) => {
+        onAgendar={() => {
           const lead = postCreateAskLead
           if (!lead) return
+          const slug = stages.find((s) => s.id === lead.stage_id)?.slug
+          const g = getSchedulingGuidance(lead, slug, null, undefined)
           setCalModal({
             mode: 'create',
             leadId: lead.id,
-            initialAppointmentType: type,
-            lockType: type,
-            helpText: null,
+            initialAppointmentType: g.suggestedType,
+            initialTitle: g.suggestedTitle,
+            lockType: null,
+            helpText: g.helpText,
           })
           setPostCreateAskLead(null)
         }}
@@ -914,56 +890,6 @@ export function PipelineTableView({
           helpText={calModal.helpText ?? null}
         />
       )}
-
-      <NextActionModal
-        isOpen={pendingMoveStage != null}
-        onClose={() => setPendingMoveStage(null)}
-        onSave={async (next_action_at, next_action_type) => {
-          const pending = pendingMoveStage
-          if (!pending) return
-          try {
-            await pipelineApi.updateLead(pending.leadId, { next_action_at, next_action_type })
-          } catch (err) {
-            setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al guardar próxima acción' })
-            throw err
-          }
-          setPendingMoveStage(null)
-          await executeMoveStage(pending.leadId, pending.fromStageId, pending.toStageId)
-        }}
-        title="Define el próximo paso para mover"
-        allowNoDate={false}
-      />
-
-      <NextActionModal
-        isOpen={restoreLeadPending != null}
-        onClose={() => setRestoreLeadPending(null)}
-        onSave={async (next_action_at, next_action_type) => {
-          const lead = restoreLeadPending
-          if (!lead) return
-          try {
-            await pipelineApi.updateLead(lead.id, {
-              next_action_at,
-              next_action_type,
-              archived_at: null,
-              archived_by: null,
-              archive_reason: null,
-            })
-            setRestoreLeadPending(null)
-            await loadData()
-            await onRefreshActivos?.()
-            setToast({ type: 'success', message: 'Restaurado. Ya aparece en Activos.' })
-          } catch (err) {
-            console.error('Error al restaurar lead (NextActionModal):', err)
-            const msg = err instanceof Error ? err.message : 'Error al restaurar'
-            setToast({ type: 'error', message: msg })
-            throw err
-          }
-        }}
-        title="Define el próximo paso para restaurar"
-        initialNextActionAt={restoreLeadPending?.next_action_at}
-        initialNextActionType={restoreLeadPending?.next_action_type}
-        allowNoDate={false}
-      />
 
       {toast && (
         <Toast

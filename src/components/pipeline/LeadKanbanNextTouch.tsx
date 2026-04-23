@@ -16,7 +16,7 @@ export function LeadKanbanNextTouch({
 }: {
   leadId: string
   nextAppointment: CalendarEvent | null | undefined
-  /** Si viene, etiquetas y CTA siguen la guía por etapa. */
+  /** Si viene, CTA y textos de ayuda alineados con la guía de agenda (misma en todas las etapas). */
   schedulingGuidance?: SchedulingGuidance | null
   onSchedule?: (leadId: string) => void
   variant?: Variant
@@ -74,21 +74,6 @@ export function LeadKanbanNextTouch({
             Reprogramar
           </button>
         ) : null}
-      </div>
-    )
-  }
-
-  if (!legacy && schedulingGuidance.mode === 'none') {
-    return (
-      <div
-        className="flex flex-wrap items-center gap-1 min-w-0 max-w-full"
-        data-stop-rowclick="true"
-        onClick={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        <span className="text-[11px] text-neutral-400 truncate" title={schedulingGuidance.helpText ?? undefined}>
-          {schedulingGuidance.helpText?.trim() || '—'}
-        </span>
       </div>
     )
   }

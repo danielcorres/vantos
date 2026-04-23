@@ -5,10 +5,7 @@ import type { SchedulingGuidance } from '../../calendar/utils/stageSchedulingGui
 import { EmptyState } from '../../../components/pipeline/EmptyState'
 import { InfoPopover } from '../../../shared/components/InfoPopover'
 import { LeadCard } from './LeadCard'
-import {
-  sortLeadsByEffectiveNextTouch,
-  aggregateEffectiveNextTouchColumnCounts,
-} from '../utils/effectiveNextTouch'
+import { sortLeadsByEffectiveNextTouch } from '../utils/effectiveNextTouch'
 import { getStageHelp } from '../utils/stageHelp'
 import { displayStageName } from '../../../shared/utils/stageStyles'
 
@@ -62,12 +59,8 @@ function KanbanColumnInner({
     () => sortLeadsByEffectiveNextTouch(leads, nextAppointmentByLeadId),
     [leads, nextAppointmentByLeadId]
   )
-  const counts = useMemo(
-    () => aggregateEffectiveNextTouchColumnCounts(leads, nextAppointmentByLeadId),
-    [leads, nextAppointmentByLeadId]
-  )
   const stageHelp = useMemo(() => getStageHelp(stage.slug ?? stage.name), [stage.slug, stage.name])
-  const headerTotal = totalInStage ?? counts.total
+  const headerTotal = totalInStage ?? leads.length
   const showPartialHint =
     typeof loadedInStage === 'number' &&
     typeof totalInStage === 'number' &&
@@ -123,16 +116,6 @@ function KanbanColumnInner({
               <span className="text-neutral-400 font-normal"> · mostrando {loadedInStage}</span>
             ) : null}
           </span>
-          {counts.overdue > 0 && (
-            <span className="tabular-nums text-red-600 font-medium" title="Atrasados">
-              {counts.overdue} atrasados
-            </span>
-          )}
-          {counts.today > 0 && (
-            <span className="tabular-nums text-emerald-600 font-medium" title="Hoy">
-              {counts.today} hoy
-            </span>
-          )}
         </div>
       </div>
       <div className="flex-1 overflow-y-auto min-h-[200px] p-2">

@@ -1,19 +1,16 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { pipelineApi, type Lead, type PipelineStage } from '../pipeline.api'
+import type { Lead, PipelineStage } from '../pipeline.api'
 import type { CalendarEvent } from '../../calendar/types/calendar.types'
 import type { SchedulingGuidance } from '../../calendar/utils/stageSchedulingGuidance'
 import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
 import { LeadTemperatureChip } from '../../../components/pipeline/LeadTemperatureChip'
 import { LeadKanbanNextTouch } from '../../../components/pipeline/LeadKanbanNextTouch'
 import { LeadCardMenu } from '../../../components/pipeline/LeadCardMenu'
-import { NextActionModal } from '../../../components/pipeline/NextActionModal'
 import { isLikelyNeverMoved } from '../../../shared/utils/leadUtils'
-import { getEffectiveNextTouchUrgency } from '../utils/effectiveNextTouch'
-import type { NextActionUrgency } from '../../../shared/utils/nextAction'
+import { getEffectiveNextTouchUrgency, type NextTouchUrgency } from '../utils/effectiveNextTouch'
 import type { PipelineStageLite } from '../../../components/pipeline/LeadProgressDots'
 
-const URGENCY_BAR: Record<NextActionUrgency, string> = {
+const URGENCY_BAR: Record<NextTouchUrgency, string> = {
   overdue: 'bg-red-500',
   today: 'bg-emerald-500',
   tomorrow: 'bg-amber-500',
@@ -44,14 +41,13 @@ export function LeadCard({
   schedulingGuidance,
   onDragStart,
   onMoveStage,
-  onToast,
-  onUpdated,
+  onToast: _onToast,
+  onUpdated: _onUpdated,
   onSchedule,
 }: LeadCardProps) {
   const navigate = useNavigate()
   const stagesLite = stagesToLite(stages)
-  const [nextActionModalOpen, setNextActionModalOpen] = useState(false)
-  const urgency = getEffectiveNextTouchUrgency(nextAppointment, null)
+  const urgency = getEffectiveNextTouchUrgency(nextAppointment)
   const barClass = URGENCY_BAR[urgency]
 
   return (
@@ -85,12 +81,7 @@ export function LeadCard({
             {lead.full_name}
           </span>
         </div>
-        <LeadCardMenu
-          lead={lead}
-          stages={stagesLite}
-          onMoveStage={onMoveStage}
-          onEditNextAction={() => setNextActionModalOpen(true)}
-        />
+        <LeadCardMenu lead={lead} stages={stagesLite} onMoveStage={onMoveStage} />
       </div>
       <div className="flex items-center gap-1 flex-wrap mt-1">
         {lead.source && (
@@ -112,28 +103,6 @@ export function LeadCard({
           variant="kanban"
         />
       </div>
-
-      <NextActionModal
-        isOpen={nextActionModalOpen}
-        onClose={() => setNextActionModalOpen(false)}
-        onSave={async (next_action_at, next_action_type) => {
-          try {
-            const normalizedType =
-              next_action_type && next_action_type.trim() !== '' ? next_action_type : null
-            await pipelineApi.updateLead(lead.id, { next_action_at, next_action_type: normalizedType })
-            onToast?.('Actualizado')
-            await onUpdated?.()
-          } catch {
-            onToast?.('No se pudo guardar')
-            return
-          }
-          setNextActionModalOpen(false)
-        }}
-        title="Define el próximo paso"
-        initialNextActionAt={lead.next_action_at}
-        initialNextActionType={lead.next_action_type}
-        allowNoDate
-      />
     </div>
   )
 }

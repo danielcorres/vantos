@@ -41,14 +41,6 @@ export async function resolveCalModalFromGuidance(
   const summary = ctx.schedulingSummaryByLeadId[leadId]
   const guidance = getSchedulingGuidance(lead, stageSlug, next ?? undefined, summary)
 
-  if (guidance.mode === 'none' && !guidance.editEventId) {
-    return {
-      kind: 'toast',
-      level: 'info',
-      message: guidance.helpText?.trim() || 'No hay acción de agenda sugerida en esta etapa.',
-    }
-  }
-
   if (guidance.editEventId) {
     try {
       const ev = await calendarApi.getEventById(guidance.editEventId)
@@ -65,19 +57,12 @@ export async function resolveCalModalFromGuidance(
     }
   }
 
-  const lockType: AppointmentType | null =
-    guidance.mode === 'agendar_cierre'
-      ? 'closing'
-      : guidance.mode === 'revision_anual'
-        ? 'follow_up'
-        : null
-
   return {
     kind: 'create',
     leadId,
     initialAppointmentType: guidance.suggestedType,
     initialTitle: guidance.suggestedTitle?.trim() || undefined,
-    lockType,
+    lockType: null,
     helpText: guidance.helpText,
   }
 }
