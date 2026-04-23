@@ -65,7 +65,7 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
     role === 'owner' || role === 'director' ? 'Asignaciones' : 'Mi equipo'
 
   // Definir estructura del menú (regenerar al cambiar rol o carga de auth)
-  const menuSections: MenuSection[] = useMemo(() => {
+  const menuSections = useMemo<MenuSection[]>(() => {
     void role
     void authLoading
     return [
