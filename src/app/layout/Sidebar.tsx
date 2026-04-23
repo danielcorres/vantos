@@ -14,6 +14,7 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconPipeline,
+  IconBookOpen,
 } from './icons'
 import { useAuth } from '../../shared/auth/AuthProvider'
 import { VantLogo } from '../../components/branding/VantLogo'
@@ -96,6 +97,12 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
           label: 'OKR Semana',
           path: '/week',
           icon: IconCalendarRange,
+          visible: () => true,
+        },
+        {
+          label: 'Documentación',
+          path: '/docs',
+          icon: IconBookOpen,
           visible: () => true,
         },
       ],

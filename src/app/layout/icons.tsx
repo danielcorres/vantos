@@ -384,6 +384,24 @@ export function IconCopy({ className = 'w-5 h-5', size = 20 }: IconProps) {
   )
 }
 
+/** Documentación (hub y enlaces a guías) */
+export function IconBookOpen({ className = 'w-5 h-5', size = 20 }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+      width={size}
+      height={size}
+      aria-hidden="true"
+    >
+      <path d="M3 4a1 1 0 011-1h5a1 1 0 011 1v12a1 1 0 01-1 1H4a1 1 0 01-1-1V4z" />
+      <path d="M10 4a1 1 0 011-1h5a1 1 0 011 1v12a1 1 0 01-1 1h-5a1 1 0 01-1-1V4z" />
+    </svg>
+  )
+}
+
 /** Flecha derecha / enlace externo (Ver en Pipeline) */
 export function IconArrowRight({ className = 'w-5 h-5', size = 20 }: IconProps) {
   return (

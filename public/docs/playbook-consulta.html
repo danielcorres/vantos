@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Playbook Consulta — Consultores Avanzados de Vida</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,500;9..144,600;9..144,700;9..144,800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #0B1E3F;
+  --navy-deep: #081630;
+  --navy-light: #1a2f52;
+  --gold: #00d961;
+  --gold-light: #33e07d;
+  --gold-soft: #a8f0c4;
+  --cream: #FAF7F0;
+  --off-white: #F5F1E8;
+  --forest: #2D4A3E;
+  --forest-light: #3d6253;
+  --ink: #1a1a1a;
+  --ink-soft: #3a3a3a;
+  --gray: #6b6b6b;
+  --line: rgba(11, 30, 63, 0.12);
+  --shadow: 0 2px 20px rgba(11, 30, 63, 0.08);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background: var(--cream);
+  color: var(--ink);
+  line-height: 1.7;
+  font-size: 16px;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ===== PORTADA ===== */
+.cover {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse at top right, rgba(184, 137, 43, 0.15), transparent 50%),
+    radial-gradient(ellipse at bottom left, rgba(45, 74, 62, 0.2), transparent 50%),
+    linear-gradient(135deg, var(--navy-deep) 0%, var(--navy) 100%);
+  color: var(--cream);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 60px 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.cover::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -200px;
+  width: 600px;
+  height: 600px;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  opacity: 0.15;
+  transform: translateY(-50%);
+}
+
+.cover::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -100px;
+  width: 400px;
+  height: 400px;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  opacity: 0.2;
+  transform: translateY(-50%);
+}
+
+.cover-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  position: relative;
+  z-index: 2;
+}
+
+.cover-brand {
+  font-family: 'Fraunces', serif;
+  font-size: 14px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  font-weight: 500;
+}
+
+.cover-year {
+  font-family: 'Fraunces', serif;
+  font-size: 14px;
+  letter-spacing: 3px;
+  color: var(--gold-light);
+  font-weight: 500;
+}
+
+.cover-main {
+  position: relative;
+  z-index: 2;
+  max-width: 800px;
+}
+
+.cover-eyebrow {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 500;
+  margin-bottom: 30px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.cover-eyebrow::before {
+  content: "";
+  width: 60px;
+  height: 1px;
+  background: var(--gold);
+}
+
+.cover-title {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(60px, 9vw, 130px);
+  line-height: 0.95;
+  font-weight: 300;
+  letter-spacing: -2px;
+  margin-bottom: 30px;
+  color: var(--cream);
+}
+
+.cover-title em {
+  font-style: italic;
+  font-weight: 400;
+  color: var(--gold-light);
+}
+
+.cover-subtitle {
+  font-family: 'Fraunces', serif;
+  font-size: 24px;
+  line-height: 1.4;
+  font-weight: 300;
+  color: var(--off-white);
+  opacity: 0.9;
+  max-width: 600px;
+  margin-bottom: 20px;
+}
+
+.cover-tag {
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  font-weight: 500;
+}
+
+.cover-footer {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding-top: 40px;
+  border-top: 1px solid rgba(232, 213, 160, 0.2);
+}
+
+.cover-footer-item {
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold-soft);
+  opacity: 0.8;
+}
+
+.cover-footer-item strong {
+  display: block;
+  font-family: 'Fraunces', serif;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--cream);
+  margin-top: 6px;
+  letter-spacing: 1px;
+  text-transform: none;
+}
+
+/* ===== CONTENEDOR PRINCIPAL ===== */
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 100px 60px;
+}
+
+/* ===== ÍNDICE ===== */
+.toc {
+  background: var(--off-white);
+  padding: 100px 60px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.toc-inner {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.toc-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.toc-label::before {
+  content: "";
+  width: 40px;
+  height: 1px;
+  background: var(--gold);
+}
+
+.toc-title {
+  font-family: 'Fraunces', serif;
+  font-size: 64px;
+  font-weight: 300;
+  color: var(--navy);
+  margin-bottom: 60px;
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.toc-title em {
+  font-style: italic;
+  color: var(--gold);
+}
+
+.toc-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  list-style: none;
+}
+
+.toc-item {
+  padding: 22px 0;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  transition: all 0.3s ease;
+}
+
+.toc-item:hover {
+  padding-left: 10px;
+}
+
+.toc-item a {
+  color: var(--navy);
+  text-decoration: none;
+  font-family: 'Fraunces', serif;
+  font-size: 18px;
+  font-weight: 400;
+  flex: 1;
+  transition: color 0.3s;
+}
+
+.toc-item:hover a {
+  color: var(--gold);
+}
+
+.toc-num {
+  font-family: 'Fraunces', serif;
+  font-size: 13px;
+  color: var(--gold);
+  font-weight: 500;
+  font-style: italic;
+  min-width: 30px;
+}
+
+/* ===== SECCIONES ===== */
+.section {
+  margin-bottom: 100px;
+  scroll-margin-top: 40px;
+}
+
+.section-header {
+  margin-bottom: 50px;
+  padding-bottom: 30px;
+  border-bottom: 1px solid var(--line);
+}
+
+.section-num {
+  font-family: 'Fraunces', serif;
+  font-size: 13px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 500;
+  margin-bottom: 15px;
+  font-style: italic;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.section-num::before {
+  content: "";
+  width: 30px;
+  height: 1px;
+  background: var(--gold);
+}
+
+.section-title {
+  font-family: 'Fraunces', serif;
+  font-size: 52px;
+  line-height: 1.05;
+  font-weight: 400;
+  color: var(--navy);
+  letter-spacing: -1px;
+}
+
+.section-title em {
+  font-style: italic;
+  color: var(--gold);
+}
+
+.section h3 {
+  font-family: 'Fraunces', serif;
+  font-size: 26px;
+  color: var(--navy);
+  margin: 40px 0 20px;
+  font-weight: 500;
+  letter-spacing: -0.3px;
+}
+
+.section h4 {
+  font-family: 'Fraunces', serif;
+  font-size: 20px;
+  color: var(--forest);
+  margin: 30px 0 15px;
+  font-weight: 600;
+}
+
+.section p {
+  margin-bottom: 20px;
+  color: var(--ink-soft);
+  font-size: 16px;
+}
+
+.section p strong {
+  color: var(--navy);
+  font-weight: 600;
+}
+
+.section ul, .section ol {
+  margin: 20px 0 25px 0;
+  padding-left: 0;
+  list-style: none;
+}
+
+.section ul li, .section ol li {
+  margin-bottom: 14px;
+  padding-left: 30px;
+  position: relative;
+  color: var(--ink-soft);
+}
+
+.section ul li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 12px;
+  width: 14px;
+  height: 1px;
+  background: var(--gold);
+}
+
+.section ol {
+  counter-reset: item;
+}
+
+.section ol li {
+  counter-increment: item;
+}
+
+.section ol li::before {
+  content: counter(item);
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  color: var(--gold);
+  font-weight: 500;
+  font-size: 15px;
+}
+
+/* ===== COMPONENTES ESPECIALES ===== */
+
+/* Callout / Quote box */
+.callout {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+  color: var(--cream);
+  padding: 45px 50px;
+  margin: 40px 0;
+  border-left: 4px solid var(--gold);
+  position: relative;
+  box-shadow: var(--shadow);
+}
+
+.callout::before {
+  content: "";
+  position: absolute;
+  top: 20px;
+  right: 30px;
+  font-family: 'Fraunces', serif;
+  font-size: 100px;
+  line-height: 1;
+  color: var(--gold);
+  opacity: 0.25;
+  font-weight: 300;
+}
+
+.callout p {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  line-height: 1.5;
+  color: var(--cream);
+  font-style: italic;
+  font-weight: 300;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.callout-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  font-weight: 600;
+  margin-bottom: 15px;
+  font-style: normal;
+}
+
+/* Vant badge - cuando mencionamos el sistema */
+.vant-badge {
+  background: var(--off-white);
+  border-left: 3px solid var(--gold);
+  padding: 30px 40px;
+  margin: 35px 0;
+  position: relative;
+}
+
+.vant-badge-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.vant-badge p {
+  font-family: 'Fraunces', serif;
+  font-size: 19px;
+  line-height: 1.5;
+  color: var(--navy);
+  font-style: italic;
+  margin: 0;
+  font-weight: 400;
+}
+
+/* Cards de producto */
+.product-grid {
+  display: grid;
+  gap: 25px;
+  margin: 30px 0;
+}
+
+.product-card {
+  background: white;
+  padding: 35px 40px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  transition: all 0.3s ease;
+}
+
+.product-card:hover {
+  transform: translateX(4px);
+  box-shadow: var(--shadow);
+}
+
+.product-card h4 {
+  font-family: 'Fraunces', serif;
+  font-size: 22px;
+  color: var(--navy);
+  margin: 0 0 15px 0;
+  font-weight: 600;
+}
+
+.product-card .product-meta {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 8px 20px;
+  margin-bottom: 15px;
+  font-size: 15px;
+}
+
+.product-card .product-meta dt {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 600;
+  padding-top: 3px;
+}
+
+.product-card .product-meta dd {
+  color: var(--ink-soft);
+}
+
+.product-card .product-q {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px dashed var(--line);
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  color: var(--forest);
+  font-size: 16px;
+}
+
+/* Tabla */
+.table-wrapper {
+  margin: 35px 0;
+  background: white;
+  border: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 15px;
+}
+
+table thead {
+  background: var(--navy);
+  color: var(--cream);
+}
+
+table th {
+  padding: 18px 24px;
+  text-align: left;
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--gold-light);
+}
+
+table td {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-soft);
+}
+
+table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+table tbody tr:hover {
+  background: var(--off-white);
+}
+
+table td:first-child {
+  font-family: 'Fraunces', serif;
+  font-weight: 500;
+  color: var(--navy);
+  font-size: 16px;
+}
+
+/* Script boxes */
+.script {
+  background: var(--off-white);
+  padding: 25px 35px;
+  margin: 20px 0;
+  border-left: 3px solid var(--forest);
+  position: relative;
+}
+
+.script-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 11px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: var(--forest);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.script p {
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--navy);
+  font-style: italic;
+  margin: 0;
+}
+
+/* Objeción box */
+.objection {
+  background: white;
+  border: 1px solid var(--line);
+  padding: 28px 35px;
+  margin: 18px 0;
+  border-top: 3px solid var(--gold);
+}
+
+.objection-q {
+  font-family: 'Fraunces', serif;
+  font-size: 18px;
+  color: var(--navy);
+  font-weight: 600;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.objection-q::before {
+  content: "?";
+  color: var(--gold);
+  font-style: italic;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.objection-a {
+  font-family: 'Fraunces', serif;
+  font-size: 16px;
+  color: var(--ink-soft);
+  font-style: italic;
+  line-height: 1.6;
+  padding-left: 22px;
+  border-left: 2px solid var(--gold-soft);
+}
+
+/* Pills / Clasificación */
+.pills {
+  display: grid;
+  gap: 18px;
+  margin: 30px 0;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 25px;
+  padding: 22px 30px;
+  background: white;
+  border: 1px solid var(--line);
+  border-left: 4px solid;
+}
+
+.pill-frio { border-left-color: #4a7bb8; }
+.pill-tibio { border-left-color: var(--gold); }
+.pill-caliente { border-left-color: #c0392b; }
+
+.pill-label {
+  font-family: 'Fraunces', serif;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--navy);
+  min-width: 120px;
+}
+
+.pill-desc {
+  color: var(--ink-soft);
+  font-size: 15px;
+  flex: 1;
+}
+
+/* Decálogo Vant */
+.decalogo {
+  background: linear-gradient(135deg, var(--navy-deep) 0%, var(--navy) 50%, var(--forest) 100%);
+  color: var(--cream);
+  padding: 60px;
+  margin: 50px 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.decalogo::before {
+  content: "";
+  position: absolute;
+  top: -100px;
+  right: -100px;
+  width: 300px;
+  height: 300px;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  opacity: 0.2;
+}
+
+.decalogo-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--gold-light);
+  margin-bottom: 15px;
+  font-weight: 600;
+  position: relative;
+  z-index: 1;
+}
+
+.section .decalogo-title,
+.decalogo-title {
+  font-family: 'Fraunces', serif;
+  font-size: 42px;
+  font-weight: 400;
+  margin-bottom: 35px;
+  line-height: 1.1;
+  letter-spacing: -1px;
+  position: relative;
+  z-index: 1;
+  color: var(--cream);
+  margin-top: 0;
+}
+
+.decalogo-title em {
+  color: var(--gold-light);
+  font-style: italic;
+}
+
+.decalogo-title em {
+  font-style: italic;
+  color: var(--gold-light);
+}
+
+.section .decalogo-list,
+.decalogo-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.section .decalogo-list li,
+.decalogo-list li {
+  padding: 16px 0 16px 40px;
+  border-bottom: 1px solid rgba(232, 213, 160, 0.15);
+  position: relative;
+  font-family: 'Fraunces', serif;
+  font-size: 19px;
+  color: var(--off-white);
+  font-weight: 300;
+  margin-bottom: 0;
+}
+
+.section .decalogo-list li::before,
+.decalogo-list li::before {
+  content: "✦";
+  position: absolute;
+  left: 0;
+  top: 16px;
+  color: var(--gold);
+  font-size: 16px;
+  width: auto;
+  height: auto;
+  background: transparent;
+}
+
+.section .decalogo-list li:last-child,
+.decalogo-list li:last-child {
+  border-bottom: none;
+  padding-top: 25px;
+  margin-top: 15px;
+  border-top: 2px solid var(--gold);
+  font-weight: 600;
+  font-style: italic;
+  color: var(--gold-light);
+  font-size: 22px;
+}
+
+.section .decalogo-list li:last-child::before,
+.decalogo-list li:last-child::before {
+  content: "★";
+  color: var(--gold-light);
+  top: 27px;
+  background: transparent;
+  width: auto;
+  height: auto;
+}
+
+/* Errores */
+.error-list {
+  list-style: none;
+  padding: 0;
+  margin: 30px 0;
+}
+
+.error-list li {
+  padding: 20px 30px;
+  background: white;
+  border-left: 3px solid #c0392b;
+  margin-bottom: 12px;
+  color: var(--ink-soft);
+  font-size: 15px;
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+}
+
+.error-list li::before {
+  content: "✕";
+  color: #c0392b;
+  font-weight: 700;
+  font-size: 18px;
+  font-family: 'Fraunces', serif;
+}
+
+.error-list li strong {
+  color: var(--navy);
+  display: block;
+  margin-bottom: 4px;
+  font-family: 'Fraunces', serif;
+  font-size: 17px;
+}
+
+/* Plan semanal */
+.weeks {
+  display: grid;
+  gap: 25px;
+  margin: 35px 0;
+}
+
+.week {
+  background: white;
+  border: 1px solid var(--line);
+  padding: 35px 40px;
+  position: relative;
+  padding-left: 60px;
+}
+
+.week::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(180deg, var(--gold) 0%, var(--forest) 100%);
+}
+
+.week-num {
+  font-family: 'Fraunces', serif;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--gold);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.week-title {
+  font-family: 'Fraunces', serif;
+  font-size: 24px;
+  color: var(--navy);
+  margin-bottom: 15px;
+  font-weight: 600;
+}
+
+.week ul {
+  margin: 0;
+}
+
+/* ===== CIERRE FINAL ===== */
+.closing {
+  background:
+    radial-gradient(ellipse at center, rgba(184, 137, 43, 0.2), transparent 60%),
+    linear-gradient(135deg, var(--navy-deep) 0%, var(--navy) 100%);
+  color: var(--cream);
+  padding: 140px 60px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.closing::before,
+.closing::after {
+  content: "";
+  position: absolute;
+  border: 1px solid var(--gold);
+  border-radius: 50%;
+  opacity: 0.15;
+}
+
+.closing::before {
+  width: 700px;
+  height: 700px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.closing::after {
+  width: 500px;
+  height: 500px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  opacity: 0.25;
+}
+
+.closing-inner {
+  max-width: 800px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 2;
+}
+
+.closing-label {
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 30px;
+  font-weight: 600;
+}
+
+.closing-title {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(40px, 6vw, 72px);
+  font-weight: 300;
+  line-height: 1.1;
+  margin-bottom: 35px;
+  letter-spacing: -1px;
+}
+
+.closing-title em {
+  font-style: italic;
+  color: var(--gold-light);
+}
+
+.closing-text {
+  font-family: 'Fraunces', serif;
+  font-size: 20px;
+  line-height: 1.6;
+  color: var(--off-white);
+  font-weight: 300;
+  margin-bottom: 20px;
+  opacity: 0.9;
+}
+
+.closing-divider {
+  width: 80px;
+  height: 1px;
+  background: var(--gold);
+  margin: 50px auto;
+}
+
+.closing-quote {
+  font-family: 'Fraunces', serif;
+  font-size: clamp(26px, 4vw, 38px);
+  line-height: 1.3;
+  color: var(--gold-light);
+  font-style: italic;
+  font-weight: 300;
+  margin-bottom: 20px;
+}
+
+.closing-lema {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-top: 40px;
+  font-weight: 600;
+}
+
+/* ===== FOOTER ===== */
+.footer {
+  background: var(--navy-deep);
+  color: var(--gold-soft);
+  text-align: center;
+  padding: 40px 20px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+  .cover {
+    padding: 40px 30px;
+  }
+  .cover-header {
+    flex-direction: column;
+    gap: 20px;
+  }
+  .container {
+    padding: 60px 30px;
+  }
+  .toc {
+    padding: 60px 30px;
+  }
+  .toc-list {
+    grid-template-columns: 1fr;
+  }
+  .toc-title {
+    font-size: 44px;
+  }
+  .section-title {
+    font-size: 36px;
+  }
+  .callout, .vant-badge, .decalogo {
+    padding: 30px 25px;
+  }
+  .decalogo-title {
+    font-size: 30px;
+  }
+  .product-card, .week {
+    padding: 25px;
+  }
+  .week {
+    padding-left: 35px;
+  }
+  .cover-footer {
+    flex-direction: column;
+    gap: 20px;
+    align-items: flex-start;
+  }
+  table th, table td {
+    padding: 12px 15px;
+    font-size: 13px;
+  }
+  .pill {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+@media print {
+  .cover, .closing {
+    page-break-after: always;
+  }
+  .section {
+    page-break-inside: avoid;
+  }
+}
+</style>
+</head>
+<body>
+
+<!-- ============ PORTADA ============ -->
+<section class="cover">
+  <div class="cover-header">
+    <div class="cover-brand">Consultores Avanzados de Vida</div>
+    <div class="cover-year">MMXXVI</div>
+  </div>
+
+  <div class="cover-main">
+    <div class="cover-eyebrow">Sistema Consulta· Playbook Oficial</div>
+    <h1 class="cover-title">Playbook<br><em>Consulta</em></h1>
+    <p class="cover-subtitle">Prospección, venta y seguimiento para asesores de alto rendimiento.</p>
+    <div class="cover-tag">Manual de Onboarding 2026</div>
+  </div>
+
+  <div class="cover-footer">
+    <div class="cover-footer-item">
+      Documento
+      <strong>Playbook Consulta</strong>
+    </div>
+    <div class="cover-footer-item">
+      Dirigido a
+      <strong>Nuevos Asesores</strong>
+    </div>
+    <div class="cover-footer-item">
+      Versión
+      <strong>Sistema Híbrido 2026</strong>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ÍNDICE ============ -->
+<section class="toc">
+  <div class="toc-inner">
+    <div class="toc-label">Contenido</div>
+    <h2 class="toc-title">Í<em>ndice</em></h2>
+    <ul class="toc-list">
+      <li class="toc-item"><span class="toc-num">I</span><a href="#s1">Introducción y Filosofía del Negocio</a></li>
+      <li class="toc-item"><span class="toc-num">II</span><a href="#s2">Bienvenido a Consultores Avanzados de Vida</a></li>
+      <li class="toc-item"><span class="toc-num">III</span><a href="#s3">Productos Principales</a></li>
+      <li class="toc-item"><span class="toc-num">IV</span><a href="#s4">Fundamentos del Asesor Consulta</a></li>
+      <li class="toc-item"><span class="toc-num">V</span><a href="#s5">Fuentes de Prospección</a></li>
+      <li class="toc-item"><span class="toc-num">VI</span><a href="#s6">Rutina Diaria del Asesor</a></li>
+      <li class="toc-item"><span class="toc-num">VII</span><a href="#s7">Scripts de Comunicación</a></li>
+      <li class="toc-item"><span class="toc-num">VIII</span><a href="#s8">Proceso de Venta Paso a Paso</a></li>
+      <li class="toc-item"><span class="toc-num">IX</span><a href="#s9">Sistema de Seguimiento</a></li>
+      <li class="toc-item"><span class="toc-num">X</span><a href="#s10">Manejo de Objeciones</a></li>
+      <li class="toc-item"><span class="toc-num">XI</span><a href="#s11">Estrategia de Referidos</a></li>
+      <li class="toc-item"><span class="toc-num">XII</span><a href="#s12">Marketing Personal y Contenido</a></li>
+      <li class="toc-item"><span class="toc-num">XIII</span><a href="#s13">Herramientas de Gestión</a></li>
+      <li class="toc-item"><span class="toc-num">XIV</span><a href="#s14">Plan de 30 Días</a></li>
+      <li class="toc-item"><span class="toc-num">XV</span><a href="#s15">Métricas y KPIs</a></li>
+      <li class="toc-item"><span class="toc-num">XVI</span><a href="#s16">Errores Comunes</a></li>
+      <li class="toc-item"><span class="toc-num">XVII</span><a href="#s17">Estándares del Equipo Consulta</a></li>
+      <li class="toc-item"><span class="toc-num">XVIII</span><a href="#s18">Cierre del Playbook</a></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ CONTENIDO ============ -->
+<div class="container">
+
+  <!-- SECCIÓN 1 -->
+  <section class="section" id="s1">
+    <div class="section-header">
+      <div class="section-num">Capítulo I</div>
+      <h2 class="section-title">Introducción y <em>Filosofía</em> del Negocio</h2>
+    </div>
+
+    <p>Bienvenido. Estás entrando a una profesión que transforma vidas — empezando por la tuya.</p>
+
+    <p><strong>Este negocio no se trata de vender seguros.</strong> Se trata de acompañar a las personas en decisiones que protegerán a sus familias, su patrimonio y su futuro. Cuando un asesor hace bien su trabajo, una familia no queda desprotegida, un hijo termina la universidad, y un sueño no se interrumpe por una tragedia.</p>
+
+    <h3>Nuestra filosofía en tres principios</h3>
+
+    <ol>
+      <li><strong>Rol consultivo, no comercial.</strong> No empujamos productos; diagnosticamos necesidades y proponemos soluciones. El cliente decide; nosotros asesoramos.</li>
+      <li><strong>Relaciones de largo plazo.</strong> Un cliente bien atendido es un cliente de por vida — y la mejor fuente de referidos que existe.</li>
+      <li><strong>Disciplina sobre talento.</strong> El éxito en este negocio no depende de qué tan carismático seas, sino de qué tan constante eres con tus actividades diarias.</li>
+    </ol>
+
+    <div class="vant-badge">
+      <div class="vant-badge-label">Identidad Consulta</div>
+      <p>Un asesor Consulta es quien entiende que detrás de cada póliza hay una familia protegida, y detrás de cada meta cumplida hay un sistema ejecutado con disciplina. No vendemos seguros: construimos certeza.</p>
+    </div>
+
+    <div class="callout">
+      <div class="callout-label">Principio Fundacional</div>
+      <p>No vendemos pólizas. Vendemos tranquilidad, certeza y amor por la familia.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 2 -->
+  <section class="section" id="s2">
+    <div class="section-header">
+      <div class="section-num">Capítulo II</div>
+      <h2 class="section-title">Bienvenido a <em>Consultores Avanzados de Vida</em></h2>
+    </div>
+
+    <p>En <strong>Consultores Avanzados de Vida</strong> formamos asesores profesionales, capaces de generar ingresos sostenibles mientras brindan un servicio de alto valor a sus clientes. Contamos con años de experiencia en el mercado asegurador mexicano y hemos desarrollado una metodología propia: <strong>el Sistema Consulta</strong>.</p>
+
+    <p>El Sistema Consulta es el corazón de este playbook. Es la forma en que prospectamos, vendemos, damos seguimiento y crecemos. Es lo que distingue a un asesor común de un <strong>Asesor Consulta  </strong>.</p>
+
+    <div class="vant-badge">
+      <div class="vant-badge-label">¿Qué es ser un asesor Consulta?</div>
+      <p>Un asesor Consulta no es cualquier asesor. Es quien ha decidido que sus metas no son opcionales — son un compromiso diario. Vant significa avance: el asesor que sigue este sistema, avanza. Siempre.</p>
+    </div>
+
+    <h3>Lo que te ofrecemos</h3>
+    <ul>
+      <li><strong>Capacitación continua</strong> en producto, ventas y desarrollo personal.</li>
+      <li><strong>Sistema Consulta probado</strong> de prospección, cierre y seguimiento.</li>
+      <li><strong>Plataforma Vant</strong> para gestión de prospectos, KPIs y actividades.</li>
+      <li><strong>Respaldo operativo</strong> para que tú te concentres en vender.</li>
+      <li><strong>Comunidad de asesores Vant</strong> que comparten mejores prácticas.</li>
+      <li><strong>Plan de carrera</strong> con crecimiento real basado en resultados.</li>
+    </ul>
+
+    <h3>Lo que esperamos de ti</h3>
+    <ul>
+      <li>Compromiso con el proceso y con el Sistema Consulta.</li>
+      <li>Disciplina diaria, medible en la Plataforma Vant.</li>
+      <li>Integridad absoluta con tus clientes.</li>
+      <li>Mentalidad de crecimiento y apertura al aprendizaje.</li>
+    </ul>
+  </section>
+
+  <!-- SECCIÓN 3 -->
+  <section class="section" id="s3">
+    <div class="section-header">
+      <div class="section-num">Capítulo III</div>
+      <h2 class="section-title">Productos <em>Principales</em></h2>
+    </div>
+
+    <p>Como Asesor Consulta debes dominar los fundamentos de cada línea de producto. No necesitas ser un experto técnico desde el día uno, pero sí debes saber <strong>qué problema resuelve cada producto y a quién le sirve</strong>.</p>
+
+    <div class="product-grid">
+      <div class="product-card">
+        <h4>Seguros de Vida</h4>
+        <dl class="product-meta">
+          <dt>Para quién</dt><dd>Personas con dependientes económicos o deudas.</dd>
+          <dt>Qué resuelve</dt><dd>Garantiza la estabilidad financiera de la familia ante fallecimiento o invalidez.</dd>
+        </dl>
+        <div class="product-q">"¿Qué pasaría con tu familia si tú faltaras mañana?"</div>
+      </div>
+
+      <div class="product-card">
+        <h4>Gastos Médicos Mayores</h4>
+        <dl class="product-meta">
+          <dt>Para quién</dt><dd>Familias que buscan acceso a medicina privada de calidad.</dd>
+          <dt>Qué resuelve</dt><dd>Evita que una enfermedad grave se convierta en una crisis financiera.</dd>
+        </dl>
+        <div class="product-q">"¿Tienes hoy con qué cubrir una cirugía de 500 mil pesos?"</div>
+      </div>
+
+      <div class="product-card">
+        <h4>Planes de Ahorro e Inversión</h4>
+        <dl class="product-meta">
+          <dt>Para quién</dt><dd>Personas que quieren construir patrimonio o un retiro digno.</dd>
+          <dt>Qué resuelve</dt><dd>Disciplina financiera con protección incluida.</dd>
+        </dl>
+        <div class="product-q">"¿Cómo te ves económicamente a los 65 años?"</div>
+      </div>
+
+      <div class="product-card">
+        <h4>Seguros Educativos</h4>
+        <dl class="product-meta">
+          <dt>Para quién</dt><dd>Padres con hijos pequeños.</dd>
+          <dt>Qué resuelve</dt><dd>Asegura la educación universitaria pase lo que pase.</dd>
+        </dl>
+        <div class="product-q">"¿Está garantizada la universidad de tus hijos?"</div>
+      </div>
+    </div>
+
+    <div class="callout">
+      <div class="callout-label">Regla de Oro</div>
+      <p>No vendas productos, resuelve problemas. Cada producto es una respuesta a una preocupación real del cliente.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 4 -->
+  <section class="section" id="s4">
+    <div class="section-header">
+      <div class="section-num">Capítulo IV</div>
+      <h2 class="section-title">Fundamentos del <em>Asesor Consulta</em></h2>
+    </div>
+
+    <p>Un asesor Consulta de alto rendimiento domina <strong>cuatro competencias críticas</strong>. Sin estas, no hay resultados — por más producto o capacitación que tengas.</p>
+
+    <ol>
+      <li><strong>Generar conversaciones.</strong> Todos los días, con personas nuevas. Sin conversaciones no hay citas; sin citas no hay ventas.</li>
+      <li><strong>Agendar citas.</strong> Convertir el interés en un espacio formal para diagnosticar y proponer.</li>
+      <li><strong>Escuchar profundamente.</strong> El 80% del tiempo en una cita debe hablarlo el cliente. Tú escuchas, preguntas y detectas necesidades.</li>
+      <li><strong>Dar seguimiento constante.</strong> El 80% de las ventas ocurre después del 5º contacto. El que da seguimiento, gana.</li>
+    </ol>
+
+    <div class="vant-badge">
+      <div class="vant-badge-label">Mentalidad Vant</div>
+      <p>Ser Asesor Consulta significa operar con un sistema probado, métricas claras y disciplina inquebrantable. No dependes de la suerte ni de la motivación: dependes de tu proceso. Y por eso llegas.</p>
+    </div>
+
+    <div class="callout">
+      <div class="callout-label">Principio</div>
+      <p>El asesor promedio habla. El Asesor Consulta pregunta, escucha y entiende.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 5 -->
+  <section class="section" id="s5">
+    <div class="section-header">
+      <div class="section-num">Capítulo V</div>
+      <h2 class="section-title">Fuentes de <em>Prospección</em></h2>
+    </div>
+
+    <p>El Sistema Consulta combina <strong>tres fuentes complementarias</strong> de prospectos. Depender de una sola es el error más común de los asesores nuevos.</p>
+
+    <h3>1. Referidos</h3>
+    <ul>
+      <li><strong>Ventaja:</strong> Mayor calidad y mayor tasa de cierre (hasta 3x más alta).</li>
+      <li><strong>Desafío:</strong> Requiere disciplina para pedirlos sistemáticamente.</li>
+      <li><strong>Meta diaria:</strong> Mínimo 2 solicitudes de referidos.</li>
+    </ul>
+
+    <h3>2. Redes Sociales</h3>
+    <ul>
+      <li><strong>Ventaja:</strong> Construyes marca personal y generas confianza a escala.</li>
+      <li><strong>Desafío:</strong> Resultados a mediano plazo; requiere consistencia.</li>
+      <li><strong>Meta diaria:</strong> 1 publicación con valor real.</li>
+    </ul>
+
+    <h3>3. Contacto Directo</h3>
+    <ul>
+      <li><strong>Ventaja:</strong> Control total del flujo; no dependes de algoritmos.</li>
+      <li><strong>Desafío:</strong> Requiere habilidad conversacional y manejo de rechazo.</li>
+      <li><strong>Meta diaria:</strong> 5 – 7 conversaciones nuevas (alineado al embudo de 1 – 2 pólizas pagadas por semana).</li>
+    </ul>
+
+    <div class="callout">
+      <div class="callout-label">Clave del Sistema</div>
+      <p>El Sistema Consulta combina las tres. Si una falla, las otras sostienen tu flujo de prospectos.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 6 -->
+  <section class="section" id="s6">
+    <div class="section-header">
+      <div class="section-num">Capítulo VI</div>
+      <h2 class="section-title">Rutina <em>Diaria</em> del Asesor</h2>
+    </div>
+
+    <p>La consistencia diaria define el ingreso mensual. Esta es tu rutina mínima no negociable, registrada todos los días en la <strong>Plataforma Vant</strong>:</p>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th>Actividad</th><th>Meta Diaria</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Publicaciones en redes</td><td>1</td></tr>
+          <tr><td>Conversaciones nuevas</td><td>5 – 7</td></tr>
+          <tr><td>Seguimientos a prospectos</td><td>5</td></tr>
+          <tr><td>Citas agendadas</td><td>1 – 2</td></tr>
+          <tr><td>Solicitudes de referidos</td><td>2</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="vant-badge">
+      <div class="vant-badge-label">OKR en Plataforma Vant</div>
+      <p>Además de estas metas de conteo, en <strong>OKR Diario</strong> el despacho suele trabajar con una meta típica de <strong>25 puntos por día</strong> (actividad traducida a puntos según las métricas activas). En <strong>OKR Semana</strong> lo habitual son <strong>5 días hábiles</strong>, es decir una meta típica de <strong>125 puntos por semana</strong> (25 × 5). El owner puede ajustar la meta diaria y los días hábiles en la configuración de puntuación.</p>
+    </div>
+
+    <h3>Bloques de tiempo sugeridos</h3>
+    <ul>
+      <li><strong>8:00 – 9:00</strong> — Planeación del día, revisión de Plataforma Vant y seguimientos pendientes.</li>
+      <li><strong>9:00 – 13:00</strong> — Conversaciones nuevas y agendado de citas.</li>
+      <li><strong>13:00 – 14:00</strong> — Comida y descanso.</li>
+      <li><strong>14:00 – 18:00</strong> — Citas con prospectos.</li>
+      <li><strong>18:00 – 19:00</strong> — Contenido en redes, registro de actividades y cierre del día.</li>
+    </ul>
+
+    <div class="callout">
+      <div class="callout-label">Principio Vant</div>
+      <p>Lo que haces todos los días importa más que lo que haces una vez al mes.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 7 -->
+  <section class="section" id="s7">
+    <div class="section-header">
+      <div class="section-num">Capítulo VII</div>
+      <h2 class="section-title">Scripts de <em>Comunicación</em></h2>
+    </div>
+
+    <p>Los scripts son punto de partida, no jaulas. Adáptalos a tu voz sin perder la estructura.</p>
+
+    <div class="script">
+      <div class="script-label">Primer Contacto</div>
+      <p>"Oye [Nombre], justo estoy ayudando a varias personas a organizar su protección y su futuro… ¿tú ya has revisado ese tema?"</p>
+    </div>
+
+    <div class="script">
+      <div class="script-label">Agendar Cita</div>
+      <p>"Si quieres, vemos tu caso y te doy claridad en 20 minutos. ¿Te parece esta semana, martes o jueves?"</p>
+    </div>
+
+    <h3>Preguntas poderosas durante la cita</h3>
+    <ul>
+      <li>"¿Qué pasaría con tu familia si hoy tú no estuvieras?"</li>
+      <li>"¿Qué te gustaría proteger ante cualquier imprevisto?"</li>
+      <li>"¿Qué tienes hoy contratado y qué sientes que te falta?"</li>
+      <li>"¿Cómo te ves económicamente en 10 o 20 años?"</li>
+    </ul>
+
+    <div class="script">
+      <div class="script-label">Seguimiento</div>
+      <p>"[Nombre], estuve pensando en lo que platicamos… creo que esto puede hacer una gran diferencia para ti y tu familia. ¿Tienes 10 minutos esta semana?"</p>
+    </div>
+
+    <div class="script">
+      <div class="script-label">Referidos</div>
+      <p>"¿Quién más, dentro de tu círculo cercano, crees que debería tener esta misma conversación?"</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 8 -->
+  <section class="section" id="s8">
+    <div class="section-header">
+      <div class="section-num">Capítulo VIII</div>
+      <h2 class="section-title">Proceso de <em>Venta</em> Paso a Paso</h2>
+    </div>
+
+    <p>Este es el camino que todo prospecto debe recorrer en el Sistema Consulta. <strong>No saltes pasos</strong> — cada uno tiene una función específica.</p>
+
+    <ol>
+      <li><strong>Conversación inicial</strong> — Genera interés, no vendas.</li>
+      <li><strong>Calificación del prospecto</strong> — ¿Tiene necesidad, capacidad y disposición?</li>
+      <li><strong>Agendar cita</strong> — Formaliza el espacio para asesorar.</li>
+      <li><strong>Diagnóstico</strong> — Entiende su situación real antes de proponer nada.</li>
+      <li><strong>Propuesta</strong> — Presenta la solución alineada al diagnóstico.</li>
+      <li><strong>Resolución de dudas</strong> — Escucha objeciones sin ponerte a la defensiva.</li>
+      <li><strong>Cierre</strong> — Pide la decisión con claridad y seguridad.</li>
+      <li><strong>Solicitud de referidos</strong> — En caliente, al momento del cierre.</li>
+      <li><strong>Seguimiento post-venta</strong> — Construye relación de largo plazo.</li>
+    </ol>
+
+    <div class="callout">
+      <div class="callout-label">Advertencia</div>
+      <p>Saltarte un paso no acelera la venta: la mata.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 9 -->
+  <section class="section" id="s9">
+    <div class="section-header">
+      <div class="section-num">Capítulo IX</div>
+      <h2 class="section-title">Sistema de <em>Seguimiento</em></h2>
+    </div>
+
+    <p>El dinero de este negocio está en el seguimiento. Todo prospecto debe estar clasificado y trabajado dentro de la <strong>Plataforma Vant</strong>.</p>
+
+    <h3>Clasificación de prospectos</h3>
+
+    <div class="pills">
+      <div class="pill pill-frio">
+        <div class="pill-label">Frío</div>
+        <div class="pill-desc">Sin interés aún. Seguimiento mensual con contenido de valor.</div>
+      </div>
+      <div class="pill pill-tibio">
+        <div class="pill-label">Tibio</div>
+        <div class="pill-desc">Interesado, sin decisión. Seguimiento semanal.</div>
+      </div>
+      <div class="pill pill-caliente">
+        <div class="pill-label">Caliente</div>
+        <div class="pill-desc">Listo para cerrar. Seguimiento en 24 – 48 horas.</div>
+      </div>
+    </div>
+
+    <p style="font-size:15px;color:var(--ink-soft);margin-top:18px;">En el <strong>Pipeline</strong> de Vant los nombres de etapa pueden variar según la configuración del despacho; la lógica frío / tibio / caliente del Sistema Consulta sigue siendo tu guía operativa.</p>
+
+    <h3>Reglas de oro del seguimiento</h3>
+    <ul>
+      <li>Todo prospecto tiene seguimiento asignado en la Plataforma Vant.</li>
+      <li>Nunca se pierde contacto con un prospecto tibio o caliente.</li>
+      <li>Cada seguimiento debe aportar valor, no solo "checar si ya decidió".</li>
+      <li>Cada interacción queda registrada.</li>
+    </ul>
+
+    <div class="callout">
+      <div class="callout-label">Dato Clave</div>
+      <p>El 80% de las ventas ocurre entre el 5º y el 12º contacto. La mayoría de los asesores se rinde en el 2º.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 10 -->
+  <section class="section" id="s10">
+    <div class="section-header">
+      <div class="section-num">Capítulo X</div>
+      <h2 class="section-title">Manejo de <em>Objeciones</em></h2>
+    </div>
+
+    <p>Las objeciones no son rechazos: son <strong>solicitudes de más información</strong>. Tu trabajo es escucharlas, validarlas y responder con claridad.</p>
+
+    <div class="objection">
+      <div class="objection-q">"Está muy caro"</div>
+      <div class="objection-a">"Entiendo. ¿Caro comparado con qué? Déjame mostrarte qué incluye y lo comparamos con lo que costaría no tenerlo el día que se necesite."</div>
+    </div>
+
+    <div class="objection">
+      <div class="objection-q">"Lo tengo que pensar"</div>
+      <div class="objection-a">"Claro, es una decisión importante. ¿Qué específicamente necesitas resolver para decidir? Así te ayudo con eso."</div>
+    </div>
+
+    <div class="objection">
+      <div class="objection-q">"Tengo que consultarlo con mi pareja"</div>
+      <div class="objection-a">"Me parece perfecto, es una decisión familiar. ¿Qué te parece si agendamos los tres para resolver dudas juntos?"</div>
+    </div>
+
+    <div class="objection">
+      <div class="objection-q">"Ya tengo un seguro"</div>
+      <div class="objection-a">"Excelente, eso habla bien de ti. ¿Te parece si revisamos juntos si esa cobertura sigue siendo la adecuada para tu situación actual?"</div>
+    </div>
+
+    <div class="objection">
+      <div class="objection-q">"Ahorita no es el momento"</div>
+      <div class="objection-a">"Lo entiendo. Justo por eso es importante: los seguros se contratan cuando no se necesitan, porque cuando se necesitan, ya no se pueden contratar."</div>
+    </div>
+
+    <h3>Método Vant para cualquier objeción</h3>
+    <ol>
+      <li><strong>Escucha completa</strong> — No interrumpas.</li>
+      <li><strong>Valida</strong> — "Entiendo por qué lo dices."</li>
+      <li><strong>Aclara</strong> — Pregunta para entender la raíz real.</li>
+      <li><strong>Responde</strong> — Con datos, historias o reformulación.</li>
+    </ol>
+  </section>
+
+  <!-- SECCIÓN 11 -->
+  <section class="section" id="s11">
+    <div class="section-header">
+      <div class="section-num">Capítulo XI</div>
+      <h2 class="section-title">Estrategia de <em>Referidos</em></h2>
+    </div>
+
+    <p>Los referidos son la fuente más rentable de nuevos clientes. Pedirlos debe ser parte de tu proceso, no una ocurrencia.</p>
+
+    <h3>Cuándo pedirlos</h3>
+    <ul>
+      <li>Después de una buena conversación.</li>
+      <li>Al finalizar una cita (aunque no cierre).</li>
+      <li>Inmediatamente después de un cierre.</li>
+      <li>En seguimientos post-venta exitosos.</li>
+    </ul>
+
+    <h3>Cómo pedirlos: con contexto, no como favor</h3>
+
+    <div class="script">
+      <div class="script-label">Script Vant de Referidos</div>
+      <p>"[Nombre], trabajo con personas como tú que valoran proteger a su familia. ¿A quién más, dentro de tu círculo, crees que le podría servir esta misma conversación?"</p>
+    </div>
+
+    <h3>Regla del contexto específico</h3>
+    <p>En lugar de "¿conoces a alguien?", pregunta por grupos específicos:</p>
+    <ul>
+      <li>"¿Quién de tus compañeros de trabajo?"</li>
+      <li>"¿Algún familiar que acabe de tener hijos?"</li>
+      <li>"¿Algún amigo emprendedor?"</li>
+    </ul>
+
+    <div class="callout">
+      <div class="callout-label">Mentalidad Correcta</div>
+      <p>Pedir referidos no es abusar de la confianza: es extender el beneficio.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 12 -->
+  <section class="section" id="s12">
+    <div class="section-header">
+      <div class="section-num">Capítulo XII</div>
+      <h2 class="section-title">Marketing <em>Personal</em> y Contenido</h2>
+    </div>
+
+    <p><strong>Objetivo:</strong> Generar confianza <em>antes</em> de vender. Tu marca personal en redes sociales es tu vendedor silencioso que trabaja 24/7.</p>
+
+    <h3>Tipos de contenido recomendados</h3>
+    <ul>
+      <li><strong>Educación financiera</strong> — Conceptos claros, sin tecnicismos.</li>
+      <li><strong>Errores comunes</strong> — "Los 3 errores al contratar un seguro de vida".</li>
+      <li><strong>Historias reales</strong> — Casos anonimizados que generan conexión.</li>
+      <li><strong>Escenarios de vida</strong> — "¿Qué pasa si…?"</li>
+      <li><strong>Detrás de cámaras</strong> — Tu día como Asesor Consulta.</li>
+    </ul>
+
+    <h3>Frecuencia</h3>
+    <ul>
+      <li><strong>Diaria:</strong> mínimo 1 publicación.</li>
+      <li><strong>Historias:</strong> 3 a 5 por día.</li>
+    </ul>
+
+    <div class="callout">
+      <div class="callout-label">Regla de Contenido</div>
+      <p>No busques likes, busca conversaciones. Un comentario vale más que cien likes.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 13 -->
+  <section class="section" id="s13">
+    <div class="section-header">
+      <div class="section-num">Capítulo XIII</div>
+      <h2 class="section-title">Herramientas de <em>Gestión</em></h2>
+    </div>
+
+    <p>Todo Asesor Consulta profesional se apoya en herramientas. La principal es la <strong>Plataforma Vant</strong>, a la que tienes acceso personal desde tu primer día.</p>
+
+    <div class="vant-badge">
+      <div class="vant-badge-label">Plataforma Vant</div>
+      <p>Es el centro de operaciones del Asesor Consulta. Ahí registras tus prospectos, clasificas por temperatura, agendas seguimientos, mides tus KPIs diarios y visualizas tu avance hacia las metas mensuales.</p>
+    </div>
+
+    <h3>Funciones principales de la Plataforma Vant</h3>
+    <ul>
+      <li><strong>Gestión de prospectos:</strong> registro completo de cada contacto, historial de interacciones, clasificación por temperatura (frío, tibio, caliente).</li>
+      <li><strong>Registro de KPIs:</strong> captura diaria de actividades (conversaciones, citas, propuestas, cierres, referidos).</li>
+      <li><strong>Seguimientos automáticos:</strong> recordatorios para que nunca pierdas un prospecto.</li>
+      <li><strong>Tablero de avance:</strong> visualización en tiempo real de tu rendimiento vs. metas.</li>
+    </ul>
+
+    <h3>Herramientas complementarias</h3>
+    <ul>
+      <li><strong>Agenda digital</strong> — Bloques de tiempo protegidos para citas.</li>
+      <li><strong>WhatsApp Business</strong> — Separa vida personal de profesional. Usa etiquetas y respuestas rápidas.</li>
+      <li><strong>Materiales de apoyo</strong> — Presentaciones, cotizadores, testimonios y casos de siniestros pagados.</li>
+    </ul>
+
+    <div class="callout">
+      <div class="callout-label">Regla de Gestión</div>
+      <p>Si no está registrado en la Plataforma Vant, no existe. Sin registro, no hay seguimiento real.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 14 -->
+  <section class="section" id="s14">
+    <div class="section-header">
+      <div class="section-num">Capítulo XIV</div>
+      <h2 class="section-title">Plan de <em>30 Días</em>: Camino al Primer Cierre</h2>
+    </div>
+
+    <div class="weeks">
+      <div class="week">
+        <div class="week-num">Semana I — Fundación</div>
+        <div class="week-title">Construye tu base</div>
+        <ul>
+          <li>Elaborar lista de 100 contactos (mercado natural).</li>
+          <li>Cargar contactos en la Plataforma Vant.</li>
+          <li>Iniciar primeras conversaciones.</li>
+          <li>Agendar primeras citas.</li>
+          <li>Publicar contenido diario.</li>
+        </ul>
+      </div>
+
+      <div class="week">
+        <div class="week-num">Semana II — Activación</div>
+        <div class="week-title">Genera movimiento real</div>
+        <ul>
+          <li>Más citas (mínimo 5 en la semana).</li>
+          <li>Pedir los primeros referidos.</li>
+          <li>Realizar primeros diagnósticos.</li>
+          <li>Registrar todas las actividades en la Plataforma Vant.</li>
+        </ul>
+      </div>
+
+      <div class="week">
+        <div class="week-num">Semana III — Propuestas</div>
+        <div class="week-title">Convierte interés en decisión</div>
+        <ul>
+          <li>Presentar primeras propuestas formales.</li>
+          <li>Seguimiento intensivo a prospectos tibios y calientes.</li>
+          <li>Manejo de objeciones reales.</li>
+        </ul>
+      </div>
+
+      <div class="week">
+        <div class="week-num">Semana IV — Primer Cierre</div>
+        <div class="week-title">Cosecha lo construido</div>
+        <ul>
+          <li>Lograr el primer cierre.</li>
+          <li>Pedir referidos en caliente.</li>
+          <li>Repetir el proceso con disciplina.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="vant-badge">
+      <div class="vant-badge-label">Visión Consulta</div>
+      <p>El Asesor Consulta es el que llega. El que convierte conversaciones en citas, citas en propuestas y propuestas en cierres. No porque tenga un don, sino porque tiene un sistema — y lo ejecuta todos los días.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 15 -->
+  <section class="section" id="s15">
+    <div class="section-header">
+      <div class="section-num">Capítulo XV</div>
+      <h2 class="section-title">Métricas y <em>KPIs</em></h2>
+    </div>
+
+    <p>Lo que no se mide, no crece. Todos los KPIs del Asesor Consulta se registran en la <strong>Plataforma Vant</strong> y deben revisarse diariamente.</p>
+
+    <h3>Embudo semanal de productividad <span style="font-weight:400;font-size:0.85em;color:var(--gray)">(meta 1 – 2 pólizas pagadas)</span></h3>
+    <p style="font-size:15px;color:var(--ink-soft);margin:0 0 12px 0;">Cifras coherentes de arriba hacia abajo para una semana tipo con <strong>1 o 2 pólizas cobradas</strong>. Si tu semana cierra en 1 póliza, revisa calidad de solicitudes y seguimiento con la compañía; si cierra en 2, mantén el mismo volumen superior del embudo.</p>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th>Etapa del embudo</th><th>Meta semanal (modelo)</th><th>Orientación diaria (÷ 5 días)</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Contactos (conversaciones efectivas)</td><td>25 – 32</td><td>5 – 7</td></tr>
+          <tr><td>Citas agendadas</td><td>8 – 10</td><td>1 – 2</td></tr>
+          <tr><td>Casos abiertos (citas con diagnóstico)</td><td>6 – 7</td><td>1 – 2</td></tr>
+          <tr><td>Citas de cierre (decisión)</td><td>4</td><td>1</td></tr>
+          <tr><td>Solicitudes ingresadas</td><td>3</td><td>1</td></tr>
+          <tr><td>Pólizas pagadas</td><td><strong>1 – 2</strong></td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr><th>KPI (registro en Vant)</th><th>Meta Diaria</th><th>Meta Semanal</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Conversaciones nuevas</td><td>5 – 7</td><td>25 – 32</td></tr>
+          <tr><td>Citas agendadas</td><td>1 – 2</td><td>8 – 10</td></tr>
+          <tr><td>Citas realizadas (casos en pipeline)</td><td>1 – 2</td><td>6 – 7</td></tr>
+          <tr><td>Citas de cierre / decisión</td><td>1</td><td>4</td></tr>
+          <tr><td>Solicitudes ingresadas</td><td>1</td><td>3</td></tr>
+          <tr><td>Pólizas pagadas (cosecha)</td><td>—</td><td><strong>1 – 2</strong></td></tr>
+          <tr><td>Referidos obtenidos</td><td>2</td><td>10</td></tr>
+          <tr><td>Puntos OKR (Plataforma Vant)</td><td>25 pts (base típica)</td><td>125 pts (5 días × 25; ajustable)</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="font-size:15px;color:var(--ink-soft);margin:12px 0 0 0;">Los puntos OKR se registran en <strong>OKR Diario</strong> y <strong>OKR Semana</strong>; las cifras 25 / 125 son el estándar por defecto del sistema y pueden cambiar según la configuración del despacho. Son <strong>independientes</strong> del conteo del embudo comercial anterior.</p>
+
+    <h3>Ratios de conversión del embudo <span style="font-weight:400;font-size:0.85em;color:var(--gray)">(referencia orientativa)</span></h3>
+    <ul>
+      <li>Contactos → Citas agendadas: <strong>~32%</strong> <span style="color:var(--gray);font-size:0.9em">(rango típico 25 – 40%)</span></li>
+      <li>Citas agendadas → Casos abiertos: <strong>~75%</strong> <span style="color:var(--gray);font-size:0.9em">(70 – 85%)</span></li>
+      <li>Casos abiertos → Citas de cierre: <strong>~60%</strong> <span style="color:var(--gray);font-size:0.9em">(50 – 70%)</span></li>
+      <li>Citas de cierre → Solicitudes ingresadas: <strong>~75%</strong> <span style="color:var(--gray);font-size:0.9em">(70 – 90%)</span></li>
+      <li>Solicitudes → Pólizas pagadas: <strong>~33 – 67%</strong> <span style="color:var(--gray);font-size:0.9em">(1 – 2 pólizas desde 3 solicitudes; apunta a 70 – 90% mejorando calidad y trámite)</span></li>
+    </ul>
+
+    <div class="callout">
+      <div class="callout-label">Diagnóstico</div>
+      <p>Si las ventas no llegan, revisa el inicio del embudo, no el final.</p>
+    </div>
+  </section>
+
+  <!-- SECCIÓN 16 -->
+  <section class="section" id="s16">
+    <div class="section-header">
+      <div class="section-num">Capítulo XVI</div>
+      <h2 class="section-title">Errores <em>Comunes</em></h2>
+    </div>
+
+    <p>Los errores que debes evitar desde el día uno como Asesor Consulta:</p>
+
+    <ul class="error-list">
+      <li><span><strong>Querer vender sin entender.</strong>Diagnostica antes de proponer.</span></li>
+      <li><span><strong>No dar seguimiento.</strong>Aquí se pierden la mayoría de las ventas.</span></li>
+      <li><span><strong>No pedir referidos.</strong>Dejas dinero sobre la mesa todos los días.</span></li>
+      <li><span><strong>Falta de constancia.</strong>Un día bueno no compensa una semana floja.</span></li>
+      <li><span><strong>Hablar demasiado.</strong>El cliente debe hablar el 80% del tiempo.</span></li>
+      <li><span><strong>Tomar el "no" personal.</strong>No te rechazan a ti, rechazan el momento.</span></li>
+      <li><span><strong>Descuidar la Plataforma Vant.</strong>Sin registro, no hay seguimiento real.</span></li>
+    </ul>
+  </section>
+
+  <!-- SECCIÓN 17 -->
+  <section class="section" id="s17">
+    <div class="section-header">
+      <div class="section-num">Capítulo XVII</div>
+      <h2 class="section-title">Estándares del <em>Equipo Consulta</em></h2>
+    </div>
+
+    <p>Todo asesor de Consultores Avanzados de Vida opera bajo estos estándares. No son sugerencias: son el mínimo para pertenecer al equipo Consulta  .</p>
+
+    <div class="decalogo">
+      <div class="decalogo-label">El Decálogo Consulta</div>
+      <h3 class="decalogo-title">Un <em>Asesor Consulta</em> es el que…</h3>
+      <ul class="decalogo-list">
+        <li>Ejecuta su rutina diaria sin excusas.</li>
+        <li>Mide todo en la Plataforma Vant.</li>
+        <li>Da seguimiento hasta el último prospecto.</li>
+        <li>Pide referidos en cada oportunidad.</li>
+        <li>Se capacita constantemente.</li>
+        <li>Representa confianza en cada interacción.</li>
+        <li>Opera con integridad absoluta con clientes y compañeros.</li>
+        <li>Es constante, profesional y disciplinado.</li>
+        <li>Logra sus metas porque sigue el sistema.</li>
+      </ul>
+    </div>
+  </section>
+
+</div>
+
+<!-- ============ CIERRE ============ -->
+<section class="closing" id="s18">
+  <div class="closing-inner">
+    <div class="closing-label">Capítulo XVIII · Cierre del Playbook</div>
+    <h2 class="closing-title">El Sistema <em>funciona</em>.<br>Solo necesita ser ejecutado.</h2>
+    <p class="closing-text">No necesitas ser perfecto. Necesitas ser constante.</p>
+    <p class="closing-text">No necesitas el mejor script, la mejor ropa, ni el mejor cierre. Necesitas hacer las actividades correctas, todos los días, aunque no tengas ganas.</p>
+    <p class="closing-text">El asesor promedio busca motivación. El Asesor Consulta construye hábitos.</p>
+
+    <div class="closing-divider"></div>
+
+    <p class="closing-quote">"Este negocio no es de talento…<br>es de disciplina diaria."</p>
+
+    <div class="closing-lema">Ser Vant es avanzar · Un asesor Consulta logra sus metas porque no improvisa: ejecuta</div>
+  </div>
+</section>
+
+<footer class="footer">
+  Consultores Avanzados de Vida · Sistema Consulta © 2026
+</footer>
+
+</body>
+</html>

@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Outlet } from 'react-router-dom'
 import { RootLayout } from './RootLayout'
 import { RouteErrorBoundary } from './RouteErrorBoundary'
 import { AppShell } from './layout/AppShell'
@@ -20,6 +20,8 @@ import { AdvisorSettingsPage } from '../pages/owner/AdvisorSettingsPage'
 import { ManagerDashboardPage } from '../pages/manager/ManagerDashboardPage'
 import { AdvisorWeekDetailPage } from '../pages/manager/AdvisorWeekDetailPage'
 import { WeeklyMinimumTargetsPage } from '../modules/okr/settings/WeeklyMinimumTargetsPage'
+import { ConsultaPlaybookPage } from '../pages/advisor/ConsultaPlaybookPage'
+import { DocumentationIndexPage } from '../pages/advisor/DocumentationIndexPage'
 
 const PipelinePage = lazy(() =>
   import('../pages/PipelinePage').then((m) => ({ default: m.PipelinePage }))
@@ -103,6 +105,24 @@ export const router = createBrowserRouter([
             <OkrScoringPage />
           </RoleGuard>
         ),
+      },
+      {
+        path: 'docs',
+        element: (
+          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
+            <Outlet />
+          </RoleGuard>
+        ),
+        children: [
+          {
+            index: true,
+            element: <DocumentationIndexPage />,
+          },
+          {
+            path: 'playbook',
+            element: <ConsultaPlaybookPage />,
+          },
+        ],
       },
       {
         path: 'pipeline',
