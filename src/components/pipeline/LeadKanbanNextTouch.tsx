@@ -1,47 +1,39 @@
 import { useNavigate } from 'react-router-dom'
-import type { AppointmentType, CalendarEvent } from '../../features/calendar/types/calendar.types'
+import type { CalendarEvent } from '../../features/calendar/types/calendar.types'
 import { getTypeLabel } from '../../features/calendar/utils/pillStyles'
+import type { SchedulingGuidance } from '../../features/calendar/utils/stageSchedulingGuidance'
 import { getNextActionLabel } from '../../shared/utils/nextAction'
-import { NextActionActions } from './NextActionActions'
 
 type Variant = 'kanban' | 'table'
 
-/**
- * Kanban: cita programada o botón Agendar (calendario).
- * Tabla: prioriza cita; si no hay, muestra próximo paso del pipeline (NextActionActions).
- */
+/** Cita en calendario (fecha + tipo) o botón Agendar. Misma UX en Kanban y vista lista. */
 export function LeadKanbanNextTouch({
   leadId,
-  nextActionAt,
-  nextActionType,
   nextAppointment,
-  onUpdated,
-  onToast,
+  schedulingGuidance,
   onSchedule,
   variant = 'kanban',
-  openExternally,
-  onExternalClose,
 }: {
   leadId: string
-  /** Solo se usa en variant `table`. */
-  nextActionAt?: string | null
-  nextActionType?: string | null
   nextAppointment: CalendarEvent | null | undefined
-  onUpdated?: () => void | Promise<void>
-  onToast?: (msg: string) => void
-  /** Kanban: abrir modal de cita ligado al lead. */
-  onSchedule?: (leadId: string, initialType?: AppointmentType | null) => void
+  /** Si viene, etiquetas y CTA siguen la guía por etapa. */
+  schedulingGuidance?: SchedulingGuidance | null
+  onSchedule?: (leadId: string) => void
   variant?: Variant
-  openExternally?: boolean
-  onExternalClose?: () => void
 }) {
   const navigate = useNavigate()
   const appt = nextAppointment?.status === 'scheduled' ? nextAppointment : null
+  const legacy = schedulingGuidance == null
 
   if (appt) {
     const label = getNextActionLabel(appt.starts_at)
     const typeLabel = getTypeLabel(appt.type)
     const isCompact = variant === 'kanban'
+    const showReprogramar =
+      onSchedule &&
+      !legacy &&
+      schedulingGuidance.editEventId != null &&
+      schedulingGuidance.editEventId === appt.id
 
     return (
       <div
@@ -52,7 +44,7 @@ export function LeadKanbanNextTouch({
       >
         <span
           className={`inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50/90 px-1.5 py-0.5 text-[11px] text-blue-900 dark:border-blue-800 dark:bg-blue-950/50 dark:text-blue-100 ${isCompact ? 'min-w-0' : ''}`}
-          title="Cita en calendario. Editar horario en Calendario."
+          title="Cita en calendario"
         >
           <span className="font-semibold shrink-0">{typeLabel}</span>
           <span className="tabular-nums truncate">{label}</span>
@@ -64,37 +56,39 @@ export function LeadKanbanNextTouch({
         >
           Calendario
         </button>
+        {showReprogramar ? (
+          <button
+            type="button"
+            onClick={() => onSchedule(leadId)}
+            className="shrink-0 text-[11px] font-medium text-blue-800 underline-offset-2 hover:underline dark:text-blue-200"
+          >
+            {schedulingGuidance.buttonLabel}
+          </button>
+        ) : null}
+        {legacy && onSchedule ? (
+          <button
+            type="button"
+            onClick={() => onSchedule(leadId)}
+            className="shrink-0 text-[11px] font-medium text-blue-800 underline-offset-2 hover:underline dark:text-blue-200"
+          >
+            Reprogramar
+          </button>
+        ) : null}
       </div>
     )
   }
 
-  if (variant === 'table') {
+  if (!legacy && schedulingGuidance.mode === 'none') {
     return (
       <div
-        className="flex flex-col gap-1.5 min-w-0 max-w-full"
+        className="flex flex-wrap items-center gap-1 min-w-0 max-w-full"
         data-stop-rowclick="true"
         onClick={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
-        {onSchedule ? (
-          <button
-            type="button"
-            onClick={() => onSchedule(leadId, null)}
-            className="self-start rounded-md border border-dashed border-neutral-300 bg-neutral-50/80 px-2 py-0.5 text-[11px] font-medium text-neutral-700 hover:bg-neutral-100"
-          >
-            Agendar
-          </button>
-        ) : null}
-        <NextActionActions
-          leadId={leadId}
-          nextActionAt={nextActionAt ?? null}
-          nextActionType={nextActionType ?? null}
-          onUpdated={onUpdated}
-          onToast={onToast}
-          variant="table"
-          openExternally={openExternally}
-          onExternalClose={onExternalClose}
-        />
+        <span className="text-[11px] text-neutral-400 truncate" title={schedulingGuidance.helpText ?? undefined}>
+          {schedulingGuidance.helpText?.trim() || '—'}
+        </span>
       </div>
     )
   }
@@ -106,13 +100,17 @@ export function LeadKanbanNextTouch({
       onClick={(e) => e.stopPropagation()}
       onMouseDown={(e) => e.stopPropagation()}
     >
-      <button
-        type="button"
-        onClick={() => onSchedule?.(leadId, null)}
-        className="inline-flex items-center rounded-md border border-dashed border-neutral-300 bg-neutral-50/80 px-2 py-0.5 text-[11px] font-medium text-neutral-700 hover:bg-neutral-100 hover:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
-      >
-        Agendar
-      </button>
+      {onSchedule ? (
+        <button
+          type="button"
+          onClick={() => onSchedule(leadId)}
+          className="inline-flex items-center rounded-md border border-dashed border-neutral-300 bg-neutral-50/80 px-2 py-0.5 text-[11px] font-medium text-neutral-700 hover:bg-neutral-100 hover:border-neutral-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
+        >
+          {legacy ? 'Agendar' : schedulingGuidance.buttonLabel}
+        </button>
+      ) : (
+        <span className="text-[11px] text-neutral-400">Sin cita</span>
+      )}
     </div>
   )
 }

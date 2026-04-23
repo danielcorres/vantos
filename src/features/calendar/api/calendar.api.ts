@@ -5,9 +5,12 @@ import type {
   CreateCalendarEventInput,
   UpdateCalendarEventInput,
   AppointmentStatus,
+  AppointmentType,
 } from '../types/calendar.types'
 import { getStageSlugForAppointmentType } from '../utils/appointmentStageRules'
 import type { CalendarStageSlug } from '../utils/appointmentStageRules'
+import type { LeadSchedulingSummary } from '../utils/stageSchedulingGuidance'
+import { invokeGoogleCalendarSync } from './googleCalendarEdge'
 
 function normalizeEvent(row: Record<string, unknown>): CalendarEvent {
   return {
@@ -123,6 +126,35 @@ async function tryMoveLeadToStageForAppointment(
 }
 
 export const calendarApi = {
+  async getEventById(id: string): Promise<CalendarEvent | null> {
+    const { data, error } = await supabase.from('calendar_events').select('*').eq('id', id).maybeSingle()
+    if (error) throw new Error(error.message)
+    if (!data) return null
+    return normalizeEvent(data as Record<string, unknown>)
+  },
+
+  /** Resumen de citas por lead (RPC); vacío si no hay ids. */
+  async getSchedulingSummaries(leadIds: string[]): Promise<Record<string, LeadSchedulingSummary>> {
+    if (leadIds.length === 0) return {}
+    const { data, error } = await supabase.rpc('get_calendar_scheduling_summaries', {
+      p_lead_ids: leadIds,
+    })
+    if (error) throw new Error(error.message)
+    const map: Record<string, LeadSchedulingSummary> = {}
+    for (const row of data ?? []) {
+      const r = row as Record<string, unknown>
+      const lid = r.lead_id as string
+      map[lid] = {
+        has_completed_first: Boolean(r.has_completed_first),
+        has_completed_closing: Boolean(r.has_completed_closing),
+        next_scheduled_id: (r.next_scheduled_id as string | null) ?? null,
+        next_scheduled_starts_at: (r.next_scheduled_starts_at as string | null) ?? null,
+        next_scheduled_type: (r.next_scheduled_type as AppointmentType | null) ?? null,
+      }
+    }
+    return map
+  },
+
   /**
    * Eventos en un rango de fechas (inclusive en starts_at).
    * Orden: starts_at asc.
@@ -230,6 +262,8 @@ export const calendarApi = {
       await syncLeadNextActionFromCalendar(event.lead_id)
     }
 
+    void invokeGoogleCalendarSync(event.id, 'upsert')
+
     return event
   },
 
@@ -259,6 +293,8 @@ export const calendarApi = {
       await syncLeadNextActionFromCalendar(event.lead_id)
     }
 
+    void invokeGoogleCalendarSync(event.id, 'upsert')
+
     return event
   },
 
@@ -275,6 +311,7 @@ export const calendarApi = {
     if (event.lead_id) {
       await syncLeadNextActionFromCalendar(event.lead_id)
     }
+    void invokeGoogleCalendarSync(event.id, 'upsert')
     return event
   },
 
@@ -286,6 +323,8 @@ export const calendarApi = {
       .maybeSingle()
     if (selErr) throw new Error(selErr.message)
     const leadId = (existing as { lead_id?: string | null } | null)?.lead_id ?? null
+
+    await invokeGoogleCalendarSync(id, 'delete')
 
     const { error } = await supabase.from('calendar_events').delete().eq('id', id)
     if (error) throw new Error(error.message)

@@ -21,6 +21,13 @@ import { LeadTemperatureChip } from '../../../components/pipeline/LeadTemperatur
 import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
 import type { CalendarEvent } from '../../calendar/types/calendar.types'
 import { calendarApi } from '../../calendar/api/calendar.api'
+import { subscribeGoogleCalendarSyncErrors } from '../../calendar/utils/googleCalendarSyncListeners'
+import {
+  getSchedulingGuidance,
+  type LeadSchedulingSummary,
+  type SchedulingGuidance,
+} from '../../calendar/utils/stageSchedulingGuidance'
+import { resolveCalModalFromGuidance } from '../utils/resolveCalModalFromGuidance'
 
 const BTN_PRIMARY =
   'h-9 rounded-xl bg-neutral-900 text-white px-4 text-sm font-semibold gap-2 hover:bg-neutral-800 active:scale-[0.98] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-1 flex-shrink-0 inline-flex items-center justify-center'
@@ -79,10 +86,24 @@ export function PipelineTableView({
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [postCreateAskLead, setPostCreateAskLead] = useState<Lead | null>(null)
-  const [calModal, setCalModal] = useState<{
-    leadId: string
-    initialAppointmentType?: AppointmentType | null
-  } | null>(null)
+  type CalModalState =
+    | null
+    | {
+        mode: 'create'
+        leadId: string
+        initialAppointmentType?: AppointmentType | null
+        initialTitle?: string | null
+        lockType?: AppointmentType | null
+        helpText?: string | null
+      }
+    | {
+        mode: 'edit'
+        leadId: string
+        event: CalendarEvent
+        helpText?: string | null
+      }
+
+  const [calModal, setCalModal] = useState<CalModalState>(null)
   const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({})
   const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -103,6 +124,9 @@ export function PipelineTableView({
   const [archivedTotal, setArchivedTotal] = useState(0)
   const [localNextAppointmentByLeadId, setLocalNextAppointmentByLeadId] = useState<
     Record<string, CalendarEvent | null>
+  >({})
+  const [localSchedulingSummaryByLeadId, setLocalSchedulingSummaryByLeadId] = useState<
+    Record<string, LeadSchedulingSummary>
   >({})
 
   const weeklyMode = weeklyFilterLeadIds != null && weeklyLoadError == null
@@ -199,17 +223,23 @@ export function PipelineTableView({
   useEffect(() => {
     if (!sortedLeadIdsKey) {
       setLocalNextAppointmentByLeadId({})
+      setLocalSchedulingSummaryByLeadId({})
       return
     }
     const ids = sortedLeadIdsKey.split(',').filter(Boolean)
     let cancelled = false
-    void calendarApi
-      .getNextScheduledEventByLeadIds(ids)
-      .then((m) => {
-        if (!cancelled) setLocalNextAppointmentByLeadId(m)
+    void Promise.all([calendarApi.getNextScheduledEventByLeadIds(ids), calendarApi.getSchedulingSummaries(ids)])
+      .then(([m, sums]) => {
+        if (!cancelled) {
+          setLocalNextAppointmentByLeadId(m)
+          setLocalSchedulingSummaryByLeadId(sums)
+        }
       })
       .catch(() => {
-        if (!cancelled) setLocalNextAppointmentByLeadId({})
+        if (!cancelled) {
+          setLocalNextAppointmentByLeadId({})
+          setLocalSchedulingSummaryByLeadId({})
+        }
       })
     return () => {
       cancelled = true
@@ -220,6 +250,25 @@ export function PipelineTableView({
     () => ({ ...localNextAppointmentByLeadId, ...(nextAppointmentByLeadId ?? {}) }),
     [localNextAppointmentByLeadId, nextAppointmentByLeadId]
   )
+
+  const mergedSchedulingSummaryByLeadId = useMemo(
+    () => ({ ...localSchedulingSummaryByLeadId }),
+    [localSchedulingSummaryByLeadId]
+  )
+
+  const schedulingGuidanceByLeadId = useMemo(() => {
+    const out: Record<string, SchedulingGuidance> = {}
+    for (const lead of sortedLeads) {
+      const slug = stages.find((s) => s.id === lead.stage_id)?.slug
+      out[lead.id] = getSchedulingGuidance(
+        lead,
+        slug,
+        mergedNextAppointmentByLeadId[lead.id] ?? null,
+        mergedSchedulingSummaryByLeadId[lead.id]
+      )
+    }
+    return out
+  }, [sortedLeads, stages, mergedNextAppointmentByLeadId, mergedSchedulingSummaryByLeadId])
 
   const groupedSections = useMemo(() => {
     if (pipelineMode !== 'activos' || stages.length === 0) return []
@@ -369,6 +418,56 @@ export function PipelineTableView({
 
   const clearCalModal = useCallback(() => {
     setCalModal(null)
+  }, [])
+
+  const leadsForSchedule = useMemo(() => {
+    if (pipelineMode === 'archivados') return sortedLeads
+    const m = new Map<string, Lead>()
+    for (const l of serverActivosLeads) m.set(l.id, l)
+    for (const l of sortedLeads) m.set(l.id, l)
+    return [...m.values()]
+  }, [pipelineMode, sortedLeads, serverActivosLeads])
+
+  const openScheduleForLead = useCallback(
+    async (leadId: string) => {
+      const r = await resolveCalModalFromGuidance(leadId, {
+        leads: leadsForSchedule,
+        stages,
+        nextAppointmentByLeadId: mergedNextAppointmentByLeadId,
+        schedulingSummaryByLeadId: mergedSchedulingSummaryByLeadId,
+      })
+      if (r.kind === 'toast') {
+        setToast({
+          type: r.level === 'error' ? 'error' : 'success',
+          message: r.message,
+        })
+        return
+      }
+      if (r.kind === 'edit') {
+        setCalModal({
+          mode: 'edit',
+          leadId: r.leadId,
+          event: r.event,
+          helpText: r.helpText,
+        })
+        return
+      }
+      setCalModal({
+        mode: 'create',
+        leadId: r.leadId,
+        initialAppointmentType: r.initialAppointmentType,
+        initialTitle: r.initialTitle,
+        lockType: r.lockType,
+        helpText: r.helpText,
+      })
+    },
+    [leadsForSchedule, stages, mergedNextAppointmentByLeadId, mergedSchedulingSummaryByLeadId]
+  )
+
+  useEffect(() => {
+    return subscribeGoogleCalendarSyncErrors((msg) => {
+      setToast({ type: 'error', message: msg })
+    })
   }, [])
 
   const handleLeadCreatedForCalendar = useCallback((lead: Lead) => {
@@ -739,7 +838,8 @@ export function PipelineTableView({
               onToast={onToast ?? ((msg) => setToast({ type: 'success', message: msg }))}
               onUpdated={refreshCurrentMode}
               nextAppointmentByLeadId={mergedNextAppointmentByLeadId}
-              onSchedule={(leadId) => setCalModal({ leadId, initialAppointmentType: null })}
+              onSchedule={openScheduleForLead}
+              schedulingGuidanceByLeadId={schedulingGuidanceByLeadId}
             />
             {serverActivosListMode && activosListLoadedCount < serverActivosTotal ? (
               <div className="flex justify-center py-2">
@@ -771,15 +871,21 @@ export function PipelineTableView({
         onSelect={(type) => {
           const lead = postCreateAskLead
           if (!lead) return
-          setCalModal({ leadId: lead.id, initialAppointmentType: type })
+          setCalModal({
+            mode: 'create',
+            leadId: lead.id,
+            initialAppointmentType: type,
+            lockType: type,
+            helpText: null,
+          })
           setPostCreateAskLead(null)
         }}
         onSkip={() => setPostCreateAskLead(null)}
       />
 
-      {calModal != null && (
+      {calModal != null && calModal.mode === 'create' && (
         <AppointmentFormModal
-          key={`${calModal.leadId}-${calModal.initialAppointmentType ?? 'default'}`}
+          key={`create-${calModal.leadId}-${calModal.initialAppointmentType ?? 'default'}-${calModal.lockType ?? 'x'}`}
           isOpen
           onClose={clearCalModal}
           mode="create"
@@ -789,6 +895,23 @@ export function PipelineTableView({
           initialLeadId={calModal.leadId}
           createDefaults={{ durationMinutes: 30 }}
           initialAppointmentType={calModal.initialAppointmentType ?? undefined}
+          initialTitle={calModal.initialTitle ?? undefined}
+          lockType={calModal.lockType ?? null}
+          helpText={calModal.helpText ?? null}
+        />
+      )}
+
+      {calModal != null && calModal.mode === 'edit' && (
+        <AppointmentFormModal
+          key={`edit-${calModal.event.id}`}
+          isOpen
+          onClose={clearCalModal}
+          mode="edit"
+          event={calModal.event}
+          onSaved={() => {
+            void refreshCurrentMode()
+          }}
+          helpText={calModal.helpText ?? null}
         />
       )}
 

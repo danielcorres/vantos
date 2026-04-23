@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import type { CalendarEvent } from '../../features/calendar/types/calendar.types'
+import type { SchedulingGuidance } from '../../features/calendar/utils/stageSchedulingGuidance'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
 import type { PipelineStageLite } from './LeadProgressDots'
@@ -18,11 +19,12 @@ export function LeadCardMobile({
   stageName,
   stageSlug,
   nextAppointment,
+  schedulingGuidance,
   isHighlight,
   onRowClick,
   onMoveStage,
   onToast,
-  onUpdated,
+  onUpdated: _onUpdated,
   onSchedule,
   variant = 'default',
 }: {
@@ -30,6 +32,7 @@ export function LeadCardMobile({
   stages: PipelineStageLite[]
   stageName: string | undefined
   nextAppointment?: CalendarEvent | null
+  schedulingGuidance?: SchedulingGuidance
   /** Slug para estilos (colores); opcional. Si no se pasa, se usa gris. */
   stageSlug?: string
   isHighlight?: boolean
@@ -106,11 +109,8 @@ export function LeadCardMobile({
           <div className="mt-1 flex items-center min-w-0">
             <LeadKanbanNextTouch
               leadId={lead.id}
-              nextActionAt={lead.next_action_at}
-              nextActionType={lead.next_action_type}
               nextAppointment={nextAppointment}
-              onUpdated={onUpdated}
-              onToast={onToast}
+              schedulingGuidance={schedulingGuidance}
               onSchedule={onSchedule}
               variant="kanban"
             />
@@ -141,11 +141,8 @@ export function LeadCardMobile({
           <div className="mt-1 flex flex-wrap items-center gap-1.5">
             <LeadKanbanNextTouch
               leadId={lead.id}
-              nextActionAt={lead.next_action_at}
-              nextActionType={lead.next_action_type}
               nextAppointment={nextAppointment}
-              onUpdated={onUpdated}
-              onToast={onToast}
+              schedulingGuidance={schedulingGuidance}
               onSchedule={onSchedule}
               variant="table"
             />

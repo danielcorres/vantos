@@ -1,6 +1,7 @@
 import * as React from 'react'
 import type { PipelineStage, Lead } from '../pipeline.api'
 import type { CalendarEvent } from '../../calendar/types/calendar.types'
+import type { SchedulingGuidance } from '../../calendar/utils/stageSchedulingGuidance'
 import { sortLeadsByEffectiveNextTouch } from '../utils/effectiveNextTouch'
 import { EmptyState } from '../../../components/pipeline/EmptyState'
 import { KanbanColumn } from './KanbanColumn'
@@ -13,6 +14,8 @@ interface KanbanBoardProps {
   leads: Lead[]
   /** Próxima cita programada por lead (batch); alinea tarjetas con calendario. */
   nextAppointmentByLeadId?: Record<string, CalendarEvent | null>
+  /** Guía de CTA / reprogramar por lead (slug + historial de citas). */
+  schedulingGuidanceByLeadId?: Record<string, SchedulingGuidance>
   /** Totales por etapa y cuántos están cargados (Kanban paginado). */
   stageLoadMeta?: Record<string, { total: number; loaded: number }>
   loadingMoreStageId?: string | null
@@ -29,11 +32,13 @@ interface KanbanBoardProps {
 }
 
 const EMPTY_APPOINTMENTS: Record<string, CalendarEvent | null> = {}
+const EMPTY_GUIDANCE: Record<string, SchedulingGuidance> = {}
 
 export function KanbanBoard({
   stages,
   leads,
   nextAppointmentByLeadId = EMPTY_APPOINTMENTS,
+  schedulingGuidanceByLeadId = EMPTY_GUIDANCE,
   stageLoadMeta = {},
   loadingMoreStageId = null,
   onLoadMoreStage,
@@ -149,6 +154,7 @@ export function KanbanBoard({
                   stageName={mobileStageName}
                   stageSlug={mobileStageSlug}
                   nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
+                  schedulingGuidance={schedulingGuidanceByLeadId[lead.id]}
                   onMoveStage={onMoveStage}
                   onToast={onToast}
                   onUpdated={onUpdated}
@@ -190,6 +196,7 @@ export function KanbanBoard({
                 stages={stages}
                 leads={leadsByStage.get(stage.id) ?? emptyLeads}
                 nextAppointmentByLeadId={nextAppointmentByLeadId}
+                schedulingGuidanceByLeadId={schedulingGuidanceByLeadId}
                 totalInStage={meta?.total}
                 loadedInStage={meta?.loaded}
                 hasMoreInStage={meta != null && meta.loaded < meta.total}

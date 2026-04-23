@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import type { PipelineStage, Lead } from '../pipeline.api'
 import type { CalendarEvent } from '../../calendar/types/calendar.types'
+import type { SchedulingGuidance } from '../../calendar/utils/stageSchedulingGuidance'
 import { EmptyState } from '../../../components/pipeline/EmptyState'
 import { InfoPopover } from '../../../shared/components/InfoPopover'
 import { LeadCard } from './LeadCard'
@@ -17,6 +18,7 @@ interface KanbanColumnProps {
   leads: Lead[]
   /** Próxima cita programada por lead_id (batch desde calendario). */
   nextAppointmentByLeadId?: Record<string, CalendarEvent | null>
+  schedulingGuidanceByLeadId?: Record<string, SchedulingGuidance>
   /** Total en servidor para esta etapa (cabecera). Si no viene, se usa leads.length. */
   totalInStage?: number
   loadedInStage?: number
@@ -33,12 +35,14 @@ interface KanbanColumnProps {
 }
 
 const EMPTY_APPOINTMENTS: Record<string, CalendarEvent | null> = {}
+const EMPTY_GUIDANCE: Record<string, SchedulingGuidance> = {}
 
 function KanbanColumnInner({
   stage,
   stages,
   leads,
   nextAppointmentByLeadId = EMPTY_APPOINTMENTS,
+  schedulingGuidanceByLeadId = EMPTY_GUIDANCE,
   totalInStage,
   loadedInStage,
   hasMoreInStage,
@@ -144,6 +148,7 @@ function KanbanColumnInner({
                 lead={lead}
                 stages={stages}
                 nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
+                schedulingGuidance={schedulingGuidanceByLeadId[lead.id]}
                 onDragStart={onDragStart}
                 onMoveStage={onMoveStage}
                 onToast={onToast}

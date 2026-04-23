@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { pipelineApi, type Lead, type PipelineStage } from '../pipeline.api'
 import type { CalendarEvent } from '../../calendar/types/calendar.types'
+import type { SchedulingGuidance } from '../../calendar/utils/stageSchedulingGuidance'
 import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
 import { LeadTemperatureChip } from '../../../components/pipeline/LeadTemperatureChip'
 import { LeadKanbanNextTouch } from '../../../components/pipeline/LeadKanbanNextTouch'
@@ -25,6 +26,7 @@ interface LeadCardProps {
   stages: PipelineStage[]
   /** Próxima cita programada (calendario). */
   nextAppointment?: CalendarEvent | null
+  schedulingGuidance?: SchedulingGuidance
   onDragStart: (e: React.DragEvent, lead: Lead) => void
   onMoveStage?: (leadId: string, toStageId: string) => Promise<void>
   onToast?: (message: string) => void
@@ -39,6 +41,7 @@ export function LeadCard({
   lead,
   stages,
   nextAppointment,
+  schedulingGuidance,
   onDragStart,
   onMoveStage,
   onToast,
@@ -104,8 +107,7 @@ export function LeadCard({
         <LeadKanbanNextTouch
           leadId={lead.id}
           nextAppointment={nextAppointment}
-          onUpdated={onUpdated}
-          onToast={onToast}
+          schedulingGuidance={schedulingGuidance}
           onSchedule={onSchedule}
           variant="kanban"
         />

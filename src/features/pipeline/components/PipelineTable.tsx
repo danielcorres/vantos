@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import type { Lead } from '../pipeline.api'
 import type { CalendarEvent } from '../../calendar/types/calendar.types'
+import type { SchedulingGuidance } from '../../calendar/utils/stageSchedulingGuidance'
 import { displayStageName, getStageAccentStyle } from '../../../shared/utils/stageStyles'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 
@@ -33,6 +34,7 @@ type PipelineTableProps = {
   onToast?: (message: string) => void
   onUpdated?: () => void | Promise<void>
   nextAppointmentByLeadId?: Record<string, CalendarEvent | null>
+  schedulingGuidanceByLeadId?: Record<string, SchedulingGuidance>
   onSchedule?: (leadId: string) => void
 }
 
@@ -44,7 +46,7 @@ function HeaderRow() {
       <th className={TH_BASE}>Nombre</th>
       <th className={TH_BASE}>Teléfono</th>
       <th className={`${TH_BASE} hidden xl:table-cell`}>Email</th>
-      <th className={`${TH_BASE} hidden lg:table-cell min-w-[165px]`}>Próximo paso / cita</th>
+      <th className={`${TH_BASE} hidden lg:table-cell min-w-[165px]`}>Cita</th>
       <th className={`${TH_BASE} text-right`}>Acción</th>
     </tr>
   )
@@ -64,6 +66,7 @@ export function PipelineTable({
   onToast,
   onUpdated,
   nextAppointmentByLeadId = {},
+  schedulingGuidanceByLeadId = {},
   onSchedule,
 }: PipelineTableProps) {
   const showGrouped = groupByStage && groupedSections.length > 0
@@ -169,6 +172,7 @@ export function PipelineTable({
                             stageName={stage.name}
                             stageSlug={stage.slug}
                             nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
+                            schedulingGuidance={schedulingGuidanceByLeadId[lead.id]}
                             isHighlight={isHighlight}
                             onRowClick={onRowClick}
                             onMoveStage={onMoveStage}
@@ -195,6 +199,7 @@ export function PipelineTable({
               stageName={stage?.name}
               stageSlug={stage?.slug}
               nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
+              schedulingGuidance={schedulingGuidanceByLeadId[lead.id]}
               isHighlight={highlightLeadId === lead.id}
               onRowClick={onRowClick}
               onMoveStage={onMoveStage}
@@ -290,6 +295,7 @@ export function PipelineTable({
                                 stageName={stage.name}
                                 stageSlug={stage.slug}
                                 nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
+                                schedulingGuidance={schedulingGuidanceByLeadId[lead.id]}
                                 isHighlight={isHighlight}
                                 onRowClick={onRowClick}
                                 onMoveStage={onMoveStage}
@@ -314,6 +320,7 @@ export function PipelineTable({
                     stageName={stage?.name}
                     stageSlug={stage?.slug}
                     nextAppointment={nextAppointmentByLeadId[lead.id] ?? null}
+                    schedulingGuidance={schedulingGuidanceByLeadId[lead.id]}
                     isHighlight={highlightLeadId === lead.id}
                     onRowClick={onRowClick}
                     onMoveStage={onMoveStage}

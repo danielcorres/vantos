@@ -4,6 +4,13 @@ import { CalendarWeekView } from '../features/calendar/components/CalendarWeekVi
 import { UpcomingEventsList } from '../features/calendar/components/UpcomingEventsList'
 import { AppointmentFormModal } from '../features/calendar/components/AppointmentFormModal'
 import type { CalendarEvent } from '../features/calendar/types/calendar.types'
+import {
+  disconnectGoogleCalendar,
+  getGoogleCalendarStatus,
+  startGoogleCalendarOAuth,
+} from '../features/calendar/api/googleCalendarEdge'
+import { subscribeGoogleCalendarSyncErrors } from '../features/calendar/utils/googleCalendarSyncListeners'
+import { Toast } from '../shared/components/Toast'
 
 type ViewMode = 'week' | 'upcoming'
 
@@ -27,7 +34,7 @@ function formatWeekLabel(monday: Date): string {
 }
 
 export function CalendarPage() {
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()))
   const [refreshKey, setRefreshKey] = useState(0)
@@ -35,6 +42,53 @@ export function CalendarPage() {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
   const [initialLeadId, setInitialLeadId] = useState<string | undefined>(undefined)
+  const [googleBanner, setGoogleBanner] = useState<{
+    connected: boolean
+    google_email: string | null
+  } | null>(null)
+  const [googleBannerLoading, setGoogleBannerLoading] = useState(true)
+  const [googleToast, setGoogleToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null)
+
+  const refreshGoogleStatus = useCallback(async () => {
+    setGoogleBannerLoading(true)
+    try {
+      const s = await getGoogleCalendarStatus()
+      setGoogleBanner(s ?? { connected: false, google_email: null })
+    } catch {
+      setGoogleBanner({ connected: false, google_email: null })
+    } finally {
+      setGoogleBannerLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void refreshGoogleStatus()
+  }, [refreshGoogleStatus])
+
+  useEffect(() => {
+    const g = searchParams.get('google_calendar')
+    if (!g) return
+    if (g === 'connected') {
+      setGoogleToast({ type: 'success', message: 'Google Calendar conectado correctamente.' })
+      void refreshGoogleStatus()
+    } else if (g === 'error') {
+      setGoogleToast({ type: 'error', message: 'No se pudo conectar Google Calendar. Revisa la configuración o inténtalo de nuevo.' })
+    }
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev)
+        n.delete('google_calendar')
+        return n
+      },
+      { replace: true }
+    )
+  }, [searchParams, setSearchParams, refreshGoogleStatus])
+
+  useEffect(() => {
+    return subscribeGoogleCalendarSyncErrors((msg) => {
+      setGoogleToast({ type: 'error', message: msg })
+    })
+  }, [])
 
   // Abrir modal de creación pre-cargado con el lead de ?lead=
   useEffect(() => {
@@ -93,6 +147,25 @@ export function CalendarPage() {
 
   const isCurrentWeek = getMondayOf(new Date()).getTime() === weekStart.getTime()
 
+  const handleConnectGoogle = async () => {
+    const url = await startGoogleCalendarOAuth()
+    if (url) {
+      window.location.href = url
+      return
+    }
+    setGoogleToast({ type: 'error', message: 'No se pudo iniciar la conexión con Google.' })
+  }
+
+  const handleDisconnectGoogle = async () => {
+    const ok = await disconnectGoogleCalendar()
+    if (ok) {
+      setGoogleToast({ type: 'success', message: 'Google Calendar desconectado.' })
+      void refreshGoogleStatus()
+    } else {
+      setGoogleToast({ type: 'error', message: 'No se pudo desconectar.' })
+    }
+  }
+
   return (
     <div className="flex flex-col min-h-0">
       <header className="shrink-0 px-4 py-3 border-b border-border bg-surface/50">
@@ -138,6 +211,45 @@ export function CalendarPage() {
             </button>
           </div>
         </div>
+
+        {!googleBannerLoading && googleBanner != null && (
+          <div className="mt-3 rounded-lg border border-border bg-bg/80 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-text">
+            <div className="min-w-0">
+              {googleBanner.connected ? (
+                <span className="text-neutral-700 dark:text-neutral-200">
+                  Sincronización activa con Google Calendar
+                  {googleBanner.google_email ? (
+                    <span className="text-muted"> ({googleBanner.google_email})</span>
+                  ) : null}
+                  .
+                </span>
+              ) : (
+                <span className="text-neutral-700 dark:text-neutral-200">
+                  Opcional: al conectar, las citas nuevas o editadas se reflejan en tu Google Calendar.
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              {googleBanner.connected ? (
+                <button
+                  type="button"
+                  onClick={() => void handleDisconnectGoogle()}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-text hover:bg-black/5"
+                >
+                  Desconectar Google
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void handleConnectGoogle()}
+                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50"
+                >
+                  Conectar Google Calendar
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Navegación de semana — solo visible en vista Semana */}
         {viewMode === 'week' && (
@@ -202,6 +314,17 @@ export function CalendarPage() {
         initialLeadId={initialLeadId}
         onSaved={handleSaved}
       />
+
+      {googleToast != null && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] max-w-md w-[calc(100%-2rem)]">
+          <Toast
+            type={googleToast.type}
+            message={googleToast.message}
+            onClose={() => setGoogleToast(null)}
+            durationMs={3200}
+          />
+        </div>
+      )}
     </div>
   )
 }

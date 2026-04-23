@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Lead } from '../../features/pipeline/pipeline.api'
 import type { CalendarEvent } from '../../features/calendar/types/calendar.types'
+import type { SchedulingGuidance } from '../../features/calendar/utils/stageSchedulingGuidance'
 import { getStageAccentStyle } from '../../shared/utils/stageStyles'
 import { isLikelyNeverMoved } from '../../shared/utils/leadUtils'
 import { IconMail, IconPhone, IconUser } from '../../app/layout/icons'
@@ -18,17 +19,19 @@ function LeadRowDesktopInner({
   stageName,
   stageSlug,
   nextAppointment,
+  schedulingGuidance,
   isHighlight,
   onRowClick,
   onMoveStage,
   onToast,
-  onUpdated,
+  onUpdated: _onUpdated,
   onSchedule,
 }: {
   lead: Lead
   stages: PipelineStageLite[]
   stageName: string | undefined
   nextAppointment?: CalendarEvent | null
+  schedulingGuidance?: SchedulingGuidance
   /** Slug para estilos (colores); opcional. */
   stageSlug?: string
   isHighlight?: boolean
@@ -124,15 +127,12 @@ function LeadRowDesktopInner({
         />
       </td>
 
-      {/* Próximo paso */}
+      {/* Cita / Agendar */}
       <td className="hidden lg:table-cell px-4 py-2 align-middle border-b border-dashed border-neutral-200/60 min-w-[165px]">
         <LeadKanbanNextTouch
           leadId={lead.id}
-          nextActionAt={lead.next_action_at}
-          nextActionType={lead.next_action_type}
           nextAppointment={nextAppointment}
-          onUpdated={onUpdated}
-          onToast={onToast}
+          schedulingGuidance={schedulingGuidance}
           onSchedule={onSchedule}
           variant="table"
         />

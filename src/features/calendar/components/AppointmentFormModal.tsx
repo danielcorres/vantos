@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { calendarApi } from '../api/calendar.api'
+import { pipelineApi } from '../../pipeline/pipeline.api'
 import type { CalendarEvent, AppointmentType, AppointmentStatus } from '../types/calendar.types'
 import { toDateTimeLocal, fromDateTimeLocal } from '../utils/dateTimeLocal'
 import { getStatusPillClass, getTypeLabel, getStatusLabel } from '../utils/pillStyles'
@@ -34,6 +35,8 @@ interface AppointmentFormModalProps {
   initialAppointmentType?: AppointmentType | null
   /** Título inicial al crear (ej. seguimiento desde pipeline). */
   initialTitle?: string | null
+  /** Texto de ayuda bajo el título (guía por etapa). */
+  helpText?: string | null
 }
 
 function computeEndsAt(startsAtValue: string, durationMinutes: number): string {
@@ -71,6 +74,7 @@ export function AppointmentFormModal({
   initialStartsAtIso = null,
   initialAppointmentType = null,
   initialTitle = null,
+  helpText = null,
 }: AppointmentFormModalProps) {
   const [type, setType] = useState<AppointmentType>('first_meeting')
   const effectiveType = lockType ?? type
@@ -84,6 +88,8 @@ export function AppointmentFormModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [markCitaRealizada, setMarkCitaRealizada] = useState(false)
+  const [markPropuestaPresentada, setMarkPropuestaPresentada] = useState(false)
   const prefersReducedMotion = useReducedMotion()
 
   const resetForm = useCallback(() => {
@@ -97,6 +103,8 @@ export function AppointmentFormModal({
     setStatus('scheduled')
     setError(null)
     setShowDeleteConfirm(false)
+    setMarkCitaRealizada(false)
+    setMarkPropuestaPresentada(false)
   }, [])
 
   useEffect(() => {
@@ -113,6 +121,8 @@ export function AppointmentFormModal({
       setLocation(event.location ?? '')
       setMeetingLink(event.meeting_link ?? '')
       setStatus(event.status)
+      setMarkCitaRealizada(false)
+      setMarkPropuestaPresentada(false)
     } else if (mode === 'create') {
       setType(lockType ?? initialAppointmentType ?? 'first_meeting')
       const duration = initialLeadId != null ? (createDefaults?.durationMinutes ?? 30) : 60
@@ -125,6 +135,8 @@ export function AppointmentFormModal({
       setStatus('scheduled')
       setError(null)
       setShowDeleteConfirm(false)
+      setMarkCitaRealizada(false)
+      setMarkPropuestaPresentada(false)
       let startDate: Date
       if (initialLeadId != null) {
         const iso = initialStartsAtIso?.trim() ?? ''
@@ -192,6 +204,20 @@ export function AppointmentFormModal({
           meeting_link: meetingLink.trim() || null,
           status,
         })
+        const leadId = event.lead_id
+        if (leadId && status === 'completed') {
+          const nowIso = new Date().toISOString()
+          const patch: { cita_realizada_at?: string; propuesta_presentada_at?: string } = {}
+          if (effectiveType === 'first_meeting' && markCitaRealizada) patch.cita_realizada_at = nowIso
+          if (effectiveType === 'closing' && markPropuestaPresentada) patch.propuesta_presentada_at = nowIso
+          if (Object.keys(patch).length > 0) {
+            try {
+              await pipelineApi.updateLead(leadId, patch)
+            } catch {
+              /* no bloquear cierre del modal si falla el hito */
+            }
+          }
+        }
       }
       onSaved()
       onClose()
@@ -239,6 +265,9 @@ export function AppointmentFormModal({
           <h2 className="text-lg font-semibold text-text">
             {mode === 'create' ? 'Nueva cita' : 'Editar cita'}
           </h2>
+          {helpText?.trim() ? (
+            <p className="text-xs text-muted mt-1.5 leading-snug">{helpText.trim()}</p>
+          ) : null}
         </div>
 
         <form onSubmit={handleSubmit} className="p-4 space-y-4">
@@ -325,6 +354,34 @@ export function AppointmentFormModal({
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {mode === 'edit' && event?.lead_id && status === 'completed' && (
+            <div className="rounded-lg border border-border/80 bg-surface/40 px-3 py-2 space-y-2">
+              <p className="text-xs font-medium text-text">Hitos en el lead (opcional)</p>
+              {effectiveType === 'first_meeting' && (
+                <label className="flex items-start gap-2 text-xs text-text cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={markCitaRealizada}
+                    onChange={(e) => setMarkCitaRealizada(e.target.checked)}
+                    className="mt-0.5 rounded border-border"
+                  />
+                  <span>Registrar cita inicial realizada (fecha de hoy)</span>
+                </label>
+              )}
+              {effectiveType === 'closing' && (
+                <label className="flex items-start gap-2 text-xs text-text cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={markPropuestaPresentada}
+                    onChange={(e) => setMarkPropuestaPresentada(e.target.checked)}
+                    className="mt-0.5 rounded border-border"
+                  />
+                  <span>Registrar propuesta presentada</span>
+                </label>
+              )}
             </div>
           )}
 
