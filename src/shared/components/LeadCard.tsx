@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { pipelineApi } from '../../features/pipeline/pipeline.api'
+import { pipelineApi, type PipelineStage } from '../../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../../features/pipeline/pipeline.store'
+import { MoveBackwardConfirmDialog } from '../../features/pipeline/components/MoveBackwardConfirmDialog'
+import { isBackwardStageMove } from '../../features/pipeline/utils/stageMoveDirection'
 import { formatDate } from '../utils/focusHelpers'
 import { displayStageName } from '../utils/stageStyles'
 
@@ -80,16 +82,21 @@ export function LeadCard({
   const [selectedStageId, setSelectedStageId] = useState(stageId || '')
   const [moving, setMoving] = useState(false)
   const [moveMessage, setMoveMessage] = useState<string | null>(null)
+  const [backwardConfirmToId, setBackwardConfirmToId] = useState<string | null>(null)
 
-  const handleMoveStage = async () => {
-    if (!stageId || !selectedStageId || selectedStageId === stageId) return
+  useEffect(() => {
+    setSelectedStageId(stageId || '')
+  }, [stageId])
+
+  const runMoveTo = async (toStageId: string) => {
+    if (!stageId || !toStageId || toStageId === stageId) return
 
     setMoving(true)
     setMoveMessage(null)
 
     try {
-      const idempotencyKey = generateIdempotencyKey(leadId, stageId, selectedStageId)
-      await pipelineApi.moveLeadStage(leadId, selectedStageId, idempotencyKey)
+      const idempotencyKey = generateIdempotencyKey(leadId, stageId, toStageId)
+      await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
 
       setMoveMessage('✓')
       setTimeout(() => {
@@ -97,6 +104,7 @@ export function LeadCard({
         onMoveSuccess?.()
       }, 1000)
     } catch {
+      setSelectedStageId(stageId || '')
       setMoveMessage('Error')
       setTimeout(() => setMoveMessage(null), 2000)
     } finally {
@@ -104,10 +112,36 @@ export function LeadCard({
     }
   }
 
+  const onClickMove = () => {
+    if (!stageId || !selectedStageId || selectedStageId === stageId) return
+    if (isBackwardStageMove(stageId, selectedStageId, stages as PipelineStage[])) {
+      setBackwardConfirmToId(selectedStageId)
+      return
+    }
+    void runMoveTo(selectedStageId)
+  }
+
   const displayName = leadName || `Lead ${leadId.slice(0, 8)}...`
 
   return (
     <div className={`card ${getSlaBorderClass(slaStatus)}`}>
+      <MoveBackwardConfirmDialog
+        isOpen={backwardConfirmToId != null && !!stageId}
+        leadDisplayName={displayName}
+        currentStageName={displayStageName(stageName || stages.find((s) => s.id === stageId)?.name || 'Etapa actual')}
+        targetStageName={displayStageName(
+          stages.find((s) => s.id === (backwardConfirmToId ?? ''))?.name || 'Etapa'
+        )}
+        onCancel={() => {
+          setBackwardConfirmToId(null)
+          setSelectedStageId(stageId || '')
+        }}
+        onConfirm={() => {
+          const to = backwardConfirmToId
+          setBackwardConfirmToId(null)
+          if (to) void runMoveTo(to)
+        }}
+      />
       {/* Header */}
       <div className="flex items-start justify-between gap-2 mb-2.5">
         <div className="flex-1 min-w-0">
@@ -156,7 +190,7 @@ export function LeadCard({
             ))}
           </select>
           <button
-            onClick={handleMoveStage}
+            onClick={onClickMove}
             disabled={moving || !selectedStageId || selectedStageId === stageId}
             className="btn btn-primary text-xs px-2.5 py-1 whitespace-nowrap"
           >

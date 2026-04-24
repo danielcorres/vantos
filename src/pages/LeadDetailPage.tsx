@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { flushSync } from 'react-dom'
 import { useParams, useNavigate, useBlocker } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { pipelineApi, type LeadStageHistoryRow } from '../features/pipeline/pipeline.api'
+import { pipelineApi, type LeadStageHistoryRow, type PipelineStage } from '../features/pipeline/pipeline.api'
+import { MoveBackwardConfirmDialog } from '../features/pipeline/components/MoveBackwardConfirmDialog'
+import { isBackwardStageMove } from '../features/pipeline/utils/stageMoveDirection'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
 import { formatDateMX, diffDaysFloor, ymdToLocalNoonISO } from '../shared/utils/dates'
 import { formatCurrencyMXN } from '../shared/utils/format'
@@ -148,6 +150,7 @@ export function LeadDetailPage() {
   // Stage change state
   const [selectedStageId, setSelectedStageId] = useState<string>('')
   const [pendingStageId, setPendingStageId] = useState<string | null>(null)
+  const [backwardConfirmToStageId, setBackwardConfirmToStageId] = useState<string | null>(null)
 
   // Opportunity state
   const [estimatedValue, setEstimatedValue] = useState<string>('')
@@ -513,15 +516,23 @@ export function LeadDetailPage() {
   }
 
   const confirmStageChange = () => {
-    if (!pendingStageId) return
+    if (!pendingStageId || !lead) return
+    if (isBackwardStageMove(lead.stage_id, pendingStageId, stages as PipelineStage[])) {
+      setBackwardConfirmToStageId(pendingStageId)
+      setPendingStageId(null)
+      setSelectedStageId(lead.stage_id)
+      return
+    }
+    const to = pendingStageId
     setPendingStageId(null)
-    handleMoveStage(pendingStageId)
+    void handleMoveStage(to)
   }
 
   const cancelStageChange = () => {
     if (!lead) return
     setPendingStageId(null)
     setSelectedStageId(lead.stage_id)
+    setBackwardConfirmToStageId(null)
   }
 
   const handleSaveOpportunity = async () => {
@@ -1259,6 +1270,26 @@ export function LeadDetailPage() {
         </div>
       </div>
     </div>
+
+    <MoveBackwardConfirmDialog
+      isOpen={backwardConfirmToStageId != null && lead != null}
+      leadDisplayName={lead.full_name?.trim() || 'Este contacto'}
+      currentStageName={displayStageName(
+        stages.find((s) => s.id === lead.stage_id)?.name || 'Etapa actual'
+      )}
+      targetStageName={displayStageName(
+        stages.find((s) => s.id === (backwardConfirmToStageId ?? ''))?.name || 'Etapa'
+      )}
+      onCancel={() => {
+        setBackwardConfirmToStageId(null)
+        if (lead) setSelectedStageId(lead.stage_id)
+      }}
+      onConfirm={() => {
+        const to = backwardConfirmToStageId
+        setBackwardConfirmToStageId(null)
+        if (to) void handleMoveStage(to)
+      }}
+    />
 
     <AppointmentFormModal
       key={`lead-appt-create-${id}`}
