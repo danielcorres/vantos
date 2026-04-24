@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import confetti from 'canvas-confetti'
 import { useAuth } from '../shared/auth/AuthProvider'
 import { getMyProfile } from '../lib/profile'
 import { supabase } from '../lib/supabase'
@@ -12,6 +13,13 @@ import {
   timestampToYmdInTz,
   todayLocalYmd,
 } from '../shared/utils/dates'
+import {
+  advisorFormalNameForBirthday,
+  completedAgeOnBirthday,
+  deriveWelcomeName,
+  isBirthdayToday,
+  timeOfDayGreetingMonterrey,
+} from '../shared/utils/advisorGreeting'
 import { getWeeklyProductivity } from '../features/productivity/api/productivity.api'
 import type { StageSlug } from '../features/productivity/types/productivity.types'
 import type { LeadSchedulingSummary } from '../features/calendar/utils/stageSchedulingGuidance'
@@ -25,7 +33,10 @@ import {
   type MilestonePolicyCounts,
 } from '../modules/advisors/data/advisorMilestones.api'
 import { getAdvisorMilestoneStatus } from '../modules/advisors/domain/advisorMilestones'
-import { AdvisorHubHeader } from '../features/advisor-hub/components/AdvisorHubHeader'
+import {
+  AdvisorHubHeader,
+  type AdvisorHubBirthdayBanner,
+} from '../features/advisor-hub/components/AdvisorHubHeader'
 import { AdvisorHubTodayCard } from '../features/advisor-hub/components/AdvisorHubTodayCard'
 import { AdvisorHubUrgentLeadsCard } from '../features/advisor-hub/components/AdvisorHubUrgentLeadsCard'
 import { AdvisorHubPipelinePhasesCard } from '../features/advisor-hub/components/AdvisorHubPipelinePhasesCard'
@@ -96,6 +107,10 @@ export function AdvisorHomePage() {
   const [calModal, setCalModal] = useState<CalModalState>(null)
   const [toast, setToast] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(null)
 
+  const [hubGreetingLine, setHubGreetingLine] = useState('')
+  const [hubBirthdayBanner, setHubBirthdayBanner] = useState<AdvisorHubBirthdayBanner | null>(null)
+  const hubBirthdayConfettiFired = useRef(false)
+
   const load = useCallback(async () => {
     if (!user?.id) {
       setLoading(false)
@@ -110,6 +125,21 @@ export function AdvisorHomePage() {
     setMyConnectionDate(null)
     try {
       const profile = await getMyProfile()
+      const todayYmdForGreeting = todayLocalYmd()
+      const welcomeFirst = deriveWelcomeName(profile, user?.email ?? null)
+      const saludo = `${timeOfDayGreetingMonterrey()}, ${welcomeFirst}`
+      setHubGreetingLine(saludo)
+      const cumple = isBirthdayToday(profile?.birth_date, todayYmdForGreeting)
+      if (cumple && profile?.birth_date) {
+        const age = completedAgeOnBirthday(profile.birth_date, todayYmdForGreeting)
+        setHubBirthdayBanner({
+          displayName: advisorFormalNameForBirthday(profile, welcomeFirst),
+          age,
+        })
+      } else {
+        setHubBirthdayBanner(null)
+      }
+
       const targetsOwnerId = profile?.manager_user_id ?? user.id
 
       setMyAdvisorStatus(profile?.advisor_status ?? null)
@@ -120,7 +150,7 @@ export function AdvisorHomePage() {
       const stageIds = stagesList.map((s) => s.id)
 
       const startToday = startOfTodayMonterreyISO()
-      const todayYmd = todayLocalYmd()
+      const todayYmd = todayYmdForGreeting
       const weekStartHubYmd = getMondayOfWeekYmd(todayYmd)
 
       const [inventoryCounts, { targets }, upcomingRaw, activos, weeklyProd] = await Promise.all([
@@ -192,12 +222,30 @@ export function AdvisorHomePage() {
     } finally {
       setLoading(false)
     }
-  }, [user?.id])
+  }, [user?.id, user?.email])
 
   useEffect(() => {
     if (authLoading || !user?.id) return
     void load()
   }, [load, authLoading, user?.id])
+
+  useEffect(() => {
+    hubBirthdayConfettiFired.current = false
+  }, [user?.id])
+
+  useEffect(() => {
+    if (!hubBirthdayBanner || hubBirthdayConfettiFired.current) return
+    hubBirthdayConfettiFired.current = true
+    const prefersReduced =
+      typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    if (prefersReduced) return
+    void confetti({
+      particleCount: 130,
+      spread: 72,
+      origin: { y: 0.65 },
+      ticks: 200,
+    })
+  }, [hubBirthdayBanner])
 
   const stageBySlug = useMemo(() => {
     const m = new Map<string, PipelineStage>()
@@ -324,7 +372,7 @@ export function AdvisorHomePage() {
       <div className="min-h-0 pb-10">
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
           <div className="grid grid-cols-1 gap-y-6 gap-x-4 md:grid-cols-12 md:gap-6">
-            <AdvisorHubHeader />
+            <AdvisorHubHeader greetingLine={hubGreetingLine} birthdayBanner={hubBirthdayBanner} />
             <AdvisorHubTodayCard
               visibleEvents={todayEventsVisible}
               totalTodayCount={todayEventsSorted.length}

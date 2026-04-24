@@ -9,32 +9,8 @@ import { todayLocalYmd } from '../../../shared/utils/dates'
 import { useAuth } from '../../../shared/auth/AuthProvider'
 import { useUserRole } from '../../../shared/hooks/useUserRole'
 import { AdvisorMilestonesSection } from '../../advisors/ui/AdvisorMilestonesSection'
-import { getMyProfile, type Profile } from '../../../lib/profile'
-
-function deriveWelcomeName(profile: Profile | null, emailFallback?: string | null): string {
-  const first = profile?.first_name?.trim()
-  if (first) return first
-  const full = profile?.full_name?.trim()
-  if (full) {
-    const part = full.split(/\s+/)[0]
-    return part || full
-  }
-  const disp = profile?.display_name?.trim()
-  if (disp) {
-    const part = disp.split(/\s+/)[0]
-    return part || disp
-  }
-  if (emailFallback) {
-    const local = emailFallback.split('@')[0]?.trim()
-    if (local) return local
-  }
-  return 'allí'
-}
-
-function isBirthdayToday(birthDate: string | null | undefined, todayYmd: string): boolean {
-  if (!birthDate || birthDate.length < 10) return false
-  return birthDate.slice(5, 10) === todayYmd.slice(5, 10)
-}
+import { getMyProfile } from '../../../lib/profile'
+import { deriveWelcomeName, isBirthdayToday } from '../../../shared/utils/advisorGreeting'
 
 function WelcomeHeader({ name, isBirthday }: { name: string; isBirthday: boolean }) {
   if (!name) return null
