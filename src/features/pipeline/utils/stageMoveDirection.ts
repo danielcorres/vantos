@@ -2,6 +2,9 @@ import type { PipelineStage } from '../pipeline.api'
 
 export type StageForOrder = { id: string; position: number; name?: string; is_active?: boolean }
 
+/** Tiempo visible del aviso cuando se bloquea un retroceso de más de una etapa (mensaje largo). */
+export const RETROCESO_BLOCKED_TOAST_MS = 8000
+
 function orderedActiveStages(stages: StageForOrder[]): StageForOrder[] {
   return [...stages]
     .filter((s) => s.is_active !== false)

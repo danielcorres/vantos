@@ -7,6 +7,7 @@ import {
   getMultiStepBackwardBlockedMessage,
   isBackwardStageMove,
   isImmediateBackwardStageMove,
+  RETROCESO_BLOCKED_TOAST_MS,
 } from '../../features/pipeline/utils/stageMoveDirection'
 import { formatDate } from '../utils/focusHelpers'
 import { displayStageName } from '../utils/stageStyles'
@@ -124,7 +125,7 @@ export function LeadCard({
       if (!isImmediateBackwardStageMove(stageId, selectedStageId, stages as PipelineStage[])) {
         const hint = getMultiStepBackwardBlockedMessage(stageId, stages as PipelineStage[])
         setMoveBlockedHint(hint)
-        setTimeout(() => setMoveBlockedHint(null), 7000)
+        setTimeout(() => setMoveBlockedHint(null), RETROCESO_BLOCKED_TOAST_MS)
         setSelectedStageId(stageId || '')
         return
       }

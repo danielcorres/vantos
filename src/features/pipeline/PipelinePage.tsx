@@ -36,6 +36,7 @@ import {
   getMultiStepBackwardBlockedMessage,
   isBackwardStageMove,
   isImmediateBackwardStageMove,
+  RETROCESO_BLOCKED_TOAST_MS,
 } from './utils/stageMoveDirection'
 
 const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
@@ -65,7 +66,11 @@ function formatWeekRangeLabel(weekStartYmd: string): string {
 const STORAGE_KEY_VIEW = 'pipeline:viewMode'
 type ViewMode = 'pipeline' | 'records'
 
-type PipelineToast = { type: 'error' | 'success' | 'info'; message: string } | null
+type PipelineToast = {
+  type: 'error' | 'success' | 'info'
+  message: string
+  durationMs?: number
+} | null
 
 function getStoredViewMode(): ViewMode {
   try {
@@ -567,6 +572,7 @@ export function PipelinePage() {
           setPipelineToast({
             type: 'error',
             message: getMultiStepBackwardBlockedMessage(fromStageId, state.stages),
+            durationMs: RETROCESO_BLOCKED_TOAST_MS,
           })
           setDraggedLead(null)
           return
@@ -605,6 +611,7 @@ export function PipelinePage() {
           setPipelineToast({
             type: 'error',
             message: getMultiStepBackwardBlockedMessage(fromStageId, state.stages),
+            durationMs: RETROCESO_BLOCKED_TOAST_MS,
           })
           return
         }
@@ -1041,7 +1048,7 @@ export function PipelinePage() {
           message={pipelineToast.message}
           type={pipelineToast.type}
           onClose={() => setPipelineToast(null)}
-          durationMs={2200}
+          durationMs={pipelineToast.durationMs ?? 2200}
         />
       )}
     </div>

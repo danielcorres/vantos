@@ -8,6 +8,7 @@ import {
   getMultiStepBackwardBlockedMessage,
   isBackwardStageMove,
   isImmediateBackwardStageMove,
+  RETROCESO_BLOCKED_TOAST_MS,
 } from '../features/pipeline/utils/stageMoveDirection'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
 import { formatDateMX, diffDaysFloor, ymdToLocalNoonISO } from '../shared/utils/dates'
@@ -548,7 +549,7 @@ export function LeadDetailPage() {
           kind: 'error',
           text: getMultiStepBackwardBlockedMessage(lead.stage_id, stages as PipelineStage[]),
         })
-        setTimeout(() => setToast(null), TOAST_CLEAR_MS)
+        setTimeout(() => setToast(null), RETROCESO_BLOCKED_TOAST_MS)
         return
       }
       setBackwardConfirmToStageId(pendingStageId)

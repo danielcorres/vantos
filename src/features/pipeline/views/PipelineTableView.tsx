@@ -35,6 +35,7 @@ import {
   getMultiStepBackwardBlockedMessage,
   isBackwardStageMove,
   isImmediateBackwardStageMove,
+  RETROCESO_BLOCKED_TOAST_MS,
 } from '../utils/stageMoveDirection'
 
 const BTN_PRIMARY =
@@ -91,7 +92,11 @@ export function PipelineTableView({
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
+  const [toast, setToast] = useState<{
+    type: 'success' | 'error'
+    message: string
+    durationMs?: number
+  } | null>(null)
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [postCreateAskLead, setPostCreateAskLead] = useState<Lead | null>(null)
   type CalModalState =
@@ -558,7 +563,11 @@ export function PipelineTableView({
     const fromStageId = lead.stage_id
     if (isBackwardStageMove(fromStageId, toStageId, stages)) {
       if (!isImmediateBackwardStageMove(fromStageId, toStageId, stages)) {
-        setToast({ type: 'error', message: getMultiStepBackwardBlockedMessage(fromStageId, stages) })
+        setToast({
+          type: 'error',
+          message: getMultiStepBackwardBlockedMessage(fromStageId, stages),
+          durationMs: RETROCESO_BLOCKED_TOAST_MS,
+        })
         return
       }
       setBackwardPending({ leadId, fromStageId, toStageId })
@@ -992,7 +1001,7 @@ export function PipelineTableView({
           message={toast.message}
           type={toast.type}
           onClose={() => setToast(null)}
-          durationMs={1200}
+          durationMs={toast.durationMs ?? 1200}
         />
       )}
     </div>
