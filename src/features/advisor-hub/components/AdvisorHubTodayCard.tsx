@@ -1,13 +1,20 @@
 import { Link } from 'react-router-dom'
-import type { CalendarEvent } from '../../calendar/types/calendar.types'
+import type { AppointmentType, CalendarEvent } from '../../calendar/types/calendar.types'
+import { getTypeLabel, getTypePillClass } from '../../calendar/utils/pillStyles'
 import { HUB_CARD, HUB_SECTION_TITLE } from '../hubStyles'
+
+function appointmentType(ev: CalendarEvent): AppointmentType {
+  const t = ev.type
+  if (t === 'call' || t === 'message' || t === 'meeting' || t === 'other') return t
+  return 'other'
+}
 
 function formatTimeMx(iso: string): string {
   try {
     return new Date(iso).toLocaleTimeString('es-MX', {
-      hour: '2-digit',
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: false,
+      hour12: true,
     })
   } catch {
     return '—'
@@ -46,6 +53,7 @@ export function AdvisorHubTodayCard({ visibleEvents, totalTodayCount, eventLeadN
             {visibleEvents.map((ev) => {
               const name = ev.lead_id ? eventLeadNames[ev.lead_id] ?? 'Lead' : 'Sin lead'
               const title = ev.title?.trim() || 'Cita'
+              const type = appointmentType(ev)
               return (
                 <li
                   key={ev.id}
@@ -60,14 +68,21 @@ export function AdvisorHubTodayCard({ visibleEvents, totalTodayCount, eventLeadN
                     <span className="text-neutral-400 dark:text-neutral-500"> · </span>
                     <span>{name}</span>
                   </div>
-                  {ev.lead_id ? (
-                    <Link
-                      to={`/leads/${ev.lead_id}`}
-                      className="inline-flex w-full shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50 sm:w-auto sm:justify-center sm:border-0 sm:bg-transparent sm:py-0 sm:text-left sm:underline-offset-2 sm:hover:underline dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 sm:dark:border-0 sm:dark:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+                  <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
+                    <span
+                      className={`inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-xs font-medium ${getTypePillClass(type)}`}
                     >
-                      Ir al lead
-                    </Link>
-                  ) : null}
+                      {getTypeLabel(type)}
+                    </span>
+                    {ev.lead_id ? (
+                      <Link
+                        to={`/leads/${ev.lead_id}`}
+                        className="inline-flex w-full shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50 sm:w-auto sm:justify-center sm:border-0 sm:bg-transparent sm:py-0 sm:text-left sm:underline-offset-2 sm:hover:underline dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 sm:dark:border-0 sm:dark:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+                      >
+                        Ir al lead
+                      </Link>
+                    ) : null}
+                  </div>
                 </li>
               )
             })}

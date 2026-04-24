@@ -105,8 +105,6 @@ export function AppointmentFormModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [markCitaRealizada, setMarkCitaRealizada] = useState(false)
-  const [markPropuestaPresentada, setMarkPropuestaPresentada] = useState(false)
   const prefersReducedMotion = useReducedMotion()
 
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null)
@@ -130,8 +128,6 @@ export function AppointmentFormModal({
     setStatus('scheduled')
     setError(null)
     setShowDeleteConfirm(false)
-    setMarkCitaRealizada(false)
-    setMarkPropuestaPresentada(false)
     setSelectedLead(null)
     setClientDraft('')
     setPhoneEdit('')
@@ -150,8 +146,6 @@ export function AppointmentFormModal({
       setDurationMinutes(DURATION_OPTIONS.includes(mins as 30) ? (mins as 30) : mins > 0 ? mins : 60)
       setNotesBody(event.notes ?? '')
       setStatus(event.status)
-      setMarkCitaRealizada(false)
-      setMarkPropuestaPresentada(false)
       setClientDraft('')
       setSelectedLead(null)
       setPhoneEdit('')
@@ -177,8 +171,6 @@ export function AppointmentFormModal({
       setStatus('scheduled')
       setError(null)
       setShowDeleteConfirm(false)
-      setMarkCitaRealizada(false)
-      setMarkPropuestaPresentada(false)
       setSelectedLead(null)
       setClientDraft('')
       setPhoneEdit('')
@@ -352,21 +344,6 @@ export function AppointmentFormModal({
           status,
         })
         const leadId = event.lead_id
-        if (leadId && status === 'completed') {
-          const nowIso = new Date().toISOString()
-          const patch: { cita_realizada_at?: string; propuesta_presentada_at?: string } = {}
-          if ((effectiveType === 'meeting' || effectiveType === 'call') && markCitaRealizada) {
-            patch.cita_realizada_at = nowIso
-          }
-          if (effectiveType === 'meeting' && markPropuestaPresentada) patch.propuesta_presentada_at = nowIso
-          if (Object.keys(patch).length > 0) {
-            try {
-              await pipelineApi.updateLead(leadId, patch)
-            } catch {
-              /* no bloquear */
-            }
-          }
-        }
         if (leadId && selectedLead) {
           const phone = phoneEdit.trim() || null
           const email = emailEdit.trim() || null
@@ -639,34 +616,6 @@ export function AppointmentFormModal({
                   ))}
                 </div>
               </div>
-
-              {event?.lead_id && status === 'completed' && (
-                <div className="rounded-lg border border-border/80 bg-surface/40 px-3 py-2 space-y-2">
-                  <p className="text-xs font-medium text-text">Hitos en el lead (opcional)</p>
-                  {(effectiveType === 'meeting' || effectiveType === 'call') && (
-                    <label className="flex items-start gap-2 text-xs text-text cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={markCitaRealizada}
-                        onChange={(e) => setMarkCitaRealizada(e.target.checked)}
-                        className="mt-0.5 rounded border-border"
-                      />
-                      <span>Registrar cita inicial realizada (fecha de hoy)</span>
-                    </label>
-                  )}
-                  {effectiveType === 'meeting' && (
-                    <label className="flex items-start gap-2 text-xs text-text cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={markPropuestaPresentada}
-                        onChange={(e) => setMarkPropuestaPresentada(e.target.checked)}
-                        className="mt-0.5 rounded border-border"
-                      />
-                      <span>Registrar propuesta presentada</span>
-                    </label>
-                  )}
-                </div>
-              )}
 
               {!showDeleteConfirm && (
                 <button
