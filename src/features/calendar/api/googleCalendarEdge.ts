@@ -5,6 +5,9 @@ import { emitGoogleCalendarSyncError } from '../utils/googleCalendarSyncListener
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '') ?? ''
 const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
 
+/** Misma ruta que debe coincidir con el callback registrado en Google Cloud Console. */
+export const GOOGLE_CALENDAR_EDGE_PATH = '/functions/v1/google-calendar' as const
+
 type GoogleCalendarFnBody = {
   error?: string
   missing_keys?: string[]
@@ -37,6 +40,18 @@ function misconfiguredUserMessage(json: unknown): string | null {
   return null
 }
 
+/** Pistas cuando el fallo viene de OAuth (p. ej. redirect_uri_mismatch en intercambio de código). */
+function googleOAuthRedirectMismatchHint(json: unknown): string | null {
+  const blob = typeof json === 'string' ? json : JSON.stringify(json ?? {})
+  if (!blob.toLowerCase().includes('redirect_uri_mismatch')) return null
+  return (
+    'Google rechazó la URI de redirección OAuth. En Google Cloud Console → Credenciales → tu cliente OAuth → ' +
+    '«URI de redireccionamiento autorizados», añade exactamente (HTTPS, con /functions/v1/): ' +
+    'https://<project-ref>.supabase.co/functions/v1/google-calendar?action=callback ' +
+    '(sustituye <project-ref> por el ref de tu proyecto; debe coincidir con el host de VITE_SUPABASE_URL).'
+  )
+}
+
 /**
  * POST a la Edge Function leyendo siempre el JSON (p. ej. 503 + missing_keys).
  * `supabase.functions.invoke` no expone el cuerpo en muchos errores no-2xx.
@@ -55,7 +70,7 @@ async function postGoogleCalendar(body: Record<string, unknown>): Promise<{
   if (!session?.access_token) {
     return { ok: false, status: 401, json: { error: 'no_session' } }
   }
-  const url = `${SUPABASE_URL}/functions/v1/google-calendar`
+  const url = `${SUPABASE_URL}${GOOGLE_CALENDAR_EDGE_PATH}`
   const res = await fetch(url, {
     method: 'POST',
     headers: {
@@ -108,7 +123,7 @@ export async function invokeGoogleCalendarSync(
     const { ok, status, json } = await postGoogleCalendar({ action: 'sync', eventId, op })
     if (!ok) {
       logGoogleCalendarInvokeFailure('sync', json, `HTTP ${status}`)
-      const specific = misconfiguredUserMessage(json)
+      const specific = misconfiguredUserMessage(json) ?? googleOAuthRedirectMismatchHint(json)
       const message =
         specific ??
         mapFunctionsInvokeError(
@@ -185,7 +200,7 @@ export async function startGoogleCalendarOAuth(options?: {
   const { ok, status, json } = await postGoogleCalendar({ action: 'oauth-start', returnPath })
   if (!ok) {
     logGoogleCalendarInvokeFailure('oauth-start', json, `HTTP ${status}`)
-    const specific = misconfiguredUserMessage(json)
+    const specific = misconfiguredUserMessage(json) ?? googleOAuthRedirectMismatchHint(json)
     return {
       ok: false,
       message:
@@ -223,7 +238,7 @@ export async function disconnectGoogleCalendar(): Promise<DisconnectGoogleCalend
   const { ok, status, json } = await postGoogleCalendar({ action: 'disconnect' })
   if (!ok) {
     logGoogleCalendarInvokeFailure('disconnect', json, `HTTP ${status}`)
-    const specific = misconfiguredUserMessage(json)
+    const specific = misconfiguredUserMessage(json) ?? googleOAuthRedirectMismatchHint(json)
     return {
       ok: false,
       message:

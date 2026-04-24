@@ -50,17 +50,117 @@ function readEnv(): { ok: true; env: EnvBundle } | { ok: false; missing: string[
   }
 }
 
-/**
- * URI exacta que Google OAuth exige (y debe estar en Google Cloud Console).
- * No depender solo de `new URL` + mutar protocol: en algunos runtimes `SUPABASE_URL`
- * llega como `http://...` y acababa enviándose `http://.../google-calendar` sin `/functions/v1/`.
- */
-function googleOAuthRedirectUri(supabaseUrlRaw: string): string {
+/** Ruta canónica del callback OAuth en Supabase Edge (mismo valor en Google Cloud Console). */
+const GOOGLE_OAUTH_CALLBACK_PATH = '/functions/v1/google-calendar?action=callback'
+
+function hostFromSupabaseUrl(supabaseUrlRaw: string): string {
   const raw = supabaseUrlRaw.trim().replace(/\/$/, '')
   const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
   const u = new URL(withScheme)
-  const host = u.hostname || u.host.replace(/:\d+$/, '')
-  return `https://${host}/functions/v1/google-calendar?action=callback`
+  return u.hostname || u.host.replace(/:\d+$/, '')
+}
+
+/** Host aceptable para callback: proyecto Supabase alojado o entorno local. */
+function isAcceptableOAuthCallbackHost(hostname: string): boolean {
+  return (
+    /\.supabase\.co$/i.test(hostname) ||
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname.startsWith('127.')
+  )
+}
+
+/**
+ * Host del request (proxy / cliente) sin hardcodear project-ref.
+ * Prioridad: `x-forwarded-host` → `host` (cabeceras del request a la Edge Function).
+ */
+function pickHostFromRequest(req: Request): { host: string | null; header: 'x-forwarded-host' | 'host' | null } {
+  const xfh = req.headers.get('x-forwarded-host')?.split(',')[0]?.trim()
+  if (xfh) {
+    try {
+      const h = new URL(`http://${xfh}`).hostname
+      if (h) return { host: h, header: 'x-forwarded-host' }
+    } catch {
+      /* ignore */
+    }
+  }
+  const hostHeader = req.headers.get('host')?.trim()
+  if (!hostHeader) return { host: null, header: null }
+  try {
+    const h = new URL(`http://${hostHeader}`).hostname
+    return { host: h || null, header: 'host' }
+  } catch {
+    return { host: null, header: null }
+  }
+}
+
+type BuiltGoogleOAuthRedirect = {
+  /** Siempre `https://<host>/functions/v1/google-calendar?action=callback` */
+  redirectUri: string
+  /** Host usado en la URI final (sin puerto estándar). */
+  host: string
+  /** Origen del host: cabeceras del request o `SUPABASE_URL`. */
+  source: 'x-forwarded-host' | 'host' | 'env_supabase_url'
+}
+
+/**
+ * Construye el `redirect_uri` único que debe coincidir con Google Cloud Console.
+ * No hay otros puntos en este archivo que lo sobrescriban; `exchangeCode` reutiliza el mismo valor.
+ */
+function buildGoogleOAuthRedirectUri(req: Request, supabaseUrlRaw: string): BuiltGoogleOAuthRedirect {
+  const envHost = hostFromSupabaseUrl(supabaseUrlRaw)
+  const { host: reqHost, header } = pickHostFromRequest(req)
+
+  let host = envHost
+  let source: BuiltGoogleOAuthRedirect['source'] = 'env_supabase_url'
+
+  if (reqHost && isAcceptableOAuthCallbackHost(reqHost)) {
+    host = reqHost
+    source = header === 'x-forwarded-host' ? 'x-forwarded-host' : 'host'
+  }
+
+  const redirectUri = `https://${host}${GOOGLE_OAUTH_CALLBACK_PATH}`
+  if (
+    !redirectUri.startsWith('https://') ||
+    !redirectUri.includes('/functions/v1/google-calendar') ||
+    !redirectUri.endsWith('?action=callback')
+  ) {
+    console.warn('[google-calendar] redirect_uri con forma inesperada (revisar host/secretos)', {
+      redirectUri,
+    })
+  }
+  return { redirectUri, host, source }
+}
+
+function logOAuthRedirectContext(
+  phase: 'oauth-start' | 'oauth-callback-exchange',
+  ctx: BuiltGoogleOAuthRedirect & { appSiteUrl: string }
+): void {
+  console.log('[google-calendar] OAuth redirect context', {
+    phase,
+    redirect_uri: ctx.redirectUri,
+    host: ctx.host,
+    host_source: ctx.source,
+    APP_SITE_URL: ctx.appSiteUrl,
+  })
+}
+
+function formatGoogleTokenEndpointError(status: number, bodyText: string): string {
+  let extra = ''
+  try {
+    const j = JSON.parse(bodyText) as { error?: string; error_description?: string }
+    if (j.error === 'redirect_uri_mismatch') {
+      extra =
+        ' Google indica redirect_uri_mismatch: en Google Cloud Console → OAuth cliente → ' +
+        '«URI de redireccionamiento autorizados» debe existir exactamente (HTTPS, con /functions/v1/): ' +
+        `https://<project-ref>.supabase.co${GOOGLE_OAUTH_CALLBACK_PATH}`
+    } else if (typeof j.error === 'string' && j.error.length > 0) {
+      extra = ` Google: ${j.error}${j.error_description ? ` — ${j.error_description}` : ''}`
+    }
+  } catch {
+    /* body no JSON */
+  }
+  return `token exchange failed: ${status} ${bodyText}${extra}`
 }
 
 function json(body: unknown, status = 200): Response {
@@ -155,7 +255,7 @@ async function exchangeCode(
   })
   if (!res.ok) {
     const t = await res.text()
-    throw new Error(`token exchange failed: ${res.status} ${t}`)
+    throw new Error(formatGoogleTokenEndpointError(res.status, t))
   }
   return res.json()
 }
@@ -217,7 +317,8 @@ Deno.serve(async (req: Request) => {
   } = envRead.env
 
   try {
-  const redirectUri = googleOAuthRedirectUri(supabaseUrl)
+  const redirectBuild = buildGoogleOAuthRedirectUri(req, supabaseUrl)
+  const { redirectUri } = redirectBuild
 
   const url = new URL(req.url)
   const action = url.searchParams.get('action') ?? ''
@@ -242,6 +343,10 @@ Deno.serve(async (req: Request) => {
       const verified = await verifyState(state, stateSecret)
       if (!verified) throw new Error('invalid_state')
       const { userId, returnPath } = verified
+      logOAuthRedirectContext('oauth-callback-exchange', {
+        ...redirectBuild,
+        appSiteUrl: appSiteUrl,
+      })
       const tokens = await exchangeCode(code, redirectUri, googleClientId, googleClientSecret)
       if (!tokens.refresh_token) {
         throw new Error('no_refresh_token_prompt_consent')
@@ -321,6 +426,10 @@ Deno.serve(async (req: Request) => {
   }
 
   if (body.action === 'oauth-start') {
+    logOAuthRedirectContext('oauth-start', {
+      ...redirectBuild,
+      appSiteUrl: appSiteUrl,
+    })
     const state = await makeState(user.id, stateSecret, normalizeOAuthReturnPath(body.returnPath))
     const scope = encodeURIComponent('https://www.googleapis.com/auth/calendar.events')
     const ru = encodeURIComponent(redirectUri)
