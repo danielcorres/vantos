@@ -115,48 +115,6 @@ export function DirectorAssignmentsView() {
         return tb - ta
       })
   }, [profiles, seguimientoLinks, showArchived])
-<<<<<<< HEAD
-=======
-
-  const canAssignRoles = authRole === 'owner' || authRole === 'director'
-
-  const runConfirm = useCallback(async () => {
-    if (!confirm) return
-    setConfirmBusy(true)
-    try {
-      let r: { ok: boolean; message?: string }
-      if (confirm.kind === 'archive') {
-        r = await handleArchiveAdvisor(confirm.userId, ownerUserId)
-      } else if (confirm.kind === 'restore') {
-        r = await handleRestoreAdvisor(confirm.userId, ownerUserId)
-      } else {
-        r = await handleDeleteAdvisorUser(confirm.userId, ownerUserId)
-      }
-      if (r.ok) {
-        const msg =
-          confirm.kind === 'archive'
-            ? 'Asesor archivado'
-            : confirm.kind === 'restore'
-              ? 'Asesor restaurado'
-              : 'Usuario eliminado del sistema'
-        setToast({ type: 'success', message: msg })
-        if (popoverAdvisor?.user_id === confirm.userId) setPopoverAdvisor(null)
-        setConfirm(null)
-      } else {
-        setToast({ type: 'error', message: r.message || 'Error' })
-      }
-    } finally {
-      setConfirmBusy(false)
-    }
-  }, [
-    confirm,
-    ownerUserId,
-    handleArchiveAdvisor,
-    handleRestoreAdvisor,
-    handleDeleteAdvisorUser,
-    popoverAdvisor,
-  ])
->>>>>>> develop
 
   const wrapManager = async (advisorId: string, managerId: string | null) => {
     const r = await handleManagerRecruiterChange(
@@ -279,15 +237,11 @@ export function DirectorAssignmentsView() {
               : `¿Borrar PERMANENTEMENTE a ${confirm?.name ?? ''}? Esta acción no se puede deshacer. Sus actividades, pólizas y asignaciones vinculadas serán eliminadas. Sus leads pueden permanecer en el pipeline sin propietario válido.`
         }
         confirmLabel={
-<<<<<<< HEAD
-          confirm?.kind === 'delete' ? 'Borrar definitivamente' : confirm?.kind === 'restore' ? 'Restaurar' : 'Archivar'
-=======
           confirm?.kind === 'delete'
             ? 'Borrar definitivamente'
             : confirm?.kind === 'restore'
               ? 'Restaurar'
               : 'Archivar'
->>>>>>> develop
         }
         variant={confirm?.kind === 'delete' ? 'danger' : 'default'}
         busy={confirmBusy}
@@ -374,22 +328,10 @@ export function DirectorAssignmentsView() {
                 const segN = seguimientoLinks.filter((l) => l.advisor_user_id === profile.user_id)
                   .length
                 const canArchiveThis =
-<<<<<<< HEAD
-                  canAssignRoles &&
-                  isAdvisorRow &&
-                  !isReadOnly &&
-                  !isSelf &&
-                  !isArchived
-                const canRestoreThis =
-                  canAssignRoles && isAdvisorRow && !isReadOnly && !isSelf && isArchived
-                const canDeleteThis =
-                  isOwner && isAdvisorRow && !isReadOnly && !isSelf
-=======
                   canAssignRoles && isAdvisorRow && !isReadOnly && !isSelf && !isArchived
                 const canRestoreThis =
                   canAssignRoles && isAdvisorRow && !isReadOnly && !isSelf && isArchived
                 const canDeleteThis = isOwner && isAdvisorRow && !isReadOnly && !isSelf
->>>>>>> develop
 
                 return (
                   <tr
@@ -463,25 +405,43 @@ export function DirectorAssignmentsView() {
                         <span className="text-muted text-xs">—</span>
                       )}
                     </td>
-                    <td className="p-3 min-w-[12rem] whitespace-nowrap align-middle">
-                      <div className="flex flex-col gap-1.5">
+                    <td className="p-3 min-w-[11rem] align-top">
+                      <div className="flex flex-col gap-2">
                         {isReadOnly ? (
-                          <span className="inline-flex w-fit items-center px-2 py-1 rounded-md bg-black/5 text-sm font-medium text-text dark:bg-neutral-800 dark:text-neutral-100">
-                            {profile.account_status === 'suspended' ? 'Suspendido' : 'Activo'}
+                          <span
+                            className={`inline-flex w-fit items-center px-2 py-1 rounded-md text-xs font-medium ${
+                              isArchived
+                                ? 'bg-slate-200 text-slate-800 dark:bg-neutral-700 dark:text-neutral-100'
+                                : profile.account_status === 'suspended'
+                                  ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100'
+                                  : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100'
+                            }`}
+                          >
+                            {isArchived
+                              ? 'Archivado'
+                              : profile.account_status === 'suspended'
+                                ? 'Suspendido'
+                                : 'Activo'}
+                          </span>
+                        ) : isArchived ? (
+                          <span className="inline-flex w-fit items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-200 text-slate-800 dark:bg-neutral-700 dark:text-neutral-100">
+                            Archivado
                           </span>
                         ) : (
-                          <div className="flex flex-wrap items-center gap-1.5">
+                          <div
+                            className="inline-flex rounded-md border border-border dark:border-neutral-700 overflow-hidden shadow-sm"
+                            role="group"
+                            aria-label="Estado de cuenta"
+                          >
                             <button
                               type="button"
-                              className={`btn text-xs py-1.5 px-2.5 shrink-0 ${
+                              className={`px-2.5 py-1 text-xs font-medium border-0 transition-colors ${
                                 profile.account_status === 'active'
-                                  ? 'btn-primary'
-                                  : 'btn-secondary'
+                                  ? 'bg-primary text-white'
+                                  : 'bg-surface text-muted hover:bg-black/[0.04] dark:hover:bg-white/10'
                               }`}
                               disabled={
-                                isArchived ||
-                                profile.account_status === 'active' ||
-                                saveState === 'saving'
+                                profile.account_status === 'active' || saveState === 'saving'
                               }
                               onClick={() =>
                                 void handleAccountStatusChange(
@@ -495,13 +455,12 @@ export function DirectorAssignmentsView() {
                             </button>
                             <button
                               type="button"
-                              className={`btn text-xs py-1.5 px-2.5 shrink-0 ${
+                              className={`px-2.5 py-1 text-xs font-medium border-0 border-l border-border dark:border-neutral-700 transition-colors ${
                                 profile.account_status === 'suspended'
-                                  ? 'btn-primary'
-                                  : 'btn-secondary'
+                                  ? 'bg-amber-600 text-white'
+                                  : 'bg-surface text-muted hover:bg-black/[0.04] dark:hover:bg-white/10'
                               }`}
                               disabled={
-                                isArchived ||
                                 profile.account_status === 'suspended' ||
                                 saveState === 'saving'
                               }
@@ -518,11 +477,11 @@ export function DirectorAssignmentsView() {
                           </div>
                         )}
                         {isAdvisorRow && !isReadOnly && !isSelf && (
-                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                          <div className="flex flex-wrap items-center gap-2">
                             {canArchiveThis && (
                               <button
                                 type="button"
-                                className="btn btn-secondary text-xs shrink-0"
+                                className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
                                 disabled={saveState === 'saving'}
                                 onClick={() =>
                                   setConfirm({
@@ -538,7 +497,7 @@ export function DirectorAssignmentsView() {
                             {canRestoreThis && (
                               <button
                                 type="button"
-                                className="btn btn-secondary text-xs shrink-0"
+                                className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
                                 disabled={saveState === 'saving'}
                                 onClick={() =>
                                   setConfirm({
@@ -554,7 +513,7 @@ export function DirectorAssignmentsView() {
                             {canDeleteThis && (
                               <button
                                 type="button"
-                                className="btn text-xs shrink-0 bg-red-600 text-white hover:opacity-90 border-0"
+                                className="text-xs font-medium text-red-600 hover:underline dark:text-red-400 disabled:opacity-50"
                                 disabled={saveState === 'saving'}
                                 onClick={() =>
                                   setConfirm({

@@ -43,6 +43,8 @@ export async function getScopedAdvisors(options?: {
     .from('profiles')
     .select('user_id')
     .eq('role', 'advisor')
+    .is('archived_at', null)
+    .eq('account_status', 'active')
 
   if (options?.managerId) {
     query = query.eq('manager_user_id', options.managerId)
@@ -78,6 +80,8 @@ export async function getScopedAdvisorsForManager(managerUserId: string): Promis
     .select('user_id')
     .eq('role', 'advisor')
     .eq('manager_user_id', managerUserId)
+    .is('archived_at', null)
+    .eq('account_status', 'active')
 
   if (error) {
     console.error('[getScopedAdvisorsForManager] Error:', error)

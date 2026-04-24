@@ -4,10 +4,7 @@ type Props = {
   message: string
   confirmLabel: string
   cancelLabel?: string
-<<<<<<< HEAD
-  /** danger = botón confirmar rojo */
-=======
->>>>>>> develop
+  /** danger = botón de confirmación con estilo destructivo (rojo). */
   variant?: 'default' | 'danger'
   onConfirm: () => void | Promise<void>
   onCancel: () => void

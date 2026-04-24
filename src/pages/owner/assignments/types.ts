@@ -20,10 +20,7 @@ export type AssignmentProfile = {
   manager_assigned_at: string | null
   recruiter_assigned_by: string | null
   recruiter_assigned_at: string | null
-<<<<<<< HEAD
-  /** Baja de agencia: cuenta suspendida y oculta por defecto en asignaciones */
-=======
->>>>>>> develop
+  /** Baja de agencia: sin acceso; oculto por defecto en listas de asignaciones. */
   archived_at: string | null
   archived_by: string | null
 }
