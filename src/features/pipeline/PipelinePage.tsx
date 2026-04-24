@@ -131,9 +131,12 @@ export function PipelinePage() {
     stageSlugParam != null && (STAGE_SLUGS_ORDER as readonly string[]).includes(stageSlugParam)
   const stageSlug = stageSlugValid ? (stageSlugParam as StageSlug) : (STAGE_SLUGS_ORDER[0] as StageSlug)
   const weeklyMode = Boolean(weekStartValid && stageSlugValid)
-
   const [weeklyLeadIds, setWeeklyLeadIds] = useState<Set<string> | null>(null)
   const [weeklyLoadError, setWeeklyLoadError] = useState<string | null>(null)
+  const weeklyLeadIdsPending = Boolean(
+    weeklyMode && weeklyLeadIds === null && weeklyLoadError == null
+  )
+  const appliedWeeklyUrlTabRef = useRef(false)
 
   useEffect(() => {
     loadData()
@@ -180,6 +183,17 @@ export function PipelinePage() {
       .then((rows) => setWeeklyLeadIds(new Set(rows.map((r) => r.lead_id))))
       .catch(() => setWeeklyLoadError('No se pudieron cargar entradas de la semana'))
   }, [weekStartValid, stageSlugValid, weekStartYmd, stageSlug])
+
+  useEffect(() => {
+    if (!weeklyMode) {
+      appliedWeeklyUrlTabRef.current = false
+      return
+    }
+    if (!appliedWeeklyUrlTabRef.current) {
+      appliedWeeklyUrlTabRef.current = true
+      setActiveTab('pipeline')
+    }
+  }, [weeklyMode])
 
   useEffect(() => {
     const leadId = searchParams.get('lead')
@@ -823,7 +837,7 @@ export function PipelinePage() {
 
       {activeTab === 'records' && (
         <PipelineRecordsView
-          activosLeads={activeTab === 'records' ? null : displayedLeads}
+          activosLeads={weeklyMode ? displayedLeads : null}
           nextAppointmentByLeadId={nextAppointmentByLeadId}
           pipelineMode={pipelineMode}
           groupByStage={groupByStage}
@@ -832,6 +846,7 @@ export function PipelinePage() {
           onMoveStageOptimistic={applyMoveOptimistic}
           onMoveStageRollback={applyMoveRollback}
           weeklyFilterLeadIds={weeklyMode ? weeklyLeadIds : null}
+          weeklyLeadIdsPending={weeklyLeadIdsPending}
           weeklyStageLabel={weeklyMode && stageSlug ? WEEKLY_STAGE_LABELS[stageSlug] : null}
           weeklyWeekRange={weeklyMode && weekStartYmd ? formatWeekRangeLabel(weekStartYmd) : null}
           weeklyLoadError={weeklyMode ? weeklyLoadError : null}
@@ -841,7 +856,11 @@ export function PipelinePage() {
         />
       )}
 
-      {activeTab === 'pipeline' && weeklyMode && displayedLeads.length === 0 && (
+      {activeTab === 'pipeline' &&
+        weeklyMode &&
+        !weeklyLeadIdsPending &&
+        weeklyLeadIds !== null &&
+        weeklyLeadIds.size === 0 && (
         <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 dark:bg-neutral-800/40 p-8 text-center">
           <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-2">
             No hubo entradas a esta etapa en la semana seleccionada.
@@ -856,7 +875,8 @@ export function PipelinePage() {
         </div>
       )}
 
-      {activeTab === 'pipeline' && (!weeklyMode || displayedLeads.length > 0) && (
+      {activeTab === 'pipeline' &&
+        (!weeklyMode || weeklyLeadIdsPending || displayedLeads.length > 0) && (
         <div ref={kanbanRef}>
           <KanbanBoard
             stages={state.stages}

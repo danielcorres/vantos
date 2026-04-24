@@ -22,6 +22,8 @@ export type PipelineRecordsViewProps = {
     prevStageChangedAt: string | null
   ) => void
   weeklyFilterLeadIds?: Set<string> | null
+  /** true mientras se resuelven los IDs del drilldown semanal (evita fetch sin filtro). */
+  weeklyLeadIdsPending?: boolean
   weeklyStageLabel?: string | null
   weeklyWeekRange?: string | null
   weeklyLoadError?: string | null

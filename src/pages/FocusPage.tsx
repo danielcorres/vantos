@@ -252,8 +252,8 @@ export function FocusPage() {
                 onClick={() => setStatusFilter(filter)}
                 className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
                   statusFilter === filter
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-bg border border-border text-text hover:bg-black/5'
+                    ? 'bg-primary text-surface shadow-sm ring-1 ring-black/10 dark:bg-neutral-100 dark:text-neutral-950 dark:ring-white/15'
+                    : 'bg-surface border border-border text-text hover:bg-neutral-100 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-200 dark:hover:bg-neutral-800'
                 }`}
               >
                 {filter === 'all'

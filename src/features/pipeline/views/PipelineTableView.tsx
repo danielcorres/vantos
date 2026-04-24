@@ -54,6 +54,7 @@ export function PipelineTableView({
   onMoveStageOptimistic,
   onMoveStageRollback,
   weeklyFilterLeadIds = null,
+  weeklyLeadIdsPending = false,
   weeklyLoadError = null,
   onClearWeekly,
   onVisibleCountChange,
@@ -71,6 +72,7 @@ export function PipelineTableView({
   /** Rollback si el API falla. */
   onMoveStageRollback?: (leadId: string, fromStageId: string, prevStageChangedAt: string | null) => void
   weeklyFilterLeadIds?: Set<string> | null
+  weeklyLeadIdsPending?: boolean
   weeklyStageLabel?: string | null
   weeklyWeekRange?: string | null
   weeklyLoadError?: string | null
@@ -127,9 +129,11 @@ export function PipelineTableView({
   const weeklyMode = weeklyFilterLeadIds != null && weeklyLoadError == null
 
   const weeklyIdsKey = useMemo(() => {
+    if (weeklyLeadIdsPending) return '__weekly_pending__'
+    if (weeklyMode && weeklyFilterLeadIds && weeklyFilterLeadIds.size === 0) return '__weekly_empty__'
     if (!weeklyFilterLeadIds || weeklyFilterLeadIds.size === 0) return ''
     return [...weeklyFilterLeadIds].sort().join(',')
-  }, [weeklyFilterLeadIds])
+  }, [weeklyLeadIdsPending, weeklyMode, weeklyFilterLeadIds])
 
   useEffect(() => {
     const t = window.setTimeout(() => setDebouncedSearch(searchQuery.trim()), 350)
@@ -152,15 +156,22 @@ export function PipelineTableView({
   const filteredLeads = useMemo(() => {
     if (pipelineMode !== 'activos') return []
     if (activosLeads == null) {
+      if (weeklyLeadIdsPending) return []
       let list = baseLeads
-      if (weeklyMode && weeklyFilterLeadIds?.size) {
-        list = list.filter((l) => weeklyFilterLeadIds.has(l.id))
+      if (weeklyMode && weeklyFilterLeadIds) {
+        list =
+          weeklyFilterLeadIds.size === 0
+            ? []
+            : list.filter((l) => weeklyFilterLeadIds.has(l.id))
       }
       return list
     }
     let list = baseLeads
-    if (weeklyMode && weeklyFilterLeadIds?.size) {
-      list = list.filter((l) => weeklyFilterLeadIds.has(l.id))
+    if (weeklyMode && weeklyFilterLeadIds) {
+      list =
+        weeklyFilterLeadIds.size === 0
+          ? []
+          : list.filter((l) => weeklyFilterLeadIds.has(l.id))
     }
     const q = searchQuery.trim().toLowerCase()
     if (q) {
@@ -192,6 +203,7 @@ export function PipelineTableView({
     temperatureFilter,
     weeklyMode,
     weeklyFilterLeadIds,
+    weeklyLeadIdsPending,
   ])
 
   useEffect(() => {
@@ -318,32 +330,37 @@ export function PipelineTableView({
         setLeads(archPage)
         setArchivedTotal(total)
       } else if (activosLeads == null) {
-        const idsIn =
-          weeklyMode && weeklyFilterLeadIds && weeklyFilterLeadIds.size > 0
-            ? [...weeklyFilterLeadIds]
-            : null
-        const { leads: page, total } = await pipelineApi.queryActivosLeads({
-          offset: 0,
-          limit: PIPELINE_STAGE_PAGE_SIZE,
-          search: debouncedSearch || undefined,
-          source: sourceFilter.trim() || undefined,
-          temperature: temperatureFilter.trim() || undefined,
-          idsIn,
-        })
-        setServerActivosLeads(page)
-        setServerActivosTotal(total)
-        setActivosListLoadedCount(page.length)
-        setLeads([])
+        if (weeklyLeadIdsPending) {
+          setServerActivosLeads([])
+          setServerActivosTotal(0)
+          setActivosListLoadedCount(0)
+          setLeads([])
+        } else {
+          const idsIn =
+            weeklyMode && weeklyFilterLeadIds
+              ? weeklyFilterLeadIds.size === 0
+                ? []
+                : [...weeklyFilterLeadIds]
+              : null
+          const { leads: page, total } = await pipelineApi.queryActivosLeads({
+            offset: 0,
+            limit: PIPELINE_STAGE_PAGE_SIZE,
+            search: debouncedSearch || undefined,
+            source: sourceFilter.trim() || undefined,
+            temperature: temperatureFilter.trim() || undefined,
+            idsIn,
+          })
+          setServerActivosLeads(page)
+          setServerActivosTotal(total)
+          setActivosListLoadedCount(page.length)
+          setLeads([])
+        }
       } else {
+        // Modo activos con leads del padre (p. ej. drilldown semanal); no cargar archivados aquí.
         setServerActivosLeads([])
         setServerActivosTotal(0)
         setActivosListLoadedCount(0)
-        const arch = await pipelineApi.queryArchivedLeadsPage({
-          offset: 0,
-          limit: PIPELINE_STAGE_PAGE_SIZE,
-        })
-        setLeads(arch.leads)
-        setArchivedTotal(arch.total)
+        setLeads([])
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al cargar datos')
@@ -355,13 +372,13 @@ export function PipelineTableView({
   useEffect(() => {
     void loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- pipelineMode / origen activos
-  }, [pipelineMode, activosLeads])
+  }, [pipelineMode, activosLeads, weeklyLeadIdsPending])
 
   useEffect(() => {
     if (pipelineMode !== 'activos' || activosLeads != null) return
     void loadData()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- filtros servidor
-  }, [debouncedSearch, sourceFilter, temperatureFilter, weeklyIdsKey])
+  }, [debouncedSearch, sourceFilter, temperatureFilter, weeklyIdsKey, weeklyLeadIdsPending])
 
   const refreshCurrentMode = async () => {
     if (pipelineMode === 'activos' && onRefreshActivos) {
@@ -373,12 +390,16 @@ export function PipelineTableView({
   }
 
   const loadMoreActivos = async () => {
+    if (weeklyLeadIdsPending) return
+    if (weeklyMode && weeklyFilterLeadIds && weeklyFilterLeadIds.size === 0) return
     if (activosListLoadedCount >= serverActivosTotal) return
     setListLoadingMore(true)
     try {
       const idsIn =
-        weeklyMode && weeklyFilterLeadIds && weeklyFilterLeadIds.size > 0
-          ? [...weeklyFilterLeadIds]
+        weeklyMode && weeklyFilterLeadIds
+          ? weeklyFilterLeadIds.size === 0
+            ? []
+            : [...weeklyFilterLeadIds]
           : null
       const { leads: page } = await pipelineApi.queryActivosLeads({
         offset: activosListLoadedCount,
@@ -547,7 +568,15 @@ export function PipelineTableView({
     )
   }
 
-  if (weeklyMode && filteredLeads.length === 0) {
+  if (pipelineMode === 'activos' && weeklyLeadIdsPending) {
+    return (
+      <div className="text-center p-8">
+        <span className="text-muted">Cargando...</span>
+      </div>
+    )
+  }
+
+  if (weeklyMode && !weeklyLeadIdsPending && filteredLeads.length === 0) {
     return (
       <div className="rounded-lg border border-neutral-200 bg-neutral-50/60 dark:bg-neutral-800/40 p-8 text-center">
         <p className="text-sm text-neutral-700 dark:text-neutral-300 mb-2">
@@ -576,6 +605,7 @@ export function PipelineTableView({
   const showActivosTrulyEmpty =
     pipelineMode === 'activos' &&
     activosLeads == null &&
+    !weeklyLeadIdsPending &&
     serverActivosTotal === 0 &&
     serverActivosLeads.length === 0 &&
     !loading &&
@@ -583,7 +613,9 @@ export function PipelineTableView({
 
   const showActivosEmptyState =
     pipelineMode === 'activos' &&
-    (activosLeads == null ? showActivosTrulyEmpty : baseLeads.length === 0)
+    (activosLeads == null
+      ? showActivosTrulyEmpty
+      : baseLeads.length === 0 && !weeklyLeadIdsPending)
   if (showActivosEmptyState) {
     return (
       <div className="space-y-4">

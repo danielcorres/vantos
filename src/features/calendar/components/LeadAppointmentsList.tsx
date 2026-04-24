@@ -92,16 +92,32 @@ export function LeadAppointmentsList({ leadId }: LeadAppointmentsListProps) {
           <div className="h-8 w-3/4 rounded-lg bg-neutral-200/60 animate-pulse dark:bg-neutral-800/50" />
         </div>
       ) : events.length === 0 ? (
-        <p className="text-sm text-neutral-500 dark:text-neutral-400 py-1">
-          Este lead no tiene citas. Las citas se gestionan desde el Calendario.
-        </p>
+        <div className="flex flex-col gap-2 py-1 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-neutral-500 dark:text-neutral-400">
+            Este lead no tiene citas. Las citas se gestionan desde el Calendario.
+          </p>
+          <button
+            type="button"
+            onClick={goToCalendar}
+            className="btn btn-primary text-sm shrink-0 self-start sm:self-auto"
+          >
+            Agendar
+          </button>
+        </div>
       ) : (
         <>
           <div className="space-y-2 mb-1">
             {upcoming.length === 0 ? (
-              <p className="text-sm text-neutral-500 dark:text-neutral-400 py-0.5">
-                Sin citas programadas
-              </p>
+              <div className="flex flex-col gap-2 py-0.5 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-neutral-500 dark:text-neutral-400">Sin citas programadas</p>
+                <button
+                  type="button"
+                  onClick={goToCalendar}
+                  className="btn btn-primary text-sm shrink-0 self-start sm:self-auto"
+                >
+                  Agendar
+                </button>
+              </div>
             ) : (
               upcoming.map((ev) => (
                 <div key={ev.id} className={rowClass}>

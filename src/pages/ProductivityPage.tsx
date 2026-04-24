@@ -1,22 +1,19 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { getWeeklyProductivity } from '../features/productivity/api/productivity.api'
-import { getWeeklyGoals } from '../features/productivity/api/goals.api'
-import { WeeklyGoalsModal } from '../features/productivity/components/WeeklyGoalsModal'
 import { StageDrilldownModal } from '../features/productivity/components/StageDrilldownModal'
+import { buildProductivityTargetsFromOkr } from '../features/productivity/utils/productivityOkrTargets'
 import type { WeeklyProductivity, StageSlug } from '../features/productivity/types/productivity.types'
 import { STAGE_SLUGS_ORDER } from '../features/productivity/types/productivity.types'
 import { todayLocalYmd, addDaysYmd } from '../shared/utils/dates'
 import { IconArrowRight } from '../app/layout/icons'
-
-const DEFAULT_GOALS: Record<StageSlug, number> = {
-  contactos_nuevos: 20,
-  citas_agendadas: 8,
-  casos_abiertos: 6,
-  citas_cierre: 3,
-  solicitudes_ingresadas: 1,
-  casos_ganados: 1,
-}
+import { getMyProfile } from '../lib/profile'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../shared/auth/AuthProvider'
+import {
+  fetchWeeklyMinimumTargetsForOwner,
+  DEFAULT_WEEKLY_MINIMUMS,
+} from '../modules/okr/dashboard/weeklyMinimumTargets'
 
 const STAGE_LABELS: Record<StageSlug, string> = {
   contactos_nuevos: 'Contactos Nuevos',
@@ -62,32 +59,40 @@ function getWeekStartFromSearchParams(searchParams: URLSearchParams): string {
 }
 
 export function ProductivityPage() {
+  const { user } = useAuth()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const weekStartYmd = getWeekStartFromSearchParams(searchParams)
 
   const [data, setData] = useState<WeeklyProductivity | null>(null)
-  const [goals, setGoals] = useState<Record<StageSlug, number>>(DEFAULT_GOALS)
-  const [goalsLoaded, setGoalsLoaded] = useState(false)
+  /** Metas = mínimos OKR (misma fuente que ajustes de equipo); no se editan en esta pantalla. */
+  const [okrTargets, setOkrTargets] = useState<Record<StageSlug, number>>(() =>
+    buildProductivityTargetsFromOkr(DEFAULT_WEEKLY_MINIMUMS)
+  )
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [goalsModalOpen, setGoalsModalOpen] = useState(false)
   const [drilldownSlug, setDrilldownSlug] = useState<StageSlug | null>(null)
 
-  const loadGoals = useCallback(async () => {
-    try {
-      const g = await getWeeklyGoals()
-      if (g) setGoals(g)
-    } catch {
-      // Mantener defaults si falla
-    } finally {
-      setGoalsLoaded(true)
-    }
-  }, [])
-
   useEffect(() => {
-    loadGoals()
-  }, [loadGoals])
+    let cancelled = false
+    void (async () => {
+      try {
+        const profile = await getMyProfile()
+        const targetsOwnerId = profile?.manager_user_id ?? user?.id ?? null
+        const { targets } = await fetchWeeklyMinimumTargetsForOwner(supabase, targetsOwnerId)
+        if (!cancelled) {
+          setOkrTargets(buildProductivityTargetsFromOkr(targets))
+        }
+      } catch {
+        if (!cancelled) {
+          setOkrTargets(buildProductivityTargetsFromOkr(DEFAULT_WEEKLY_MINIMUMS))
+        }
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -122,7 +127,7 @@ export function ProductivityPage() {
   let focusSlug: StageSlug | null = null
   let focusMissing = 0
   for (const slug of STAGE_SLUGS_ORDER) {
-    const meta = goals[slug] ?? 0
+    const meta = okrTargets[slug] ?? 0
     const actual = counts[slug] ?? 0
     if (meta > 0 && actual < meta) {
       const gapRel = (meta - actual) / meta
@@ -137,10 +142,13 @@ export function ProductivityPage() {
   return (
     <div className="flex flex-col min-h-0">
       <header className="shrink-0 px-4 py-3 border-b border-border bg-surface/50">
-        <div className="flex flex-wrap items-start justify-between gap-2">
-          <div>
+        <div>
             <h1 className="text-lg font-semibold text-text">Productividad semanal</h1>
             <p className="text-sm text-muted mt-0.5">Semana del {formatWeekRange(weekStartYmd)}</p>
+            <p className="text-xs text-muted mt-1 max-w-xl">
+              Las barras comparan entradas al embudo con los{' '}
+              <span className="font-medium text-text">mínimos semanales OKR</span>.
+            </p>
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               <button
                 type="button"
@@ -166,25 +174,8 @@ export function ProductivityPage() {
                 siguiente →
               </button>
             </div>
-          </div>
-          {goalsLoaded && (
-            <button
-              type="button"
-              onClick={() => setGoalsModalOpen(true)}
-              className="px-2.5 py-1.5 text-sm text-muted hover:text-text hover:bg-black/5 rounded-lg transition-colors"
-            >
-              Editar metas
-            </button>
-          )}
         </div>
       </header>
-
-      <WeeklyGoalsModal
-        isOpen={goalsModalOpen}
-        onClose={() => setGoalsModalOpen(false)}
-        initialGoals={goals}
-        onSaved={setGoals}
-      />
 
       {drilldownSlug && (
         <StageDrilldownModal
@@ -224,7 +215,7 @@ export function ProductivityPage() {
             <div className="space-y-3">
               {STAGE_SLUGS_ORDER.map((slug) => {
                 const actual = counts[slug] ?? 0
-                const meta = goals[slug] ?? 0
+                const meta = okrTargets[slug] ?? 0
                 const pct = meta > 0 ? Math.min(actual / meta, 1) : 0
                 const isOnTrack = actual >= meta
                 const missing = meta > 0 ? Math.max(0, meta - actual) : 0
@@ -249,7 +240,6 @@ export function ProductivityPage() {
                         <span className="text-sm tabular-nums text-muted">
                           {actual} / {meta}
                         </span>
-                        {/* Desktop: Entradas + badge; móvil: chip solo número + icon Pipeline */}
                         <span className="flex items-center gap-1.5">
                           <button
                             type="button"
@@ -322,7 +312,7 @@ export function ProductivityPage() {
                 <p className="text-sm text-muted">
                   <span className="font-medium text-text">{STAGE_LABELS[focusSlug]}</span>
                   <br />
-                  Te faltan {focusMissing} para tu meta semanal
+                  Te faltan {focusMissing} respecto al mínimo OKR de la semana
                 </p>
               </div>
             )}
