@@ -28,6 +28,8 @@ import {
   fetchEventsForRange,
 } from '../../modules/okr/dashboard/weekCompareHelpers'
 import { AdvisorMilestonesSection } from '../../modules/advisors/ui/AdvisorMilestonesSection'
+import { useAdvisorPipeline } from '../../features/pipeline/hooks/useAdvisorPipeline'
+import { AdvisorPipelineSummary } from '../../features/pipeline/components/AdvisorPipelineSummary'
 
 export function AdvisorWeekDetailPage() {
   const { advisorId } = useParams<{ advisorId: string }>()
@@ -406,6 +408,17 @@ export function AdvisorWeekDetailPage() {
     })
   }, [insight, scoresMap, todayLocal, weekEndLocal])
 
+  const isCurrentPipelineWeek = useMemo(() => {
+    const cur = calcWeekRangeLocal(undefined).weekStartLocal
+    return weekStartLocal === cur
+  }, [weekStartLocal])
+
+  const { data: pipelineData, loading: pipelineLoading, error: pipelineError } = useAdvisorPipeline(
+    advisorId,
+    weekStartLocal,
+    Boolean(advisorId && !loading)
+  )
+
   // Helper function (no hook, puede estar después)
   const getAdvisorName = (): string => {
     if (!advisor) return 'Asesor'
@@ -479,6 +492,14 @@ export function AdvisorWeekDetailPage() {
           title="Hitos del asesor"
         />
       )}
+
+      <AdvisorPipelineSummary
+        data={pipelineData}
+        loading={pipelineLoading}
+        error={pipelineError}
+        weekRangeLabel={`${weekStartLocal} — ${weekEndLocal}`}
+        isCurrentWeek={isCurrentPipelineWeek}
+      />
 
       {/* Comparativo semana pasada */}
       {prevStats ? (
