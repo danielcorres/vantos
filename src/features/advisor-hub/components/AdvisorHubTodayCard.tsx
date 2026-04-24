@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { AppointmentType, CalendarEvent } from '../../calendar/types/calendar.types'
 import { getTypeLabel, getTypePillClass } from '../../calendar/utils/pillStyles'
-import { HUB_CARD, HUB_SECTION_TITLE } from '../hubStyles'
+import { HUB_CARD, HUB_SECONDARY_LINK, HUB_SECTION_TITLE } from '../hubStyles'
 
 function appointmentType(ev: CalendarEvent): AppointmentType {
   const t = ev.type
@@ -41,18 +41,23 @@ export function AdvisorHubTodayCard({
 
   return (
     <section
-      className={`${HUB_CARD} col-span-12 w-full min-w-0 md:col-span-7 flex flex-col min-h-0 md:min-h-[11rem]`}
+      className={`${HUB_CARD} col-span-12 h-full w-full min-w-0 md:col-span-7 flex flex-col min-h-0 md:min-h-[11rem]`}
     >
-      <h2 className={`${HUB_SECTION_TITLE} mb-4`}>Citas de hoy</h2>
+      <h2 className={`${HUB_SECTION_TITLE} mb-3`}>Citas de hoy</h2>
       {totalTodayCount === 0 ? (
-        <div className="flex flex-1 flex-col justify-center gap-3 text-sm text-neutral-600 dark:text-neutral-400">
-          <p>Sin citas hoy.</p>
-          <Link
-            to="/calendar"
-            className="inline-flex w-fit items-center rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
-          >
-            Ver calendario
-          </Link>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 text-sm text-neutral-600 dark:text-neutral-400">
+          <p>Aún no tienes citas programadas para hoy.</p>
+          <div className="mt-auto flex flex-col gap-2 pt-1 sm:flex-row sm:flex-wrap sm:items-center">
+            <Link
+              to="/calendar?new=1"
+              className="inline-flex w-fit items-center justify-center rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 focus-visible:ring-offset-2 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white dark:focus-visible:ring-offset-neutral-950"
+            >
+              Agendar cita
+            </Link>
+            <Link to="/calendar" className={HUB_SECONDARY_LINK}>
+              Ver calendario
+            </Link>
+          </div>
         </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-3">

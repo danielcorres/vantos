@@ -112,6 +112,31 @@ export function CalendarPage() {
     }
   }, [searchParams])
 
+  // Hub semanal (y otros): ?new=1 abre nueva cita sin lead precargado; se quita el param para no reabrir al refrescar.
+  // Si también hay ?lead=, gana el lead (mismo modal); solo limpiamos `new` de la URL.
+  useEffect(() => {
+    if (searchParams.get('new') !== '1') return
+    const stripNew = () =>
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('new')
+          return next
+        },
+        { replace: true }
+      )
+    if (searchParams.get('lead')) {
+      stripNew()
+      return
+    }
+    setInitialLeadId(undefined)
+    setModalMode('create')
+    setEditingEvent(null)
+    setEditFocus(null)
+    setModalOpen(true)
+    stripNew()
+  }, [searchParams, setSearchParams])
+
   const handleSaved = useCallback(() => {
     setRefreshKey((k) => k + 1)
   }, [])

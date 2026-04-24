@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import type { Lead, PipelineStage } from '../../pipeline/pipeline.api'
 import { displayStageName } from '../../../shared/utils/stageStyles'
 import { diffDaysFloor } from '../../../shared/utils/dates'
-import { HUB_CARD, HUB_SECTION_TITLE } from '../hubStyles'
+import { HUB_CARD, HUB_SECONDARY_LINK, HUB_SECTION_TITLE } from '../hubStyles'
 
 type Props = {
   leads: Lead[]
@@ -17,9 +17,9 @@ export function AdvisorHubUrgentLeadsCard({ leads, totalSinCita, stages, onAgend
 
   return (
     <section
-      className={`${HUB_CARD} col-span-12 w-full min-w-0 md:col-span-5 flex flex-col min-h-0 md:min-h-[11rem] !border-amber-200/90 !bg-amber-50/55 shadow-amber-900/[0.06] dark:!border-amber-800/55 dark:!bg-amber-950/30 dark:shadow-none`}
+      className={`${HUB_CARD} col-span-12 h-full w-full min-w-0 md:col-span-5 flex flex-col min-h-0 md:min-h-[11rem] !border-amber-200/90 !bg-amber-50/55 shadow-amber-900/[0.06] dark:!border-amber-800/55 dark:!bg-amber-950/30 dark:shadow-none`}
     >
-      <h2 className={`${HUB_SECTION_TITLE} mb-2`}>Contactos listos para agendar</h2>
+      <h2 className={`${HUB_SECTION_TITLE} mb-3`}>Contactos listos para agendar</h2>
       {totalSinCita > 0 ? (
         <p className="mb-3 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
           Prioriza agendar: un embudo de <span className="font-medium text-neutral-800 dark:text-neutral-200">Contactos</span> con
@@ -32,9 +32,26 @@ export function AdvisorHubUrgentLeadsCard({ leads, totalSinCita, stages, onAgend
         </p>
       )}
       {totalSinCita === 0 ? (
-        <p className="flex-1 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
-          No hay contactos pendientes de agendar en este momento.
-        </p>
+        <div className="flex min-h-0 flex-1 flex-col gap-3 text-sm leading-relaxed text-neutral-600 dark:text-neutral-400">
+          <div className="space-y-2">
+            <p>No hay contactos pendientes de agendar en este momento.</p>
+            <p className="text-neutral-500 dark:text-neutral-400">
+              Aquí verás a los leads activos que aún no tienen una cita próxima agendada; registrar contactos en el
+              pipeline alimenta este seguimiento.
+            </p>
+          </div>
+          <div className="mt-auto flex flex-col gap-2 pt-1 sm:flex-row sm:flex-wrap sm:items-center">
+            <Link
+              to="/pipeline?createLead=1"
+              className="inline-flex w-fit items-center justify-center rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60 focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50 dark:bg-amber-500 dark:text-neutral-950 dark:hover:bg-amber-400 dark:focus-visible:ring-offset-amber-950/50"
+            >
+              Registrar contacto
+            </Link>
+            <Link to="/pipeline" className={HUB_SECONDARY_LINK}>
+              Ir al pipeline
+            </Link>
+          </div>
+        </div>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
           <ul className="max-h-[min(22rem,45vh)] min-h-0 space-y-3 overflow-y-auto pr-0.5">

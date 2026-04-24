@@ -210,6 +210,24 @@ export function PipelinePage() {
     }
   }, [searchParams, state.leads.length, setSearchParams])
 
+  // Hub semanal (y otros): ?createLead=1 abre alta de lead; etapa por defecto Contactos si existe en el pipeline.
+  useEffect(() => {
+    if (searchParams.get('createLead') !== '1') return
+    if (state.loading || state.stages.length === 0) return
+    const contactos = state.stages.find((s) => s.slug === 'contactos_nuevos')
+    setCreateStageId(contactos?.id)
+    setActiveTab('pipeline')
+    setIsModalOpen(true)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('createLead')
+        return next
+      },
+      { replace: true }
+    )
+  }, [searchParams, state.loading, state.stages, setSearchParams])
+
   const displayedLeads = useMemo(() => {
     if (!weeklyMode) return state.leads
     if (weeklyLeadIds === null) return []
