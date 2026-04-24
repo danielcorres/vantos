@@ -29,6 +29,7 @@ export function DirectorAssignmentsView() {
     rowSaveStates,
     refetch,
     handleRoleChange,
+    handleAccountStatusChange,
     handleManagerRecruiterChange,
     addSeguimientoLink,
     removeSeguimientoLink,
@@ -195,7 +196,9 @@ export function DirectorAssignmentsView() {
                 <th className="text-left p-3 font-medium text-text">Usuario</th>
                 <th className="text-left p-3 font-medium text-text">Rol</th>
                 <th className="text-left p-3 font-medium text-text">Líderes</th>
-                <th className="text-left p-3 font-medium text-text">Estado</th>
+                <th className="text-left p-3 font-medium text-text min-w-[12rem] whitespace-nowrap">
+                  Estado
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -269,16 +272,67 @@ export function DirectorAssignmentsView() {
                         <span className="text-muted text-xs">—</span>
                       )}
                     </td>
-                    <td className="p-3">
-                      {saveState === 'saving' && (
-                        <span className="text-xs text-muted">Guardando…</span>
-                      )}
-                      {saveState === 'saved' && (
-                        <span className="text-xs text-green-600">Guardado</span>
-                      )}
-                      {saveState === 'error' && (
-                        <span className="text-xs text-red-600">Error</span>
-                      )}
+                    <td className="p-3 min-w-[12rem] whitespace-nowrap align-middle">
+                      <div className="flex flex-col gap-1.5">
+                        {isReadOnly ? (
+                          <span className="inline-flex w-fit items-center px-2 py-1 rounded-md bg-black/5 text-sm font-medium text-text dark:bg-neutral-800 dark:text-neutral-100">
+                            {profile.account_status === 'suspended' ? 'Suspendido' : 'Activo'}
+                          </span>
+                        ) : (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <button
+                              type="button"
+                              className={`btn text-xs py-1.5 px-2.5 shrink-0 ${
+                                profile.account_status === 'active'
+                                  ? 'btn-primary'
+                                  : 'btn-secondary'
+                              }`}
+                              disabled={
+                                profile.account_status === 'active' || saveState === 'saving'
+                              }
+                              onClick={() =>
+                                void handleAccountStatusChange(
+                                  profile.user_id,
+                                  ownerUserId,
+                                  'active'
+                                )
+                              }
+                            >
+                              Activo
+                            </button>
+                            <button
+                              type="button"
+                              className={`btn text-xs py-1.5 px-2.5 shrink-0 ${
+                                profile.account_status === 'suspended'
+                                  ? 'btn-primary'
+                                  : 'btn-secondary'
+                              }`}
+                              disabled={
+                                profile.account_status === 'suspended' ||
+                                saveState === 'saving'
+                              }
+                              onClick={() =>
+                                void handleAccountStatusChange(
+                                  profile.user_id,
+                                  ownerUserId,
+                                  'suspended'
+                                )
+                              }
+                            >
+                              Suspendido
+                            </button>
+                          </div>
+                        )}
+                        {saveState === 'saving' && (
+                          <span className="text-xs text-muted">Guardando…</span>
+                        )}
+                        {saveState === 'saved' && (
+                          <span className="text-xs text-green-600">Guardado</span>
+                        )}
+                        {saveState === 'error' && (
+                          <span className="text-xs text-red-600">Error</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )

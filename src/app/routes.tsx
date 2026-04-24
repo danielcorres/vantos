@@ -39,12 +39,16 @@ const LeadDetailPage = lazy(() =>
 const PipelineSettingsPage = lazy(() =>
   import('../pages/PipelineSettingsPage').then((m) => ({ default: m.PipelineSettingsPage }))
 )
+const PoliciesPage = lazy(() =>
+  import('../pages/PoliciesPage').then((m) => ({ default: m.PoliciesPage }))
+)
 
 /** Acceso a /owner/assignments (Directivo + líderes con self-claim) */
 const ASSIGNMENTS_PAGE_ROLES = ['owner', 'director', 'seguimiento', 'manager', 'recruiter'] as const
 const OWNER_DASHBOARD_ROLES = ['owner', 'director', 'seguimiento'] as const
 const ADVISOR_AREA_ROLES = ['advisor', 'owner', 'manager', 'recruiter', 'director', 'seguimiento', 'developer', 'super_admin'] as const
 const PIPELINE_ROLES = ['advisor', 'manager', 'owner'] as const
+const POLICIES_ROLES = ['advisor', 'manager', 'owner'] as const
 const PIPELINE_SETTINGS_ROLES = ['manager', 'owner'] as const
 const ADVISOR_SETTINGS_ROLES = ['owner', 'director', 'seguimiento', 'developer'] as const
 /** Edición de HTML en Documentación (solo owner y director). */
@@ -138,6 +142,16 @@ export const router = createBrowserRouter([
           <RoleGuard allowedRoles={[...PIPELINE_ROLES]}>
             <Suspense fallback={<PageSkeleton />}>
               <PipelinePage />
+            </Suspense>
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'policies',
+        element: (
+          <RoleGuard allowedRoles={[...POLICIES_ROLES]}>
+            <Suspense fallback={<PageSkeleton />}>
+              <PoliciesPage />
             </Suspense>
           </RoleGuard>
         ),

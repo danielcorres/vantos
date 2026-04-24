@@ -90,6 +90,14 @@
     @apply opacity-90;
   }
 
+  .btn-secondary {
+    @apply border border-border bg-surface text-text dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-100;
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    @apply bg-black/5 dark:bg-white/10;
+  }
+
   .btn-ghost {
     @apply bg-transparent text-text dark:text-neutral-100;
   }
