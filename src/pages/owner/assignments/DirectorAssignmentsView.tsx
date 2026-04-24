@@ -115,6 +115,48 @@ export function DirectorAssignmentsView() {
         return tb - ta
       })
   }, [profiles, seguimientoLinks, showArchived])
+<<<<<<< HEAD
+=======
+
+  const canAssignRoles = authRole === 'owner' || authRole === 'director'
+
+  const runConfirm = useCallback(async () => {
+    if (!confirm) return
+    setConfirmBusy(true)
+    try {
+      let r: { ok: boolean; message?: string }
+      if (confirm.kind === 'archive') {
+        r = await handleArchiveAdvisor(confirm.userId, ownerUserId)
+      } else if (confirm.kind === 'restore') {
+        r = await handleRestoreAdvisor(confirm.userId, ownerUserId)
+      } else {
+        r = await handleDeleteAdvisorUser(confirm.userId, ownerUserId)
+      }
+      if (r.ok) {
+        const msg =
+          confirm.kind === 'archive'
+            ? 'Asesor archivado'
+            : confirm.kind === 'restore'
+              ? 'Asesor restaurado'
+              : 'Usuario eliminado del sistema'
+        setToast({ type: 'success', message: msg })
+        if (popoverAdvisor?.user_id === confirm.userId) setPopoverAdvisor(null)
+        setConfirm(null)
+      } else {
+        setToast({ type: 'error', message: r.message || 'Error' })
+      }
+    } finally {
+      setConfirmBusy(false)
+    }
+  }, [
+    confirm,
+    ownerUserId,
+    handleArchiveAdvisor,
+    handleRestoreAdvisor,
+    handleDeleteAdvisorUser,
+    popoverAdvisor,
+  ])
+>>>>>>> develop
 
   const wrapManager = async (advisorId: string, managerId: string | null) => {
     const r = await handleManagerRecruiterChange(
@@ -237,7 +279,15 @@ export function DirectorAssignmentsView() {
               : `¿Borrar PERMANENTEMENTE a ${confirm?.name ?? ''}? Esta acción no se puede deshacer. Sus actividades, pólizas y asignaciones vinculadas serán eliminadas. Sus leads pueden permanecer en el pipeline sin propietario válido.`
         }
         confirmLabel={
+<<<<<<< HEAD
           confirm?.kind === 'delete' ? 'Borrar definitivamente' : confirm?.kind === 'restore' ? 'Restaurar' : 'Archivar'
+=======
+          confirm?.kind === 'delete'
+            ? 'Borrar definitivamente'
+            : confirm?.kind === 'restore'
+              ? 'Restaurar'
+              : 'Archivar'
+>>>>>>> develop
         }
         variant={confirm?.kind === 'delete' ? 'danger' : 'default'}
         busy={confirmBusy}
@@ -324,6 +374,7 @@ export function DirectorAssignmentsView() {
                 const segN = seguimientoLinks.filter((l) => l.advisor_user_id === profile.user_id)
                   .length
                 const canArchiveThis =
+<<<<<<< HEAD
                   canAssignRoles &&
                   isAdvisorRow &&
                   !isReadOnly &&
@@ -333,6 +384,12 @@ export function DirectorAssignmentsView() {
                   canAssignRoles && isAdvisorRow && !isReadOnly && !isSelf && isArchived
                 const canDeleteThis =
                   isOwner && isAdvisorRow && !isReadOnly && !isSelf
+=======
+                  canAssignRoles && isAdvisorRow && !isReadOnly && !isSelf && !isArchived
+                const canRestoreThis =
+                  canAssignRoles && isAdvisorRow && !isReadOnly && !isSelf && isArchived
+                const canDeleteThis = isOwner && isAdvisorRow && !isReadOnly && !isSelf
+>>>>>>> develop
 
                 return (
                   <tr
