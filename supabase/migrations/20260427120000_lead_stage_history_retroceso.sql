@@ -1,4 +1,5 @@
 -- Retrocesos de etapa: marcar filas que no deben contar en productividad semanal.
+-- Versión renombrada: evita colisión con 20260423120000_calendar_events_google_event_id.sql (misma PK en schema_migrations).
 
 begin;
 
