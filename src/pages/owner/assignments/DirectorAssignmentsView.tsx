@@ -196,7 +196,9 @@ export function DirectorAssignmentsView() {
                 <th className="text-left p-3 font-medium text-text">Usuario</th>
                 <th className="text-left p-3 font-medium text-text">Rol</th>
                 <th className="text-left p-3 font-medium text-text">Líderes</th>
-                <th className="text-left p-3 font-medium text-text">Estado</th>
+                <th className="text-left p-3 font-medium text-text min-w-[12rem] whitespace-nowrap">
+                  Estado
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -270,20 +272,20 @@ export function DirectorAssignmentsView() {
                         <span className="text-muted text-xs">—</span>
                       )}
                     </td>
-                    <td className="p-3">
+                    <td className="p-3 min-w-[12rem] whitespace-nowrap align-middle">
                       <div className="flex flex-col gap-1.5">
                         {isReadOnly ? (
-                          <span className="inline-flex w-fit items-center px-2 py-1 rounded-md bg-black/5 text-sm font-medium text-text">
+                          <span className="inline-flex w-fit items-center px-2 py-1 rounded-md bg-black/5 text-sm font-medium text-text dark:bg-neutral-800 dark:text-neutral-100">
                             {profile.account_status === 'suspended' ? 'Suspendido' : 'Activo'}
                           </span>
                         ) : (
-                          <div className="inline-flex rounded-md border border-border p-0.5 gap-0.5 bg-bg">
+                          <div className="flex flex-wrap items-center gap-1.5">
                             <button
                               type="button"
-                              className={`px-2.5 py-1 text-xs font-medium rounded ${
+                              className={`btn text-xs py-1.5 px-2.5 shrink-0 ${
                                 profile.account_status === 'active'
-                                  ? 'bg-primary text-white'
-                                  : 'text-text hover:bg-black/5'
+                                  ? 'btn-primary'
+                                  : 'btn-secondary'
                               }`}
                               disabled={
                                 profile.account_status === 'active' || saveState === 'saving'
@@ -300,10 +302,10 @@ export function DirectorAssignmentsView() {
                             </button>
                             <button
                               type="button"
-                              className={`px-2.5 py-1 text-xs font-medium rounded ${
+                              className={`btn text-xs py-1.5 px-2.5 shrink-0 ${
                                 profile.account_status === 'suspended'
-                                  ? 'bg-primary text-white'
-                                  : 'text-text hover:bg-black/5'
+                                  ? 'btn-primary'
+                                  : 'btn-secondary'
                               }`}
                               disabled={
                                 profile.account_status === 'suspended' ||
