@@ -1,37 +1,77 @@
 import { supabase } from '../../../lib/supabase'
 import { emitGoogleCalendarSyncError } from '../utils/googleCalendarSyncListeners'
 
+const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '') ?? ''
+const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined
+
 type GoogleCalendarFnBody = {
   error?: string
   missing_keys?: string[]
 }
 
-/** Con respuestas no-2xx, supabase-js puede devolver `error` y aun así el JSON en `data`. */
-function logGoogleCalendarInvokeFailure(context: string, data: unknown, errMsg: string): void {
-  const body = data as GoogleCalendarFnBody | null
+function logGoogleCalendarInvokeFailure(context: string, json: unknown, hint: string): void {
+  const body = json as GoogleCalendarFnBody | null
   if (body?.error === 'server_misconfigured' && Array.isArray(body.missing_keys) && body.missing_keys.length > 0) {
     console.error(
-      `[google-calendar ${context}] Falta secretos en Supabase (Edge Functions → google-calendar → Secrets). ` +
+      `[google-calendar ${context}] Falta secretos en Supabase (Project Settings → Edge Functions → Secrets). ` +
         `Definir: ${body.missing_keys.join(', ')}`
     )
     return
   }
   if (body?.error) {
-    console.error(`[google-calendar ${context}]`, body.error, data)
+    console.error(`[google-calendar ${context}]`, body.error, json)
     return
   }
-  console.warn(`[google-calendar ${context}]`, errMsg)
+  console.warn(`[google-calendar ${context}]`, hint, json)
 }
 
-function misconfiguredUserMessage(data: unknown): string | null {
-  const body = data as GoogleCalendarFnBody | null
+function misconfiguredUserMessage(json: unknown): string | null {
+  const body = json as GoogleCalendarFnBody | null
   if (body?.error === 'server_misconfigured' && Array.isArray(body.missing_keys) && body.missing_keys.length > 0) {
     return (
       'El calendario de Google no está configurado en el servidor. ' +
-      `Faltan variables en Supabase (Edge Functions): ${body.missing_keys.join(', ')}.`
+      `Faltan variables en Supabase (Edge Functions → Secrets): ${body.missing_keys.join(', ')}.`
     )
   }
   return null
+}
+
+/**
+ * POST a la Edge Function leyendo siempre el JSON (p. ej. 503 + missing_keys).
+ * `supabase.functions.invoke` no expone el cuerpo en muchos errores no-2xx.
+ */
+async function postGoogleCalendar(body: Record<string, unknown>): Promise<{
+  ok: boolean
+  status: number
+  json: unknown
+}> {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+    return { ok: false, status: 0, json: { error: 'missing_vite_env' } }
+  }
+  const {
+    data: { session },
+  } = await supabase.auth.getSession()
+  if (!session?.access_token) {
+    return { ok: false, status: 401, json: { error: 'no_session' } }
+  }
+  const url = `${SUPABASE_URL}/functions/v1/google-calendar`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: SUPABASE_ANON_KEY,
+    },
+    body: JSON.stringify(body),
+  })
+  const text = await res.text()
+  let json: unknown = null
+  try {
+    json = text ? JSON.parse(text) : null
+  } catch {
+    json = { error: 'invalid_json_response', preview: text.slice(0, 120) }
+  }
+  return { ok: res.ok, status: res.status, json }
 }
 
 export type GoogleCalendarSyncPushResult =
@@ -62,20 +102,23 @@ export async function invokeGoogleCalendarSync(
       data: { session },
     } = await supabase.auth.getSession()
     if (!session?.access_token) return { ok: true, skipped: true }
-    const { data, error } = await supabase.functions.invoke('google-calendar', {
-      body: { action: 'sync', eventId, op },
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    })
-    if (error) {
-      logGoogleCalendarInvokeFailure('sync', data, error.message)
-      const specific = misconfiguredUserMessage(data)
+
+    const { ok, status, json } = await postGoogleCalendar({ action: 'sync', eventId, op })
+    if (!ok) {
+      logGoogleCalendarInvokeFailure('sync', json, `HTTP ${status}`)
+      const specific = misconfiguredUserMessage(json)
       const message =
-        specific ?? mapFunctionsInvokeError(error.message || 'Error al sincronizar con Google Calendar')
+        specific ??
+        mapFunctionsInvokeError(
+          typeof (json as { error?: string })?.error === 'string'
+            ? (json as { error: string }).error
+            : `HTTP ${status}`
+        )
       console.warn('[google-calendar sync]', message)
       emitGoogleCalendarSyncError(message)
       return { ok: false, message }
     }
-    const d = data as { ok?: boolean; skipped?: boolean; error?: string; detail?: string } | null
+    const d = json as { ok?: boolean; skipped?: boolean; error?: string; detail?: string } | null
     if (d?.skipped) return { ok: true, skipped: true }
     if (d && typeof d.error === 'string' && d.error.length > 0) {
       const message = d.detail ? `${d.error}: ${d.detail}` : d.error
@@ -102,15 +145,13 @@ export async function getGoogleCalendarStatus(): Promise<GoogleCalendarConnectio
     data: { session },
   } = await supabase.auth.getSession()
   if (!session?.access_token) return null
-  const { data, error } = await supabase.functions.invoke('google-calendar', {
-    body: { action: 'status' },
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  })
-  if (error) {
-    logGoogleCalendarInvokeFailure('status', data, error.message)
+
+  const { ok, status, json } = await postGoogleCalendar({ action: 'status' })
+  if (!ok) {
+    logGoogleCalendarInvokeFailure('status', json, `HTTP ${status}`)
     return null
   }
-  const d = data as { connected?: boolean; google_email?: string | null }
+  const d = json as { connected?: boolean; google_email?: string | null }
   return { connected: Boolean(d?.connected), google_email: d?.google_email ?? null }
 }
 
@@ -132,19 +173,22 @@ export async function startGoogleCalendarOAuth(options?: {
     return { ok: false, message: 'No hay sesión activa. Inicia sesión de nuevo e inténtalo otra vez.' }
   }
   const returnPath = options?.returnPath ?? '/calendar'
-  const { data, error } = await supabase.functions.invoke('google-calendar', {
-    body: { action: 'oauth-start', returnPath },
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  })
-  if (error) {
-    logGoogleCalendarInvokeFailure('oauth-start', data, error.message)
-    const specific = misconfiguredUserMessage(data)
+  const { ok, status, json } = await postGoogleCalendar({ action: 'oauth-start', returnPath })
+  if (!ok) {
+    logGoogleCalendarInvokeFailure('oauth-start', json, `HTTP ${status}`)
+    const specific = misconfiguredUserMessage(json)
     return {
       ok: false,
-      message: specific ?? mapFunctionsInvokeError(error.message || ''),
+      message:
+        specific ??
+        mapFunctionsInvokeError(
+          typeof (json as { error?: string })?.error === 'string'
+            ? (json as { error: string }).error
+            : `HTTP ${status}`
+        ),
     }
   }
-  const authUrl = (data as { authUrl?: string })?.authUrl
+  const authUrl = (json as { authUrl?: string })?.authUrl
   if (!authUrl || typeof authUrl !== 'string') {
     return {
       ok: false,
@@ -164,14 +208,20 @@ export async function disconnectGoogleCalendar(): Promise<DisconnectGoogleCalend
   if (!session?.access_token) {
     return { ok: false, message: 'No hay sesión activa.' }
   }
-  const { data, error } = await supabase.functions.invoke('google-calendar', {
-    body: { action: 'disconnect' },
-    headers: { Authorization: `Bearer ${session.access_token}` },
-  })
-  if (error) {
-    logGoogleCalendarInvokeFailure('disconnect', data, error.message)
-    const specific = misconfiguredUserMessage(data)
-    return { ok: false, message: specific ?? mapFunctionsInvokeError(error.message || '') }
+  const { ok, status, json } = await postGoogleCalendar({ action: 'disconnect' })
+  if (!ok) {
+    logGoogleCalendarInvokeFailure('disconnect', json, `HTTP ${status}`)
+    const specific = misconfiguredUserMessage(json)
+    return {
+      ok: false,
+      message:
+        specific ??
+        mapFunctionsInvokeError(
+          typeof (json as { error?: string })?.error === 'string'
+            ? (json as { error: string }).error
+            : `HTTP ${status}`
+        ),
+    }
   }
   return { ok: true }
 }
