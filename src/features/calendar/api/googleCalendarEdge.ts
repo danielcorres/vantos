@@ -1,4 +1,5 @@
 import { supabase } from '../../../lib/supabase'
+import { GOOGLE_CALENDAR_INTEGRATION_ENABLED } from '../config/googleCalendarIntegrationEnabled'
 import { emitGoogleCalendarSyncError } from '../utils/googleCalendarSyncListeners'
 
 const SUPABASE_URL = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.replace(/\/$/, '') ?? ''
@@ -97,6 +98,7 @@ export async function invokeGoogleCalendarSync(
   eventId: string,
   op: 'upsert' | 'delete' = 'upsert'
 ): Promise<GoogleCalendarSyncPushResult> {
+  if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return { ok: true, skipped: true }
   try {
     const {
       data: { session },
@@ -141,6 +143,7 @@ export type GoogleCalendarConnectionStatus = {
 }
 
 export async function getGoogleCalendarStatus(): Promise<GoogleCalendarConnectionStatus | null> {
+  if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return null
   const {
     data: { session },
   } = await supabase.auth.getSession()
@@ -166,6 +169,12 @@ export type GoogleOAuthStartResult =
 export async function startGoogleCalendarOAuth(options?: {
   returnPath?: '/profile' | '/calendar'
 }): Promise<GoogleOAuthStartResult> {
+  if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) {
+    return {
+      ok: false,
+      message: 'La conexión con Google Calendar no está disponible en este momento.',
+    }
+  }
   const {
     data: { session },
   } = await supabase.auth.getSession()
@@ -202,6 +211,9 @@ export async function startGoogleCalendarOAuth(options?: {
 export type DisconnectGoogleCalendarResult = { ok: true } | { ok: false; message: string }
 
 export async function disconnectGoogleCalendar(): Promise<DisconnectGoogleCalendarResult> {
+  if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) {
+    return { ok: false, message: 'La conexión con Google Calendar no está disponible en este momento.' }
+  }
   const {
     data: { session },
   } = await supabase.auth.getSession()

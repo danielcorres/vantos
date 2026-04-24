@@ -36,9 +36,22 @@ supabase secrets set --project-ref lyvnyjkfgkbrobetzxvs \
   APP_SITE_URL="https://..."
 ```
 
+## Pantalla de consentimiento OAuth (nombre que ve el usuario)
+
+Google muestra su **propia** página de error (“acceso bloqueado”, verificación, etc.); **no** se puede sustituir por código de Vant.
+
+Para que en el consentimiento no predomine un dominio raro:
+
+1. **APIs y servicios** → **Pantalla de consentimiento de OAuth**.
+2. **Nombre de la aplicación**: pon algo reconocible, p. ej. **“Vant”** o **“Asesores Consulta”** (no dejes el nombre por defecto ligado al proyecto).
+3. **Correo de asistencia al usuario** y **Dominios autorizados** según lo que pida el formulario.
+4. Para que los asesores **no** vean el bloqueo de “app en prueba”: **Usuarios de prueba** (añade sus correos) o **Publicar** la aplicación cuando corresponda.
+
+Cuando Google redirige de vuelta a tu app con `?google_calendar=error&reason=access_denied`, la interfaz de Vant muestra un mensaje en español orientativo (ver `formatGoogleCalendarReturnError`).
+
 ## Google Cloud Console — Redirect URI
 
-En **APIs & Services → Credentials → OAuth 2.0 Client ID → Authorized redirect URIs**, añade **exactamente** esta URI (HTTPS, con `/functions/v1/`). No uses `http://` ni rutas como `/google-calendar` sin `functions/v1` (Google devuelve `redirect_uri_mismatch`).
+En **APIs & Services → Credentials → OAuth 2.0 Client ID → Authorized redirect URIs**, añade **exactamente** esta URI (HTTPS, con `/functions/v1/`). Comprueba que la ruta contenga la palabra **`google-calendar`** completa, no un typo tipo `google-calenc` (Google devuelve `redirect_uri_mismatch`). No uses `http://` ni omitas `/functions/v1/`.
 
 **Producción** (`lyvnyjkfgkbrobetzxvs`):
 

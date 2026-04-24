@@ -11,6 +11,8 @@ import {
   startGoogleCalendarOAuth,
 } from '../features/calendar/api/googleCalendarEdge'
 import { subscribeGoogleCalendarSyncErrors } from '../features/calendar/utils/googleCalendarSyncListeners'
+import { GOOGLE_CALENDAR_INTEGRATION_ENABLED } from '../features/calendar/config/googleCalendarIntegrationEnabled'
+import { formatGoogleCalendarReturnError } from '../features/calendar/utils/googleOAuthReturnMessages'
 import { Toast } from '../shared/components/Toast'
 
 type ViewMode = 'week' | 'upcoming'
@@ -52,6 +54,11 @@ export function CalendarPage() {
   const [googleToast, setGoogleToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null)
 
   const refreshGoogleStatus = useCallback(async () => {
+    if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) {
+      setGoogleBanner(null)
+      setGoogleBannerLoading(false)
+      return
+    }
     setGoogleBannerLoading(true)
     try {
       const s = await getGoogleCalendarStatus()
@@ -70,18 +77,18 @@ export function CalendarPage() {
   useEffect(() => {
     const g = searchParams.get('google_calendar')
     if (!g) return
-    if (g === 'connected') {
-      setGoogleToast({ type: 'success', message: 'Google Calendar conectado correctamente.' })
-      void refreshGoogleStatus()
-    } else if (g === 'error') {
-      const reason = searchParams.get('reason')
-      const detail = reason ? decodeURIComponent(reason.replace(/\+/g, ' ')) : ''
-      setGoogleToast({
-        type: 'error',
-        message: detail
-          ? `No se pudo conectar Google Calendar: ${detail}`
-          : 'No se pudo conectar Google Calendar. Revisa la configuración o inténtalo de nuevo.',
-      })
+    if (GOOGLE_CALENDAR_INTEGRATION_ENABLED) {
+      if (g === 'connected') {
+        setGoogleToast({ type: 'success', message: 'Google Calendar conectado correctamente.' })
+        void refreshGoogleStatus()
+      } else if (g === 'error') {
+        const reason = searchParams.get('reason')
+        const detail = reason ? decodeURIComponent(reason.replace(/\+/g, ' ')) : ''
+        setGoogleToast({
+          type: 'error',
+          message: formatGoogleCalendarReturnError(detail),
+        })
+      }
     }
     setSearchParams(
       (prev) => {
@@ -95,6 +102,7 @@ export function CalendarPage() {
   }, [searchParams, setSearchParams, refreshGoogleStatus])
 
   useEffect(() => {
+    if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return undefined
     return subscribeGoogleCalendarSyncErrors((msg) => {
       setGoogleToast({ type: 'error', message: msg })
     })
@@ -251,7 +259,7 @@ export function CalendarPage() {
           </div>
         </div>
 
-        {!googleBannerLoading && googleBanner != null && (
+        {GOOGLE_CALENDAR_INTEGRATION_ENABLED && !googleBannerLoading && googleBanner != null && (
           <div className="mt-3 rounded-lg border border-border bg-bg/80 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-sm text-text">
             <div className="min-w-0">
               {googleBanner.connected ? (

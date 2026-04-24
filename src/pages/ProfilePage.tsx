@@ -7,6 +7,8 @@ import {
   startGoogleCalendarOAuth,
 } from '../features/calendar/api/googleCalendarEdge'
 import { subscribeGoogleCalendarSyncErrors } from '../features/calendar/utils/googleCalendarSyncListeners'
+import { GOOGLE_CALENDAR_INTEGRATION_ENABLED } from '../features/calendar/config/googleCalendarIntegrationEnabled'
+import { formatGoogleCalendarReturnError } from '../features/calendar/utils/googleOAuthReturnMessages'
 import { Toast } from '../shared/components/Toast'
 import { useUserRole } from '../shared/hooks/useUserRole'
 
@@ -64,6 +66,11 @@ export function ProfilePage() {
   const [googleToast, setGoogleToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const refreshGoogleStatus = useCallback(async () => {
+    if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) {
+      setGoogleBanner(null)
+      setGoogleBannerLoading(false)
+      return
+    }
     setGoogleBannerLoading(true)
     try {
       const s = await getGoogleCalendarStatus()
@@ -83,18 +90,18 @@ export function ProfilePage() {
   useEffect(() => {
     const g = searchParams.get('google_calendar')
     if (!g) return
-    if (g === 'connected') {
-      setGoogleToast({ type: 'success', message: 'Google Calendar conectado correctamente.' })
-      void refreshGoogleStatus()
-    } else if (g === 'error') {
-      const reason = searchParams.get('reason')
-      const detail = reason ? decodeURIComponent(reason.replace(/\+/g, ' ')) : ''
-      setGoogleToast({
-        type: 'error',
-        message: detail
-          ? `No se pudo conectar Google Calendar: ${detail}`
-          : 'No se pudo conectar Google Calendar. Revisa la configuración o inténtalo de nuevo.',
-      })
+    if (GOOGLE_CALENDAR_INTEGRATION_ENABLED) {
+      if (g === 'connected') {
+        setGoogleToast({ type: 'success', message: 'Google Calendar conectado correctamente.' })
+        void refreshGoogleStatus()
+      } else if (g === 'error') {
+        const reason = searchParams.get('reason')
+        const detail = reason ? decodeURIComponent(reason.replace(/\+/g, ' ')) : ''
+        setGoogleToast({
+          type: 'error',
+          message: formatGoogleCalendarReturnError(detail),
+        })
+      }
     }
     setSearchParams(
       (prev) => {
@@ -108,6 +115,7 @@ export function ProfilePage() {
   }, [searchParams, setSearchParams, refreshGoogleStatus])
 
   useEffect(() => {
+    if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return undefined
     return subscribeGoogleCalendarSyncErrors((msg) => {
       setGoogleToast({ type: 'error', message: msg })
     })
@@ -269,54 +277,56 @@ export function ProfilePage() {
         <p className="text-sm text-muted">Actualiza tu información personal. Los datos de hitos pueden tener permisos distintos.</p>
       </div>
 
-      <div className="card p-6">
-        <h2 className="text-base font-semibold text-text mb-1">Google Calendar</h2>
-        <p className="text-sm text-muted mb-4">
-          Conecta tu cuenta de Google aquí para sincronizar las citas que gestionas en Vant con tu calendario
-          personal. Puedes desconectarla en cualquier momento.
-        </p>
-        {googleBannerLoading ? (
-          <p className="text-sm text-muted">Comprobando conexión…</p>
-        ) : googleBanner != null ? (
-          <div className="rounded-lg border border-border bg-bg/80 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-text">
-            <div className="min-w-0">
-              {googleBanner.connected ? (
-                <span className="text-neutral-700 dark:text-neutral-200">
-                  Cuenta conectada
-                  {googleBanner.google_email ? (
-                    <span className="text-muted"> ({googleBanner.google_email})</span>
-                  ) : null}
-                  . Las citas nuevas o editadas se envían a Google Calendar.
-                </span>
-              ) : (
-                <span className="text-neutral-700 dark:text-neutral-200">
-                  No hay cuenta de Google vinculada. Al conectar, las citas se podrán sincronizar con tu Google
-                  Calendar.
-                </span>
-              )}
+      {GOOGLE_CALENDAR_INTEGRATION_ENABLED && (
+        <div className="card p-6">
+          <h2 className="text-base font-semibold text-text mb-1">Google Calendar</h2>
+          <p className="text-sm text-muted mb-4">
+            Conecta tu cuenta de Google aquí para sincronizar las citas que gestionas en Vant con tu calendario
+            personal. Puedes desconectarla en cualquier momento.
+          </p>
+          {googleBannerLoading ? (
+            <p className="text-sm text-muted">Comprobando conexión…</p>
+          ) : googleBanner != null ? (
+            <div className="rounded-lg border border-border bg-bg/80 px-3 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm text-text">
+              <div className="min-w-0">
+                {googleBanner.connected ? (
+                  <span className="text-neutral-700 dark:text-neutral-200">
+                    Cuenta conectada
+                    {googleBanner.google_email ? (
+                      <span className="text-muted"> ({googleBanner.google_email})</span>
+                    ) : null}
+                    . Las citas nuevas o editadas se envían a Google Calendar.
+                  </span>
+                ) : (
+                  <span className="text-neutral-700 dark:text-neutral-200">
+                    No hay cuenta de Google vinculada. Al conectar, las citas se podrán sincronizar con tu Google
+                    Calendar.
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                {googleBanner.connected ? (
+                  <button
+                    type="button"
+                    onClick={() => void handleDisconnectGoogle()}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-text hover:bg-black/5"
+                  >
+                    Desconectar Google
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void handleConnectGoogle()}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+                  >
+                    Conectar Google Calendar
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {googleBanner.connected ? (
-                <button
-                  type="button"
-                  onClick={() => void handleDisconnectGoogle()}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-border text-text hover:bg-black/5"
-                >
-                  Desconectar Google
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => void handleConnectGoogle()}
-                  className="px-3 py-1.5 text-xs font-medium rounded-lg border border-neutral-300 bg-white text-neutral-900 hover:bg-neutral-50 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
-                >
-                  Conectar Google Calendar
-                </button>
-              )}
-            </div>
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
+      )}
 
       <div className="card p-6">
         <div className="mb-6 pb-4 border-b border-border">
