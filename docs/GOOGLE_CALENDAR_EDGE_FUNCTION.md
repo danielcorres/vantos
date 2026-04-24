@@ -24,7 +24,7 @@ En **cada** proyecto (staging y prod) deben existir:
 | `OAUTH_STATE_SECRET` | Cadena aleatoria larga, ej. `openssl rand -hex 32` |
 | `APP_SITE_URL` | URL pública de la app, ej. `https://tu-dominio.com` |
 
-No hace falta definir manualmente: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY` (los inyecta Supabase).
+Supabase suele inyectar `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` y `SUPABASE_ANON_KEY` en Edge Functions. Si en logs ves `missing_keys` con `SUPABASE_ANON_KEY`, añádelo como secreto en el dashboard (valor = **anon public** del proyecto en Settings → API).
 
 Ejemplo CLI (prod):
 

@@ -1,14 +1,53 @@
 /**
  * Google Calendar OAuth (offline) + push create/update/delete a Google Calendar.
  *
- * Secrets: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OAUTH_STATE_SECRET,
- *          SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, APP_SITE_URL
+ * Secrets: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OAUTH_STATE_SECRET, APP_SITE_URL,
+ *          SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_ANON_KEY (si no lo inyecta el host)
  */
 import { createClient } from '@supabase/supabase-js'
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+}
+
+type EnvBundle = {
+  supabaseUrl: string
+  serviceKey: string
+  anonKey: string
+  googleClientId: string
+  googleClientSecret: string
+  stateSecret: string
+  appSiteUrl: string
+}
+
+function readEnv(): { ok: true; env: EnvBundle } | { ok: false; missing: string[] } {
+  const required = [
+    'SUPABASE_URL',
+    'SUPABASE_SERVICE_ROLE_KEY',
+    'SUPABASE_ANON_KEY',
+    'GOOGLE_CLIENT_ID',
+    'GOOGLE_CLIENT_SECRET',
+    'OAUTH_STATE_SECRET',
+  ] as const
+  const missing: string[] = []
+  for (const k of required) {
+    if (!Deno.env.get(k)) missing.push(k)
+  }
+  if (missing.length) return { ok: false, missing }
+  return {
+    ok: true,
+    env: {
+      supabaseUrl: Deno.env.get('SUPABASE_URL')!,
+      serviceKey: Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      anonKey: Deno.env.get('SUPABASE_ANON_KEY')!,
+      googleClientId: Deno.env.get('GOOGLE_CLIENT_ID')!,
+      googleClientSecret: Deno.env.get('GOOGLE_CLIENT_SECRET')!,
+      stateSecret: Deno.env.get('OAUTH_STATE_SECRET')!,
+      appSiteUrl: Deno.env.get('APP_SITE_URL') ?? 'http://localhost:5173',
+    },
+  }
 }
 
 function json(body: unknown, status = 200): Response {
@@ -149,14 +188,22 @@ Deno.serve(async (req: Request) => {
     return new Response('ok', { headers: cors })
   }
 
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
-  const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID')!
-  const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET')!
-  const stateSecret = Deno.env.get('OAUTH_STATE_SECRET')!
-  const appSiteUrl = Deno.env.get('APP_SITE_URL') ?? 'http://localhost:5173'
+  const envRead = readEnv()
+  if (!envRead.ok) {
+    console.error('[google-calendar] Missing secrets:', envRead.missing.join(', '))
+    return json({ error: 'server_misconfigured', missing_keys: envRead.missing }, 503)
+  }
+  const {
+    supabaseUrl,
+    serviceKey,
+    anonKey,
+    googleClientId,
+    googleClientSecret,
+    stateSecret,
+    appSiteUrl,
+  } = envRead.env
 
+  try {
   const fnUrl = new URL(req.url)
   const redirectUri = `${fnUrl.origin}${fnUrl.pathname}?action=callback`
 
@@ -419,4 +466,8 @@ Deno.serve(async (req: Request) => {
   }
 
   return json({ error: 'unknown_action' }, 400)
+  } catch (e) {
+    console.error('[google-calendar] Unhandled:', e)
+    return json({ error: 'internal_error' }, 500)
+  }
 })
