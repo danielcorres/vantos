@@ -16,6 +16,7 @@ import {
   IconPipeline,
   IconBookOpen,
   IconCalendar,
+  IconShield,
 } from './icons'
 import { useAuth } from '../../shared/auth/AuthProvider'
 import { VantLogo } from '../../components/branding/VantLogo'
@@ -97,6 +98,12 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
           label: 'Productividad',
           path: '/productividad',
           icon: IconBarChart3,
+          visible: (r) => r === 'advisor' || r === 'manager' || r === 'owner',
+        },
+        {
+          label: 'Pólizas',
+          path: '/policies',
+          icon: IconShield,
           visible: (r) => r === 'advisor' || r === 'manager' || r === 'owner',
         },
         {
