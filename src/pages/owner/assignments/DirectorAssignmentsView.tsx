@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Toast } from '../../../shared/components/Toast'
 import { getSystemOwnerId } from '../../../lib/systemOwner'
+import { useAuth } from '../../../shared/auth/AuthProvider'
 import { useDirectorAssignments } from './hooks/useAssignments'
 import type { AssignmentProfile } from './types'
 import { isEditableAssignmentRole } from './types'
@@ -9,10 +10,17 @@ import { roleLabelEs } from './copy'
 import { RoleChip } from './components/RoleChip'
 import { LeaderSlotPopover } from './components/LeaderSlotPopover'
 import { TeamHierarchyBoard } from './components/TeamHierarchyBoard'
+import { ConfirmDialog } from './components/ConfirmDialog'
 
 type Tab = 'people' | 'teams' | 'audit'
 
+type ConfirmKind = 'archive' | 'restore' | 'delete'
+
 export function DirectorAssignmentsView() {
+  const { user, role: authRole } = useAuth()
+  const currentUserId = user?.id ?? null
+  const isOwner = authRole === 'owner'
+
   const [ownerUserId, setOwnerUserId] = useState<string | null>(null)
   /** Evita pintar la tabla antes de conocer el owner de sistema (protección de filas). */
   const [ownerResolved, setOwnerResolved] = useState(false)
@@ -20,6 +28,13 @@ export function DirectorAssignmentsView() {
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [popoverAdvisor, setPopoverAdvisor] = useState<AssignmentProfile | null>(null)
   const popBtnRef = useRef<HTMLButtonElement>(null)
+  const [showArchived, setShowArchived] = useState(false)
+  const [confirm, setConfirm] = useState<{
+    kind: ConfirmKind
+    userId: string
+    name: string
+  } | null>(null)
+  const [confirmBusy, setConfirmBusy] = useState(false)
 
   const {
     profiles,
@@ -30,6 +45,9 @@ export function DirectorAssignmentsView() {
     refetch,
     handleRoleChange,
     handleAccountStatusChange,
+    handleArchiveAdvisor,
+    handleRestoreAdvisor,
+    handleDeleteAdvisorUser,
     handleManagerRecruiterChange,
     addSeguimientoLink,
     removeSeguimientoLink,
@@ -56,8 +74,16 @@ export function DirectorAssignmentsView() {
     }
   }, [])
 
+  const peopleProfiles = useMemo(
+    () => (showArchived ? profiles : profiles.filter((p) => !p.archived_at)),
+    [profiles, showArchived]
+  )
+
   const managers = useMemo(() => profiles.filter((p) => p.role === 'manager'), [profiles])
-  const advisors = useMemo(() => profiles.filter((p) => p.role === 'advisor'), [profiles])
+  const advisors = useMemo(
+    () => profiles.filter((p) => p.role === 'advisor' && !p.archived_at),
+    [profiles]
+  )
 
   const auditRows = useMemo(() => {
     const withSeg = new Set(seguimientoLinks.map((l) => l.advisor_user_id))
@@ -65,6 +91,7 @@ export function DirectorAssignmentsView() {
       .filter(
         (p) =>
           p.role === 'advisor' &&
+          (!p.archived_at || showArchived) &&
           (p.manager_assigned_at || p.recruiter_assigned_at || withSeg.has(p.user_id))
       )
       .map((p) => {
@@ -87,7 +114,46 @@ export function DirectorAssignmentsView() {
         )
         return tb - ta
       })
-  }, [profiles, seguimientoLinks])
+  }, [profiles, seguimientoLinks, showArchived])
+
+  const canAssignRoles = authRole === 'owner' || authRole === 'director'
+
+  const runConfirm = useCallback(async () => {
+    if (!confirm) return
+    setConfirmBusy(true)
+    try {
+      let r: { ok: boolean; message?: string }
+      if (confirm.kind === 'archive') {
+        r = await handleArchiveAdvisor(confirm.userId, ownerUserId)
+      } else if (confirm.kind === 'restore') {
+        r = await handleRestoreAdvisor(confirm.userId, ownerUserId)
+      } else {
+        r = await handleDeleteAdvisorUser(confirm.userId, ownerUserId)
+      }
+      if (r.ok) {
+        const msg =
+          confirm.kind === 'archive'
+            ? 'Asesor archivado'
+            : confirm.kind === 'restore'
+              ? 'Asesor restaurado'
+              : 'Usuario eliminado del sistema'
+        setToast({ type: 'success', message: msg })
+        if (popoverAdvisor?.user_id === confirm.userId) setPopoverAdvisor(null)
+        setConfirm(null)
+      } else {
+        setToast({ type: 'error', message: r.message || 'Error' })
+      }
+    } finally {
+      setConfirmBusy(false)
+    }
+  }, [
+    confirm,
+    ownerUserId,
+    handleArchiveAdvisor,
+    handleRestoreAdvisor,
+    handleDeleteAdvisorUser,
+    popoverAdvisor,
+  ])
 
   const wrapManager = async (advisorId: string, managerId: string | null) => {
     const r = await handleManagerRecruiterChange(
@@ -154,6 +220,35 @@ export function DirectorAssignmentsView() {
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog
+        open={confirm != null}
+        title={
+          confirm?.kind === 'archive'
+            ? 'Archivar asesor'
+            : confirm?.kind === 'restore'
+              ? 'Restaurar asesor'
+              : 'Borrar usuario permanentemente'
+        }
+        message={
+          confirm?.kind === 'archive'
+            ? `¿Archivar a ${confirm.name}? Su cuenta quedará suspendida y no podrá iniciar sesión. Sus datos se conservan.`
+            : confirm?.kind === 'restore'
+              ? `¿Restaurar a ${confirm.name}? Volverá a estado activo y podrá iniciar sesión.`
+              : `¿Borrar PERMANENTEMENTE a ${confirm?.name ?? ''}? Esta acción no se puede deshacer. Sus actividades, pólizas y asignaciones vinculadas serán eliminadas. Sus leads pueden permanecer en el pipeline sin propietario válido.`
+        }
+        confirmLabel={
+          confirm?.kind === 'delete'
+            ? 'Borrar definitivamente'
+            : confirm?.kind === 'restore'
+              ? 'Restaurar'
+              : 'Archivar'
+        }
+        variant={confirm?.kind === 'delete' ? 'danger' : 'default'}
+        busy={confirmBusy}
+        onCancel={() => !confirmBusy && setConfirm(null)}
+        onConfirm={runConfirm}
+      />
+
       {toast && (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
       )}
@@ -190,6 +285,17 @@ export function DirectorAssignmentsView() {
 
       {tab === 'people' && (
         <div className="card overflow-x-auto">
+          <div className="flex flex-wrap items-center justify-end gap-3 px-3 py-2 border-b border-border dark:border-neutral-800">
+            <label className="flex items-center gap-2 text-sm text-muted dark:text-neutral-400 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="rounded border-border"
+                checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+              />
+              Mostrar archivados
+            </label>
+          </div>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
@@ -202,16 +308,38 @@ export function DirectorAssignmentsView() {
               </tr>
             </thead>
             <tbody>
-              {profiles.map((profile) => {
+              {peopleProfiles.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="p-6 text-center text-sm text-muted">
+                    {showArchived
+                      ? 'No hay usuarios en el directorio.'
+                      : 'No hay usuarios activos. Activa «Mostrar archivados» para ver asesores dados de baja.'}
+                  </td>
+                </tr>
+              )}
+              {peopleProfiles.map((profile) => {
                 const saveState = rowSaveStates[profile.user_id] || 'idle'
                 const displayName = getAssignmentDisplayName(profile)
                 const isSystemOwner = profile.user_id === ownerUserId
                 const isReadOnly = isSystemOwner
+                const isSelf = currentUserId != null && profile.user_id === currentUserId
+                const isArchived = Boolean(profile.archived_at)
+                const isAdvisorRow = profile.role === 'advisor'
                 const segN = seguimientoLinks.filter((l) => l.advisor_user_id === profile.user_id)
                   .length
+                const canArchiveThis =
+                  canAssignRoles && isAdvisorRow && !isReadOnly && !isSelf && !isArchived
+                const canRestoreThis =
+                  canAssignRoles && isAdvisorRow && !isReadOnly && !isSelf && isArchived
+                const canDeleteThis = isOwner && isAdvisorRow && !isReadOnly && !isSelf
 
                 return (
-                  <tr key={profile.user_id} className="border-b border-border hover:bg-black/5">
+                  <tr
+                    key={profile.user_id}
+                    className={`border-b border-border hover:bg-black/5 ${
+                      isArchived ? 'opacity-80 bg-black/[0.02] dark:bg-white/[0.03]' : ''
+                    }`}
+                  >
                     <td className="p-3">
                       <div className="font-medium text-text">{displayName}</div>
                       <div className="text-xs text-muted">{profile.user_id.slice(0, 8)}…</div>
@@ -220,9 +348,14 @@ export function DirectorAssignmentsView() {
                           Owner (sistema)
                         </span>
                       )}
+                      {isArchived && (
+                        <span className="mt-1 inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-200 text-slate-800 dark:bg-neutral-700 dark:text-neutral-100">
+                          Archivado
+                        </span>
+                      )}
                     </td>
                     <td className="p-3">
-                      {!isReadOnly && isEditableAssignmentRole(profile.role) ? (
+                      {!isReadOnly && isEditableAssignmentRole(profile.role) && !isArchived ? (
                         <RoleChip
                           currentRole={profile.role}
                           onChange={(nr) => void handleRoleChange(profile.user_id, ownerUserId, nr)}
@@ -232,7 +365,7 @@ export function DirectorAssignmentsView() {
                       )}
                     </td>
                     <td className="p-3">
-                      {profile.role === 'advisor' && !isReadOnly ? (
+                      {profile.role === 'advisor' && !isReadOnly && !isArchived ? (
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs text-muted">
                             M:{' '}
@@ -288,7 +421,9 @@ export function DirectorAssignmentsView() {
                                   : 'btn-secondary'
                               }`}
                               disabled={
-                                profile.account_status === 'active' || saveState === 'saving'
+                                isArchived ||
+                                profile.account_status === 'active' ||
+                                saveState === 'saving'
                               }
                               onClick={() =>
                                 void handleAccountStatusChange(
@@ -308,6 +443,7 @@ export function DirectorAssignmentsView() {
                                   : 'btn-secondary'
                               }`}
                               disabled={
+                                isArchived ||
                                 profile.account_status === 'suspended' ||
                                 saveState === 'saving'
                               }
@@ -321,6 +457,58 @@ export function DirectorAssignmentsView() {
                             >
                               Suspendido
                             </button>
+                          </div>
+                        )}
+                        {isAdvisorRow && !isReadOnly && !isSelf && (
+                          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                            {canArchiveThis && (
+                              <button
+                                type="button"
+                                className="btn btn-secondary text-xs shrink-0"
+                                disabled={saveState === 'saving'}
+                                onClick={() =>
+                                  setConfirm({
+                                    kind: 'archive',
+                                    userId: profile.user_id,
+                                    name: displayName,
+                                  })
+                                }
+                              >
+                                Archivar
+                              </button>
+                            )}
+                            {canRestoreThis && (
+                              <button
+                                type="button"
+                                className="btn btn-secondary text-xs shrink-0"
+                                disabled={saveState === 'saving'}
+                                onClick={() =>
+                                  setConfirm({
+                                    kind: 'restore',
+                                    userId: profile.user_id,
+                                    name: displayName,
+                                  })
+                                }
+                              >
+                                Restaurar
+                              </button>
+                            )}
+                            {canDeleteThis && (
+                              <button
+                                type="button"
+                                className="btn text-xs shrink-0 bg-red-600 text-white hover:opacity-90 border-0"
+                                disabled={saveState === 'saving'}
+                                onClick={() =>
+                                  setConfirm({
+                                    kind: 'delete',
+                                    userId: profile.user_id,
+                                    name: displayName,
+                                  })
+                                }
+                              >
+                                Borrar
+                              </button>
+                            )}
                           </div>
                         )}
                         {saveState === 'saving' && (
