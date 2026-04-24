@@ -9,13 +9,15 @@ import type {
 } from '../types'
 
 const PROFILE_SELECT =
-  'user_id, full_name, display_name, role, account_status, manager_user_id, recruiter_user_id, manager_assigned_by, manager_assigned_at, recruiter_assigned_by, recruiter_assigned_at'
+  'user_id, full_name, display_name, role, account_status, manager_user_id, recruiter_user_id, manager_assigned_by, manager_assigned_at, recruiter_assigned_by, recruiter_assigned_at, archived_at, archived_by'
 
 function rowsToProfiles(rows: unknown[] | null | undefined): AssignmentProfile[] {
   return (rows || []).map((row) => ({
     ...(row as AssignmentProfile),
     account_status:
       (row as { account_status?: AccountStatus }).account_status ?? 'active',
+    archived_at: (row as { archived_at?: string | null }).archived_at ?? null,
+    archived_by: (row as { archived_by?: string | null }).archived_by ?? null,
   })) as AssignmentProfile[]
 }
 
@@ -309,6 +311,81 @@ export function useDirectorAssignments(canLoad: boolean) {
     [saveProfile]
   )
 
+  const handleArchiveAdvisor = useCallback(
+    async (userId: string, ownerUserId: string | null): Promise<{ ok: boolean; message?: string }> => {
+      if (!mountedRef.current) return { ok: false, message: 'No disponible' }
+      if (userId === ownerUserId) return { ok: false, message: 'Operación no permitida' }
+      setRowState(userId, 'saving')
+      try {
+        const { error: rpcErr } = await supabase.rpc('archive_advisor', { p_user_id: userId })
+        if (rpcErr) throw rpcErr
+        await load()
+        if (!mountedRef.current) return { ok: true }
+        setRowState(userId, 'saved')
+        clearRowStateSoon(userId, 2000)
+        return { ok: true }
+      } catch (err) {
+        console.error('[handleArchiveAdvisor]', err)
+        if (mountedRef.current) {
+          setRowState(userId, 'error')
+          clearRowStateSoon(userId, 3000)
+        }
+        return { ok: false, message: err instanceof Error ? err.message : 'Error al archivar' }
+      }
+    },
+    [load, setRowState, clearRowStateSoon]
+  )
+
+  const handleRestoreAdvisor = useCallback(
+    async (userId: string, ownerUserId: string | null): Promise<{ ok: boolean; message?: string }> => {
+      if (!mountedRef.current) return { ok: false, message: 'No disponible' }
+      if (userId === ownerUserId) return { ok: false, message: 'Operación no permitida' }
+      setRowState(userId, 'saving')
+      try {
+        const { error: rpcErr } = await supabase.rpc('restore_advisor', { p_user_id: userId })
+        if (rpcErr) throw rpcErr
+        await load()
+        if (!mountedRef.current) return { ok: true }
+        setRowState(userId, 'saved')
+        clearRowStateSoon(userId, 2000)
+        return { ok: true }
+      } catch (err) {
+        console.error('[handleRestoreAdvisor]', err)
+        if (mountedRef.current) {
+          setRowState(userId, 'error')
+          clearRowStateSoon(userId, 3000)
+        }
+        return { ok: false, message: err instanceof Error ? err.message : 'Error al restaurar' }
+      }
+    },
+    [load, setRowState, clearRowStateSoon]
+  )
+
+  const handleDeleteAdvisorUser = useCallback(
+    async (userId: string, ownerUserId: string | null): Promise<{ ok: boolean; message?: string }> => {
+      if (!mountedRef.current) return { ok: false, message: 'No disponible' }
+      if (userId === ownerUserId) return { ok: false, message: 'Operación no permitida' }
+      setRowState(userId, 'saving')
+      try {
+        const { error: rpcErr } = await supabase.rpc('delete_advisor_user', { p_user_id: userId })
+        if (rpcErr) throw rpcErr
+        await load()
+        if (!mountedRef.current) return { ok: true }
+        setRowState(userId, 'saved')
+        clearRowStateSoon(userId, 2000)
+        return { ok: true }
+      } catch (err) {
+        console.error('[handleDeleteAdvisorUser]', err)
+        if (mountedRef.current) {
+          setRowState(userId, 'error')
+          clearRowStateSoon(userId, 3000)
+        }
+        return { ok: false, message: err instanceof Error ? err.message : 'Error al borrar' }
+      }
+    },
+    [load, setRowState, clearRowStateSoon]
+  )
+
   return {
     profiles,
     seguimientoLinks,
@@ -318,6 +395,9 @@ export function useDirectorAssignments(canLoad: boolean) {
     refetch: load,
     handleRoleChange,
     handleAccountStatusChange,
+    handleArchiveAdvisor,
+    handleRestoreAdvisor,
+    handleDeleteAdvisorUser,
     handleManagerRecruiterChange,
     addSeguimientoLink,
     removeSeguimientoLink,
