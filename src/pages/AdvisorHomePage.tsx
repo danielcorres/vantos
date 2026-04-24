@@ -162,9 +162,13 @@ export function AdvisorHomePage() {
       ])
 
       const todayEv = upcomingRaw.filter((e) => timestampToYmdInTz(e.starts_at) === todayYmd)
-      setTodayEvents(todayEv)
+      const activosIdSet = new Set(activos.map((l) => l.id))
+      const todayEvFiltered = todayEv.filter((e) => !e.lead_id || activosIdSet.has(e.lead_id))
+      setTodayEvents(todayEvFiltered)
 
-      const leadIdsFromEvents = [...new Set(todayEv.map((e) => e.lead_id).filter(Boolean) as string[])]
+      const leadIdsFromEvents = [
+        ...new Set(todayEvFiltered.map((e) => e.lead_id).filter(Boolean) as string[]),
+      ]
       const nameRows =
         leadIdsFromEvents.length > 0 ? await pipelineApi.getLeadsByIds(leadIdsFromEvents) : []
       const names: Record<string, string> = {}
