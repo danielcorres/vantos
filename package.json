@@ -14,7 +14,10 @@
     "db:staging": "bash scripts/db-push-staging.sh",
     "db:push": "supabase db push",
     "db:push:all": "supabase db push --include-all",
-    "db:where": "ref=$(tr -d '\\n\\r\\t ' < supabase/.temp/project-ref 2>/dev/null); if [ -n \"$ref\" ]; then printf \"%s\\n\" \"$ref\"; else echo \"NOT LINKED\" && exit 1; fi"
+    "db:where": "ref=$(tr -d '\\n\\r\\t ' < supabase/.temp/project-ref 2>/dev/null); if [ -n \"$ref\" ]; then printf \"%s\\n\" \"$ref\"; else echo \"NOT LINKED\" && exit 1; fi",
+    "functions:deploy": "supabase functions deploy google-calendar --no-verify-jwt",
+    "functions:deploy:staging": "supabase functions deploy google-calendar --no-verify-jwt --project-ref cayibyaingcvhzwhfrhy",
+    "functions:deploy:prod": "supabase functions deploy google-calendar --no-verify-jwt --project-ref lyvnyjkfgkbrobetzxvs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.90.0",

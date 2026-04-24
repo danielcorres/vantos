@@ -8,12 +8,13 @@ export type GoogleCalendarSyncPushResult =
 function mapFunctionsInvokeError(raw: string): string {
   const m = (raw || '').toLowerCase()
   if (m.includes('failed to send') || m.includes('networkerror') || m.includes('load failed')) {
-    return (
-      'No se pudo contactar la función de Google Calendar en Supabase. ' +
-      'Comprueba que la Edge Function `google-calendar` esté desplegada, que existan los secretos ' +
-      '(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OAUTH_STATE_SECRET) y que esté desplegada con ' +
-      '`--no-verify-jwt` (el callback de Google es un GET sin JWT).'
+    console.error(
+      '[google-calendar] Edge Function unreachable. Deploy: npm run functions:deploy:prod (or :staging). ' +
+        'Secrets: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, OAUTH_STATE_SECRET, APP_SITE_URL. ' +
+        'Use --no-verify-jwt (see package.json scripts). Raw:',
+      raw
     )
+    return 'No se pudo conectar con Google Calendar. Intenta de nuevo en unos momentos.'
   }
   return raw || 'Error al llamar a la función de Google Calendar.'
 }
