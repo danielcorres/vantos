@@ -31,8 +31,8 @@ const rowClass =
 
 /**
  * Lista de citas del lead en modo solo lectura.
- * Las citas se crean y editan desde el Calendario.
- * Envolver en la misma card que el resto de secciones del detalle (`CARD_SURFACE` + `CARD_PAD`).
+ * «Ver en Calendario» abre /calendar sin query (no dispara modal de nueva cita).
+ * Opcionalmente `onRequestNewAppointment` permite agendar en contexto (p. ej. LeadDetail).
  */
 export function LeadAppointmentsList({ leadId, onRequestNewAppointment }: LeadAppointmentsListProps) {
   const navigate = useNavigate()
@@ -71,7 +71,7 @@ export function LeadAppointmentsList({ leadId, onRequestNewAppointment }: LeadAp
   }, [events, asOfMs])
 
   const goToCalendar = () => {
-    navigate(`/calendar?lead=${encodeURIComponent(leadId)}`)
+    navigate('/calendar')
   }
 
   const handleAgendar = () => {
