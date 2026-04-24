@@ -19,8 +19,6 @@ export const DEFAULT_WEEKLY_MINIMUMS: WeeklyMinimumTargetsMap = {
   applications_submitted: 1,
   referrals: 30,
   policies_paid: 1,
-  /** Meta semanal en pesos MXN para etapa Pólizas Pagadas (embudo Kinderbrothers). */
-  written_premium_weekly_mxn: 35000,
 }
 
 /**

@@ -18,26 +18,15 @@ export function weeklyTargetForPipelineSlug(
     case 'solicitudes_ingresadas':
       return targets.applications_submitted
     case 'casos_ganados':
-      return targets.written_premium_weekly_mxn
+      /** Meta semanal en OKR: pólizas pagadas (conteo), p. ej. 1/semana — no prima en MXN. */
+      return targets.policies_paid
     default:
       return undefined
   }
 }
 
-/** Etapa final: meta en MXN; no comparar conteo de leads con ese número. */
-export function pipelineTargetIsWeeklyPremiumMxn(slug: string): boolean {
-  return slug === 'casos_ganados'
-}
-
-/** Texto para UI (hub, Kanban): última etapa en moneda MXN. */
-export function formatPipelineWeeklyTargetDisplay(slug: string, value: number): string {
-  if (pipelineTargetIsWeeklyPremiumMxn(slug)) {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-      maximumFractionDigits: 0,
-    }).format(value)
-  }
+/** Texto para meta numérica en UI del embudo semanal. */
+export function formatPipelineWeeklyTargetDisplay(_slug: string, value: number): string {
   return String(value)
 }
 

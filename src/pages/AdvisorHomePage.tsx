@@ -283,7 +283,7 @@ export function AdvisorHomePage() {
     <>
       <div className="min-h-0 pb-10">
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-12 md:gap-6">
+          <div className="grid grid-cols-1 gap-y-6 gap-x-4 md:grid-cols-12 md:gap-6">
             <AdvisorHubHeader />
             <AdvisorHubTodayCard todayEvents={todayEvents} eventLeadNames={eventLeadNames} />
             <AdvisorHubUrgentLeadsCard

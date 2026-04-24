@@ -4,7 +4,6 @@ import type { PipelineStage } from '../../pipeline/pipeline.api'
 import type { StageSlug } from '../../productivity/types/productivity.types'
 import {
   formatPipelineWeeklyTargetDisplay,
-  pipelineTargetIsWeeklyPremiumMxn,
   weeklyTargetForPipelineSlug,
 } from '../../pipeline/utils/weeklyStageTargets'
 import type { WeeklyMinimumTargetsMap } from '../../../modules/okr/dashboard/weeklyMinimumTargets'
@@ -44,45 +43,60 @@ function PhaseColumn({
           if (!st) return null
           const count = countsByStageId[st.id] ?? 0
           const target = weeklyTargetForPipelineSlug(slug, targetsMap)
-          const bajo =
-            target != null && !pipelineTargetIsWeeklyPremiumMxn(slug) && count < target
+          const metaCumplida = target == null || count >= target
+          const pendiente = target != null && count < target
+          const barPct = target != null && target > 0 ? Math.min(100, (count / target) * 100) : 0
           return (
             <li key={slug}>
               <Link
                 to="/pipeline"
-                className="group flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-2 text-sm transition-colors hover:bg-white/80 dark:hover:bg-neutral-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300"
+                className={`group block rounded-lg px-2 py-2 text-sm transition-colors hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:hover:bg-neutral-800/60 ${
+                  pendiente ? 'bg-sky-50/90 dark:bg-sky-950/25' : ''
+                }`}
               >
-                <span className="font-medium text-neutral-800 dark:text-neutral-100">
-                  {displayStageName(st.name)}
-                </span>
-                <span className="flex flex-wrap items-center gap-2">
-                  <span
-                    className={
-                      bajo
-                        ? 'tabular-nums font-semibold text-amber-800 dark:text-amber-200/90'
-                        : 'tabular-nums text-neutral-700 dark:text-neutral-300'
-                    }
-                  >
-                    {count}
-                    {target != null ? (
-                      <>
-                        {' / '}
-                        {formatPipelineWeeklyTargetDisplay(slug, target)}
-                        {!pipelineTargetIsWeeklyPremiumMxn(slug) && !bajo ? (
-                          <span className="text-emerald-700 dark:text-emerald-400"> ✓</span>
-                        ) : null}
-                      </>
-                    ) : null}
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium text-neutral-800 dark:text-neutral-100">
+                    {displayStageName(st.name)}
                   </span>
-                  {bajo ? (
-                    <span className="text-[11px] font-medium text-amber-800 dark:text-amber-200/90">
-                      Bajo meta
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={
+                        pendiente
+                          ? 'tabular-nums font-semibold text-sky-700 dark:text-sky-300'
+                          : target != null
+                            ? 'tabular-nums font-semibold text-emerald-700 dark:text-emerald-400'
+                            : 'tabular-nums text-neutral-700 dark:text-neutral-300'
+                      }
+                    >
+                      {count}
+                      {target != null ? (
+                        <>
+                          {' / '}
+                          {formatPipelineWeeklyTargetDisplay(slug, target)}
+                          {metaCumplida ? <span className="text-emerald-700 dark:text-emerald-400"> ✓</span> : null}
+                        </>
+                      ) : null}
                     </span>
-                  ) : null}
-                  <span className="text-[11px] font-medium text-neutral-500 group-hover:text-neutral-800 dark:text-neutral-400 dark:group-hover:text-neutral-200">
-                    Pipeline →
+                    {pendiente ? (
+                      <span className="rounded-md bg-sky-100/90 px-1.5 py-0.5 text-[11px] font-medium text-sky-800 dark:bg-sky-900/40 dark:text-sky-200">
+                        Pendiente
+                      </span>
+                    ) : null}
+                    <span className="text-[11px] font-medium text-neutral-500 group-hover:text-neutral-800 dark:text-neutral-400 dark:group-hover:text-neutral-200">
+                      Pipeline →
+                    </span>
                   </span>
-                </span>
+                </div>
+                {target != null ? (
+                  <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-neutral-200/90 dark:bg-neutral-800">
+                    <div
+                      className={`h-full rounded-full transition-[width] duration-300 ${
+                        metaCumplida ? 'bg-emerald-500 dark:bg-emerald-400' : 'bg-sky-500 dark:bg-sky-400'
+                      }`}
+                      style={{ width: `${barPct}%` }}
+                    />
+                  </div>
+                ) : null}
               </Link>
             </li>
           )
@@ -119,16 +133,16 @@ export function AdvisorHubPipelinePhasesCard({ stageBySlug, countsByStageId, tar
       </div>
       <div className="grid gap-4 md:grid-cols-2">
         <PhaseColumn
-          title="Fase 1"
-          description="Prospección y conversión temprana."
+          title="Áreas de Prospección y Conversión"
+          description="Contactos nuevos, citas agendadas y casos abiertos."
           slugs={PIPELINE_PHASE_1_SLUGS}
           stageBySlug={stageBySlug}
           countsByStageId={countsByStageId}
           targetsMap={targetsMap}
         />
         <PhaseColumn
-          title="Fase 2"
-          description="Cierre e ingreso de negocio."
+          title="Alta Productividad y Resultados"
+          description="Citas de cierre, solicitudes ingresadas y pólizas pagadas."
           slugs={PIPELINE_PHASE_2_SLUGS}
           stageBySlug={stageBySlug}
           countsByStageId={countsByStageId}

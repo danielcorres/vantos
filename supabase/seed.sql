@@ -17,8 +17,7 @@ values
   ('proposals_presented',  'Propuestas presentadas','count', true, 40),
   ('applications_submitted','Solicitudes ingresadas','count', true, 50),
   ('referrals',            'Referidos',             'count', true, 60),
-  ('policies_paid',        'Pólizas pagadas',       'count', true, 70),
-  ('written_premium_weekly_mxn', 'Prima emitida semanal (MXN)', 'mxn', true, 75)
+  ('policies_paid',        'Pólizas pagadas',       'count', true, 70)
 on conflict (key) do update
 set
   label = excluded.label,

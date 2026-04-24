@@ -21,7 +21,9 @@ type Props = {
 
 export function AdvisorHubTodayCard({ todayEvents, eventLeadNames }: Props) {
   return (
-    <section className={`${HUB_CARD} md:col-span-7 flex flex-col min-h-[11rem]`}>
+    <section
+      className={`${HUB_CARD} col-span-12 w-full min-w-0 md:col-span-7 flex flex-col min-h-0 md:min-h-[11rem]`}
+    >
       <h2 className={`${HUB_SECTION_TITLE} mb-4`}>Citas de hoy</h2>
       {todayEvents.length === 0 ? (
         <div className="flex flex-1 flex-col justify-center gap-3 text-sm text-neutral-600 dark:text-neutral-400">
@@ -41,9 +43,9 @@ export function AdvisorHubTodayCard({ todayEvents, eventLeadNames }: Props) {
             return (
               <li
                 key={ev.id}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-xl border border-neutral-100 bg-neutral-50/60 px-3 py-2.5 dark:border-neutral-800/80 dark:bg-neutral-900/40"
+                className="flex flex-col gap-2 rounded-xl border border-neutral-100 bg-neutral-50/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800/80 dark:bg-neutral-900/40"
               >
-                <div className="min-w-0 text-sm leading-relaxed text-neutral-800 dark:text-neutral-200">
+                <div className="min-w-0 break-words text-sm leading-relaxed text-neutral-800 dark:text-neutral-200">
                   <span className="tabular-nums font-medium text-neutral-500 dark:text-neutral-400">
                     {formatTimeMx(ev.starts_at)}
                   </span>
@@ -55,7 +57,7 @@ export function AdvisorHubTodayCard({ todayEvents, eventLeadNames }: Props) {
                 {ev.lead_id ? (
                   <Link
                     to={`/leads/${ev.lead_id}`}
-                    className="shrink-0 text-sm font-medium text-neutral-900 underline-offset-2 hover:underline dark:text-neutral-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 rounded-sm"
+                    className="inline-flex w-full shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50 sm:w-auto sm:justify-center sm:border-0 sm:bg-transparent sm:py-0 sm:text-left sm:underline-offset-2 sm:hover:underline dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 sm:dark:border-0 sm:dark:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
                   >
                     Ir al lead
                   </Link>

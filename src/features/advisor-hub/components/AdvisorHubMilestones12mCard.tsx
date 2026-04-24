@@ -19,12 +19,10 @@ function milestoneStateLabel(state: MilestoneState): string {
   }
 }
 
-function ProgressBar({ ratio, accent }: { ratio: number; accent: 'phase1' | 'phase2' }) {
+function ProgressBar({ ratio, state }: { ratio: number; state: MilestoneState }) {
   const pct = Math.round(Math.min(1, Math.max(0, ratio)) * 100)
-  const bar =
-    accent === 'phase1'
-      ? 'bg-neutral-800 dark:bg-neutral-200'
-      : 'bg-neutral-600 dark:bg-neutral-300'
+  const full = ratio >= 1 || state === 'completed'
+  const bar = full ? 'bg-emerald-600 dark:bg-emerald-400' : 'bg-sky-600 dark:bg-sky-400'
   return (
     <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-800">
       <div className={`h-full rounded-full transition-[width] duration-500 ${bar}`} style={{ width: `${pct}%` }} />
@@ -78,7 +76,7 @@ export function AdvisorHubMilestones12mCard({ status, loadError }: Props) {
               / {phase1.policies_target}
             </span>
           </p>
-          <ProgressBar ratio={phase1.progress_ratio} accent="phase1" />
+          <ProgressBar ratio={phase1.progress_ratio} state={phase1.state} />
           {phase1.deadline_ymd ? (
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               Plazo: {formatDateMX(phase1.deadline_ymd)}
@@ -106,7 +104,7 @@ export function AdvisorHubMilestones12mCard({ status, loadError }: Props) {
               / {phase2.policies_target}
             </span>
           </p>
-          <ProgressBar ratio={phase2.progress_ratio} accent="phase2" />
+          <ProgressBar ratio={phase2.progress_ratio} state={phase2.state} />
           {phase2.deadline_ymd ? (
             <p className="text-xs text-neutral-500 dark:text-neutral-400">
               Plazo: {formatDateMX(phase2.deadline_ymd)}
