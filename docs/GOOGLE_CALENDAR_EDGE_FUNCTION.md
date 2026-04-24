@@ -38,7 +38,7 @@ supabase secrets set --project-ref lyvnyjkfgkbrobetzxvs \
 
 ## Google Cloud Console — Redirect URI
 
-En **APIs & Services → Credentials → OAuth 2.0 Client ID → Authorized redirect URIs**, añade **una URI por proyecto Supabase**:
+En **APIs & Services → Credentials → OAuth 2.0 Client ID → Authorized redirect URIs**, añade **exactamente** esta URI (HTTPS, con `/functions/v1/`). No uses `http://` ni rutas como `/google-calendar` sin `functions/v1` (Google devuelve `redirect_uri_mismatch`).
 
 **Producción** (`lyvnyjkfgkbrobetzxvs`):
 

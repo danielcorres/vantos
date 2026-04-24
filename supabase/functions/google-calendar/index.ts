@@ -204,8 +204,10 @@ Deno.serve(async (req: Request) => {
   } = envRead.env
 
   try {
-  const fnUrl = new URL(req.url)
-  const redirectUri = `${fnUrl.origin}${fnUrl.pathname}?action=callback`
+  // No usar req.url para redirect_uri: en el runtime a veces viene path/host incompleto (→ redirect_uri_mismatch en Google).
+  const supabaseOrigin = new URL(supabaseUrl.replace(/\/$/, ''))
+  if (supabaseOrigin.protocol !== 'https:') supabaseOrigin.protocol = 'https:'
+  const redirectUri = `${supabaseOrigin.origin}/functions/v1/google-calendar?action=callback`
 
   const url = new URL(req.url)
   const action = url.searchParams.get('action') ?? ''
