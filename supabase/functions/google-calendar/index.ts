@@ -50,6 +50,19 @@ function readEnv(): { ok: true; env: EnvBundle } | { ok: false; missing: string[
   }
 }
 
+/**
+ * URI exacta que Google OAuth exige (y debe estar en Google Cloud Console).
+ * No depender solo de `new URL` + mutar protocol: en algunos runtimes `SUPABASE_URL`
+ * llega como `http://...` y acababa enviándose `http://.../google-calendar` sin `/functions/v1/`.
+ */
+function googleOAuthRedirectUri(supabaseUrlRaw: string): string {
+  const raw = supabaseUrlRaw.trim().replace(/\/$/, '')
+  const withScheme = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`
+  const u = new URL(withScheme)
+  const host = u.hostname || u.host.replace(/:\d+$/, '')
+  return `https://${host}/functions/v1/google-calendar?action=callback`
+}
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -204,10 +217,7 @@ Deno.serve(async (req: Request) => {
   } = envRead.env
 
   try {
-  // No usar req.url para redirect_uri: en el runtime a veces viene path/host incompleto (→ redirect_uri_mismatch en Google).
-  const supabaseOrigin = new URL(supabaseUrl.replace(/\/$/, ''))
-  if (supabaseOrigin.protocol !== 'https:') supabaseOrigin.protocol = 'https:'
-  const redirectUri = `${supabaseOrigin.origin}/functions/v1/google-calendar?action=callback`
+  const redirectUri = googleOAuthRedirectUri(supabaseUrl)
 
   const url = new URL(req.url)
   const action = url.searchParams.get('action') ?? ''
