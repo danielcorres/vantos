@@ -16,6 +16,9 @@ import { LeadSourceTag } from '../components/pipeline/LeadSourceTag'
 import { LeadAppointmentsList } from '../features/calendar/components/LeadAppointmentsList'
 import { AppointmentFormModal } from '../features/calendar/components/AppointmentFormModal'
 import type { LeadTemperature } from '../features/pipeline/pipeline.api'
+import { useAuth } from '../shared/auth/AuthProvider'
+
+const DELETE_LEAD_CONFIRM_WORD = 'ELIMINAR'
 
 type LeadData = {
   id: string
@@ -131,6 +134,7 @@ function normalizeWhatsAppNumber(digits: string): string {
 export function LeadDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
+  const { user } = useAuth()
 
   const [lead, setLead] = useState<LeadData | null>(null)
   const [stages, setStages] = useState<Stage[]>([])
@@ -167,6 +171,9 @@ export function LeadDetailPage() {
   // Archivar: modal + motivo
   const [showArchiveModal, setShowArchiveModal] = useState(false)
   const [archiveReasonInput, setArchiveReasonInput] = useState('')
+  const [showDeleteLeadModal, setShowDeleteLeadModal] = useState(false)
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
+  const [deletingLead, setDeletingLead] = useState(false)
   // Dropdown Acciones (Archivar/Restaurar)
   const [actionsOpen, setActionsOpen] = useState(false)
   const actionsRef = useRef<HTMLDivElement>(null)
@@ -412,6 +419,18 @@ export function LeadDetailPage() {
     return () => window.removeEventListener('keydown', onKey)
   }, [showArchiveModal])
 
+  useEffect(() => {
+    if (!showDeleteLeadModal) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setShowDeleteLeadModal(false)
+        setDeleteConfirmInput('')
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [showDeleteLeadModal])
+
   const handleSave = async () => {
     if (!id || !lead) return
 
@@ -604,6 +623,32 @@ export function LeadDetailPage() {
     }
   }
 
+  const canDeleteLeadPermanently =
+    Boolean(id && lead?.owner_user_id && user?.id && lead.owner_user_id === user.id)
+
+  const handleDeleteLeadPermanent = async () => {
+    if (!id) return
+    if (deleteConfirmInput.trim().toUpperCase() !== DELETE_LEAD_CONFIRM_WORD) return
+    setDeletingLead(true)
+    setError(null)
+    setToast(null)
+    try {
+      bypassNavigationBlockRef.current = true
+      await pipelineApi.deleteLead(id)
+      setShowDeleteLeadModal(false)
+      setDeleteConfirmInput('')
+      navigate('/pipeline')
+    } catch (err) {
+      bypassNavigationBlockRef.current = false
+      const msg = err instanceof Error ? err.message : 'No se pudo eliminar el lead'
+      setError(msg)
+      setToast({ kind: 'error', text: msg })
+      setTimeout(() => setToast(null), TOAST_CLEAR_MS)
+    } finally {
+      setDeletingLead(false)
+    }
+  }
+
   const currentStage = stages.find((s) => s.id === lead?.stage_id)
 
   if (loading) {
@@ -787,7 +832,7 @@ export function LeadDetailPage() {
             </button>
             {actionsOpen && (
               <div
-                className="absolute right-0 top-full mt-1 min-w-[140px] rounded-md border border-border bg-bg py-1 shadow-lg z-10"
+                className="absolute right-0 top-full mt-1 min-w-[180px] rounded-md border border-border bg-bg py-1 shadow-lg z-10"
                 role="menu"
               >
                 {lead.archived_at ? (
@@ -816,6 +861,24 @@ export function LeadDetailPage() {
                     Archivar…
                   </button>
                 )}
+                {canDeleteLeadPermanently ? (
+                  <>
+                    <div className="my-1 h-px bg-border/80" role="separator" />
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setActionsOpen(false)
+                        setDeleteConfirmInput('')
+                        setShowDeleteLeadModal(true)
+                      }}
+                      disabled={saving || deletingLead}
+                      className="w-full text-left px-3 py-1.5 text-sm text-red-700 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40 disabled:opacity-50"
+                    >
+                      Eliminar permanentemente…
+                    </button>
+                  </>
+                ) : null}
               </div>
             )}
           </div>
@@ -886,6 +949,71 @@ export function LeadDetailPage() {
               </button>
               <button type="button" onClick={handleArchive} disabled={saving} className="btn btn-primary text-sm">
                 {saving ? '…' : 'Archivar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showDeleteLeadModal && lead && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-lead-modal-title"
+          aria-describedby="delete-lead-modal-description"
+          onClick={() => {
+            setShowDeleteLeadModal(false)
+            setDeleteConfirmInput('')
+          }}
+        >
+          <div
+            className="bg-bg dark:bg-neutral-900 border border-red-200/80 dark:border-red-900/50 rounded-lg shadow-lg max-w-md w-full p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 id="delete-lead-modal-title" className="text-base font-semibold mb-2 text-red-900 dark:text-red-200">
+              Eliminar lead permanentemente
+            </h3>
+            <p id="delete-lead-modal-description" className="text-sm text-muted dark:text-neutral-400 mb-3 leading-relaxed">
+              Se borrarán este lead, su historial de etapas en la app y dejarán de mostrarse las citas vinculadas (el
+              evento puede quedar sin lead). Esta acción no se puede deshacer. El archivado sigue disponible si solo
+              quieres ocultarlo del embudo activo.
+            </p>
+            <p className="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-1">
+              Escribe <span className="font-mono tabular-nums">{DELETE_LEAD_CONFIRM_WORD}</span> para confirmar:
+            </p>
+            <input
+              type="text"
+              autoComplete="off"
+              value={deleteConfirmInput}
+              onChange={(e) => setDeleteConfirmInput(e.target.value)}
+              disabled={deletingLead}
+              className={`${CONTROL} mb-4 font-mono`}
+              placeholder={DELETE_LEAD_CONFIRM_WORD}
+              aria-label={`Confirmación: escribe ${DELETE_LEAD_CONFIRM_WORD}`}
+            />
+            <div className="flex flex-wrap gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteLeadModal(false)
+                  setDeleteConfirmInput('')
+                }}
+                disabled={deletingLead}
+                className="btn btn-ghost text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleDeleteLeadPermanent()}
+                disabled={
+                  deletingLead ||
+                  deleteConfirmInput.trim().toUpperCase() !== DELETE_LEAD_CONFIRM_WORD
+                }
+                className="btn text-sm border border-red-300 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:hover:bg-red-600"
+              >
+                {deletingLead ? 'Eliminando…' : 'Eliminar para siempre'}
               </button>
             </div>
           </div>

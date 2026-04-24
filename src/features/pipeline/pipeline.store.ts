@@ -139,11 +139,12 @@ export function pipelineReducer(
   }
 }
 
+/** Clave única por intento: evita no-op del RPC al repetir el mismo (from→to) tras un ciclo (p. ej. A→B→A→B) en la misma ventana de tiempo. */
 export function generateIdempotencyKey(
   leadId: string,
   fromStageId: string,
   toStageId: string
 ): string {
-  const bucket = Math.floor(Date.now() / (10 * 60 * 1000))
-  return `move_lead_stage:${leadId}:${fromStageId}:${toStageId}:${bucket}`
+  const suffix = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`
+  return `move_lead_stage:${leadId}:${fromStageId}:${toStageId}:${suffix}`
 }
