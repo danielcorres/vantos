@@ -4,7 +4,7 @@ export type Ramo = (typeof RAMOS)[number]
 export const CURRENCIES = ['mxn', 'usd', 'udi'] as const
 export type Currency = (typeof CURRENCIES)[number]
 
-export const PAYMENT_FREQUENCIES = ['annual', 'semiannual', 'quarterly', 'monthly'] as const
+export const PAYMENT_FREQUENCIES = ['monthly', 'quarterly', 'semiannual', 'annual'] as const
 export type PaymentFrequency = (typeof PAYMENT_FREQUENCIES)[number]
 
 export const RECEIPT_STATUSES = ['paid', 'pending', 'overdue'] as const
@@ -22,6 +22,7 @@ export type Policy = {
   start_date: string
   end_date: string
   issued_at: string | null
+  contract_end_date: string | null
   premium_amount: number
   currency: Currency
   payment_frequency: PaymentFrequency

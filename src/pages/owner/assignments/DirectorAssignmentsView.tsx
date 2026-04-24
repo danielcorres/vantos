@@ -29,6 +29,7 @@ export function DirectorAssignmentsView() {
     rowSaveStates,
     refetch,
     handleRoleChange,
+    handleAccountStatusChange,
     handleManagerRecruiterChange,
     addSeguimientoLink,
     removeSeguimientoLink,
@@ -270,15 +271,66 @@ export function DirectorAssignmentsView() {
                       )}
                     </td>
                     <td className="p-3">
-                      {saveState === 'saving' && (
-                        <span className="text-xs text-muted">Guardando…</span>
-                      )}
-                      {saveState === 'saved' && (
-                        <span className="text-xs text-green-600">Guardado</span>
-                      )}
-                      {saveState === 'error' && (
-                        <span className="text-xs text-red-600">Error</span>
-                      )}
+                      <div className="flex flex-col gap-1.5">
+                        {isReadOnly ? (
+                          <span className="inline-flex w-fit items-center px-2 py-1 rounded-md bg-black/5 text-sm font-medium text-text">
+                            {profile.account_status === 'suspended' ? 'Suspendido' : 'Activo'}
+                          </span>
+                        ) : (
+                          <div className="inline-flex rounded-md border border-border p-0.5 gap-0.5 bg-bg">
+                            <button
+                              type="button"
+                              className={`px-2.5 py-1 text-xs font-medium rounded ${
+                                profile.account_status === 'active'
+                                  ? 'bg-primary text-white'
+                                  : 'text-text hover:bg-black/5'
+                              }`}
+                              disabled={
+                                profile.account_status === 'active' || saveState === 'saving'
+                              }
+                              onClick={() =>
+                                void handleAccountStatusChange(
+                                  profile.user_id,
+                                  ownerUserId,
+                                  'active'
+                                )
+                              }
+                            >
+                              Activo
+                            </button>
+                            <button
+                              type="button"
+                              className={`px-2.5 py-1 text-xs font-medium rounded ${
+                                profile.account_status === 'suspended'
+                                  ? 'bg-primary text-white'
+                                  : 'text-text hover:bg-black/5'
+                              }`}
+                              disabled={
+                                profile.account_status === 'suspended' ||
+                                saveState === 'saving'
+                              }
+                              onClick={() =>
+                                void handleAccountStatusChange(
+                                  profile.user_id,
+                                  ownerUserId,
+                                  'suspended'
+                                )
+                              }
+                            >
+                              Suspendido
+                            </button>
+                          </div>
+                        )}
+                        {saveState === 'saving' && (
+                          <span className="text-xs text-muted">Guardando…</span>
+                        )}
+                        {saveState === 'saved' && (
+                          <span className="text-xs text-green-600">Guardado</span>
+                        )}
+                        {saveState === 'error' && (
+                          <span className="text-xs text-red-600">Error</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )

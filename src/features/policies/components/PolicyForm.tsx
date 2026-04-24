@@ -6,8 +6,10 @@ import type { Policy } from '../policies.types'
 import { DEFAULT_INSURER } from '../policies.constants'
 import { RamoPillGroup } from './RamoPillGroup'
 import { PremiumCurrencyField } from './PremiumCurrencyField'
-import { FrequencySelect } from './selects/FrequencySelect'
+import { FrequencyPillGroup } from './FrequencyPillGroup'
 import { ReceiptStatusSelect } from './selects/ReceiptStatusSelect'
+import { premiumPerPeriod } from '../utils/premiumPerPeriod'
+import { CURRENCY_LABELS, FREQUENCY_LABELS } from '../policiesLabels'
 import { policyFieldClass } from './selects/fieldClasses'
 
 type PolicyFormProps = {
@@ -212,6 +214,24 @@ export function PolicyForm({ isOpen, onClose, editingPolicy, onSaved }: PolicyFo
                 className={`${policyFieldClass} max-w-full sm:max-w-xs`}
               />
             </div>
+            <div className="sm:col-span-2">
+              <FormFieldLabel
+                htmlFor="contract_end_date"
+                help="Opcional. Fecha de término del contrato en pólizas de largo plazo (p. ej. vida)."
+              >
+                Fin de contrato
+              </FormFieldLabel>
+              <input
+                id="contract_end_date"
+                type="date"
+                value={values.contract_end_date ?? ''}
+                onChange={(e) =>
+                  setField('contract_end_date', e.target.value ? e.target.value : null)
+                }
+                disabled={submitting}
+                className={`${policyFieldClass} max-w-full sm:max-w-xs`}
+              />
+            </div>
           </div>
 
           <hr className="border-border/60 dark:border-neutral-800" />
@@ -230,14 +250,26 @@ export function PolicyForm({ isOpen, onClose, editingPolicy, onSaved }: PolicyFo
               />
             </div>
             <div>
-              <FrequencySelect
+              <FrequencyPillGroup
                 id="form_frequency"
-                label="Periodo de pago *"
+                label="Periodo de pago"
                 value={values.payment_frequency}
                 onChange={(f) => setField('payment_frequency', f)}
                 disabled={submitting}
               />
             </div>
+            {values.premium_amount > 0 && Number.isFinite(values.premium_amount) ? (
+              <div className="sm:col-span-2 text-xs text-muted">
+                Por pago ({FREQUENCY_LABELS[values.payment_frequency]}):{' '}
+                <span className="font-medium text-text dark:text-neutral-200">
+                  {premiumPerPeriod(values.premium_amount, values.payment_frequency).toLocaleString('es-MX', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}{' '}
+                  {CURRENCY_LABELS[values.currency]}
+                </span>
+              </div>
+            ) : null}
           </div>
 
           <hr className="border-border/60 dark:border-neutral-800" />

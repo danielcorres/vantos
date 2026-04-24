@@ -22,6 +22,7 @@ const defaultValues = (): CreatePolicyInput => ({
   start_date: '',
   end_date: '',
   issued_at: null,
+  contract_end_date: null,
   premium_amount: 0,
   currency: 'mxn',
   payment_frequency: 'annual',
@@ -41,6 +42,7 @@ function policyToForm(p: Policy): CreatePolicyInput {
     start_date: p.start_date,
     end_date: p.end_date,
     issued_at: p.issued_at,
+    contract_end_date: p.contract_end_date,
     premium_amount: p.premium_amount,
     currency: p.currency,
     payment_frequency: p.payment_frequency,
@@ -77,6 +79,13 @@ export function validatePolicyForm(values: CreatePolicyInput): string | null {
     const i = parseYmd(values.issued_at)
     if (!i) return 'La fecha de emisión no es válida.'
   }
+  if (values.contract_end_date) {
+    const c = parseYmd(values.contract_end_date)
+    if (!c) return 'La fecha de fin de contrato no es válida.'
+    if (values.contract_end_date < values.start_date) {
+      return 'El fin de contrato no puede ser anterior al inicio de vigencia.'
+    }
+  }
   return null
 }
 
@@ -94,7 +103,7 @@ export function usePolicyForm(options: {
   onSaved?: () => void
 }): UsePolicyFormResult {
   const { editingPolicy, onSaved } = options
-  const [values, setValues] = useState<CreatePolicyInput>(defaultValues)
+  const [values, setValues] = useState<CreatePolicyInput>(defaultValues())
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 

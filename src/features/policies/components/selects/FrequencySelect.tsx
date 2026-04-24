@@ -31,7 +31,7 @@ export function FrequencySelect({
         disabled={disabled}
         className={policyFieldClass}
       >
-        {PAYMENT_FREQUENCIES.map((f) => (
+        {([...PAYMENT_FREQUENCIES] as PaymentFrequency[]).map((f) => (
           <option key={f} value={f}>
             {FREQUENCY_LABELS[f]}
           </option>

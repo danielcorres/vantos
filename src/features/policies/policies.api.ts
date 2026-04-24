@@ -13,7 +13,7 @@ import { CURRENCIES, PAYMENT_FREQUENCIES, RAMOS, RECEIPT_STATUSES } from './poli
 
 export const POLICY_COLUMNS =
   'id,owner_user_id,lead_id,contractor_name,insurer,policy_number,ramo,product_name,' +
-  'start_date,end_date,issued_at,premium_amount,currency,payment_frequency,receipt_status,' +
+  'start_date,end_date,issued_at,contract_end_date,premium_amount,currency,payment_frequency,receipt_status,' +
   'campaign_source,is_countable,created_at,updated_at'
 
 function escapeIlikePattern(s: string): string {
@@ -66,6 +66,7 @@ function normalizePolicy(row: Record<string, unknown>): Policy {
     start_date: String(row.start_date ?? ''),
     end_date: String(row.end_date ?? ''),
     issued_at: row.issued_at == null ? null : String(row.issued_at),
+    contract_end_date: row.contract_end_date == null ? null : String(row.contract_end_date),
     premium_amount,
     currency,
     payment_frequency,
