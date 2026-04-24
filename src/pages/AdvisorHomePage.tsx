@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
 import { useAuth } from '../shared/auth/AuthProvider'
 import { getMyProfile } from '../lib/profile'
 import { supabase } from '../lib/supabase'
@@ -11,24 +10,23 @@ import {
   startOfTodayMonterreyISO,
   timestampToYmdInTz,
   todayLocalYmd,
-  diffDaysFloor,
 } from '../shared/utils/dates'
-import { displayStageName } from '../shared/utils/stageStyles'
-import { STAGE_SLUGS_ORDER } from '../features/productivity/types/productivity.types'
-import type { StageSlug } from '../features/productivity/types/productivity.types'
-import {
-  formatPipelineWeeklyTargetDisplay,
-  pipelineTargetIsWeeklyPremiumMxn,
-  weeklyTargetForPipelineSlug,
-} from '../features/pipeline/utils/weeklyStageTargets'
 import type { LeadSchedulingSummary } from '../features/calendar/utils/stageSchedulingGuidance'
 import { resolveCalModalFromGuidance } from '../features/pipeline/utils/resolveCalModalFromGuidance'
 import { AppointmentFormModal } from '../features/calendar/components/AppointmentFormModal'
 import type { AppointmentType } from '../features/calendar/types/calendar.types'
 import { Toast } from '../shared/components/Toast'
-
-/** Todas las etapas del embudo, incluida Pólizas Pagadas (`casos_ganados`). */
-const EMBUDO_SLUGS: StageSlug[] = [...STAGE_SLUGS_ORDER]
+import {
+  fetchMilestonePolicyCounts,
+  type AdvisorMilestoneProfile,
+  type MilestonePolicyCounts,
+} from '../modules/advisors/data/advisorMilestones.api'
+import { getAdvisorMilestoneStatus } from '../modules/advisors/domain/advisorMilestones'
+import { AdvisorHubHeader } from '../features/advisor-hub/components/AdvisorHubHeader'
+import { AdvisorHubTodayCard } from '../features/advisor-hub/components/AdvisorHubTodayCard'
+import { AdvisorHubUrgentLeadsCard } from '../features/advisor-hub/components/AdvisorHubUrgentLeadsCard'
+import { AdvisorHubPipelinePhasesCard } from '../features/advisor-hub/components/AdvisorHubPipelinePhasesCard'
+import { AdvisorHubMilestones12mCard } from '../features/advisor-hub/components/AdvisorHubMilestones12mCard'
 
 type CalModalState =
   | null
@@ -58,14 +56,6 @@ async function batchNextByLeadIds(leadIds: string[]): Promise<Record<string, Cal
   return out
 }
 
-function formatTimeMx(iso: string): string {
-  try {
-    return new Date(iso).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit', hour12: false })
-  } catch {
-    return '—'
-  }
-}
-
 export function AdvisorHomePage() {
   const { user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
@@ -73,16 +63,24 @@ export function AdvisorHomePage() {
 
   const [stages, setStages] = useState<PipelineStage[]>([])
   const [countsByStageId, setCountsByStageId] = useState<Record<string, number>>({})
-  const [targetsMap, setTargetsMap] = useState<Awaited<ReturnType<typeof fetchWeeklyMinimumTargetsForOwner>>['targets']>(
-    {} as never
-  )
+  const [targetsMap, setTargetsMap] = useState<
+    Awaited<ReturnType<typeof fetchWeeklyMinimumTargetsForOwner>>['targets']
+  >({} as never)
 
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([])
   const [eventLeadNames, setEventLeadNames] = useState<Record<string, string>>({})
 
   const [activosLeads, setActivosLeads] = useState<Lead[]>([])
   const [nextByLeadId, setNextByLeadId] = useState<Record<string, CalendarEvent | null>>({})
-  const [schedulingSummaryByLeadId, setSchedulingSummaryByLeadId] = useState<Record<string, LeadSchedulingSummary>>({})
+  const [schedulingSummaryByLeadId, setSchedulingSummaryByLeadId] = useState<
+    Record<string, LeadSchedulingSummary>
+  >({})
+
+  const [myAdvisorStatus, setMyAdvisorStatus] = useState<string | null>(null)
+  const [myKeyActivation, setMyKeyActivation] = useState<string | null>(null)
+  const [myConnectionDate, setMyConnectionDate] = useState<string | null>(null)
+  const [milestoneCounts, setMilestoneCounts] = useState<MilestonePolicyCounts | null>(null)
+  const [milestoneLoadError, setMilestoneLoadError] = useState<string | null>(null)
 
   const [calModal, setCalModal] = useState<CalModalState>(null)
   const [toast, setToast] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(null)
@@ -94,9 +92,18 @@ export function AdvisorHomePage() {
     }
     setLoading(true)
     setError(null)
+    setMilestoneCounts(null)
+    setMilestoneLoadError(null)
+    setMyAdvisorStatus(null)
+    setMyKeyActivation(null)
+    setMyConnectionDate(null)
     try {
       const profile = await getMyProfile()
       const targetsOwnerId = profile?.manager_user_id ?? user.id
+
+      setMyAdvisorStatus(profile?.advisor_status ?? null)
+      setMyKeyActivation(profile?.key_activation_date ?? null)
+      setMyConnectionDate(profile?.connection_date ?? null)
 
       const stagesList = await pipelineApi.getStages()
       const stageIds = stagesList.map((s) => s.id)
@@ -132,6 +139,32 @@ export function AdvisorHomePage() {
       setActivosLeads(activos)
       setNextByLeadId(nextMap)
       setSchedulingSummaryByLeadId(summaries)
+
+      if (profile?.advisor_status === 'asesor_12_meses' && profile) {
+        const prof: AdvisorMilestoneProfile = {
+          user_id: user.id,
+          full_name: profile.full_name ?? null,
+          display_name: profile.display_name ?? null,
+          first_name: profile.first_name ?? null,
+          last_name: profile.last_name ?? null,
+          birth_date: profile.birth_date ?? null,
+          advisor_code: profile.advisor_code ?? null,
+          key_activation_date: profile.key_activation_date ?? null,
+          connection_date: profile.connection_date ?? null,
+          advisor_status: profile.advisor_status ?? null,
+        }
+        if (!profile.key_activation_date) {
+          setMilestoneCounts({ phase1: 0, phase2Cumulative: 0 })
+        } else {
+          try {
+            const map = await fetchMilestonePolicyCounts([prof])
+            setMilestoneCounts(map.get(user.id) ?? { phase1: 0, phase2Cumulative: 0 })
+          } catch (e) {
+            setMilestoneLoadError(e instanceof Error ? e.message : 'No se pudieron cargar los hitos')
+            setMilestoneCounts({ phase1: 0, phase2Cumulative: 0 })
+          }
+        }
+      }
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : 'No se pudo cargar el hub')
     } finally {
@@ -155,6 +188,18 @@ export function AdvisorHomePage() {
     sin.sort((a, b) => (a.stage_changed_at < b.stage_changed_at ? 1 : a.stage_changed_at > b.stage_changed_at ? -1 : 0))
     return sin.slice(0, 5)
   }, [activosLeads, nextByLeadId])
+
+  const hubMilestoneStatus = useMemo(() => {
+    if (myAdvisorStatus !== 'asesor_12_meses') return null
+    const c = milestoneCounts ?? { phase1: 0, phase2Cumulative: 0 }
+    return getAdvisorMilestoneStatus({
+      advisor_status: myAdvisorStatus,
+      key_activation_date: myKeyActivation,
+      connection_date: myConnectionDate,
+      life_policies_paid_in_phase1: c.phase1,
+      life_policies_cumulative_phase2: c.phase2Cumulative,
+    })
+  }, [myAdvisorStatus, myKeyActivation, myConnectionDate, milestoneCounts])
 
   const clearCalModal = useCallback(() => setCalModal(null), [])
 
@@ -193,157 +238,70 @@ export function AdvisorHomePage() {
 
   if (authLoading || !user) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-10 text-sm text-neutral-500">Cargando sesión…</div>
+      <div className="mx-auto max-w-6xl px-4 py-12 text-sm text-neutral-500 dark:text-neutral-400">
+        Cargando sesión…
+      </div>
     )
   }
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-10 text-sm text-neutral-500">Cargando tu semana…</div>
+      <div className="min-h-0 bg-neutral-50/90 pb-12 dark:bg-neutral-950/40">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-12 md:gap-6">
+            <div className="col-span-12 space-y-2">
+              <div className="h-8 w-48 max-w-full rounded-xl bg-neutral-200/90 motion-safe:animate-pulse dark:bg-neutral-800/80" />
+              <div className="h-4 w-full max-w-md rounded-lg bg-neutral-200/70 motion-safe:animate-pulse dark:bg-neutral-800/60" />
+            </div>
+            <div className="h-52 rounded-2xl border border-neutral-200/60 bg-white/80 md:col-span-7 motion-safe:animate-pulse dark:border-neutral-800 dark:bg-neutral-900/40" />
+            <div className="h-52 rounded-2xl border border-neutral-200/60 bg-white/80 md:col-span-5 motion-safe:animate-pulse dark:border-neutral-800 dark:bg-neutral-900/40" />
+            <div className="col-span-12 h-64 rounded-2xl border border-neutral-200/60 bg-white/80 motion-safe:animate-pulse dark:border-neutral-800 dark:bg-neutral-900/40" />
+          </div>
+        </div>
+      </div>
     )
   }
 
   if (error) {
     return (
-      <div className="mx-auto max-w-3xl px-4 py-10">
-        <p className="text-sm text-red-600">{error}</p>
-        <button type="button" className="mt-2 text-sm text-primary underline" onClick={() => void load()}>
-          Reintentar
-        </button>
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="rounded-2xl border border-red-200/80 bg-white p-6 shadow-sm dark:border-red-900/40 dark:bg-neutral-950/50">
+          <p className="text-sm text-red-700 dark:text-red-300">{error}</p>
+          <button
+            type="button"
+            className="mt-4 inline-flex rounded-xl border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-800 hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
+            onClick={() => void load()}
+          >
+            Reintentar
+          </button>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 space-y-8">
-      <header>
-        <h1 className="text-xl font-semibold text-neutral-900">Hub semanal</h1>
-        <p className="text-sm text-neutral-500 mt-1">Resumen de citas, embudo y seguimiento.</p>
-      </header>
-
-      {/* Bloque A */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-neutral-800 mb-3">Citas de hoy</h2>
-        {todayEvents.length === 0 ? (
-          <div className="text-sm text-neutral-600 space-y-2">
-            <p>Sin citas hoy.</p>
-            <Link
-              to="/calendar"
-              className="inline-flex items-center rounded-lg border border-neutral-300 px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
-            >
-              Ver calendario
-            </Link>
+    <>
+      <div className="min-h-0 bg-neutral-50/90 pb-12 dark:bg-neutral-950/40">
+        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-12 md:gap-6">
+            <AdvisorHubHeader />
+            <AdvisorHubTodayCard todayEvents={todayEvents} eventLeadNames={eventLeadNames} />
+            <AdvisorHubUrgentLeadsCard
+              leads={leadsSinCitaTop5}
+              stages={stages}
+              onAgendar={(id) => void openScheduleForLead(id)}
+            />
+            <AdvisorHubPipelinePhasesCard
+              stageBySlug={stageBySlug}
+              countsByStageId={countsByStageId}
+              targetsMap={targetsMap}
+            />
+            {myAdvisorStatus === 'asesor_12_meses' && hubMilestoneStatus ? (
+              <AdvisorHubMilestones12mCard status={hubMilestoneStatus} loadError={milestoneLoadError} />
+            ) : null}
           </div>
-        ) : (
-          <ul className="space-y-2">
-            {todayEvents.map((ev) => {
-              const name = ev.lead_id ? eventLeadNames[ev.lead_id] ?? 'Lead' : 'Sin lead'
-              const title = ev.title?.trim() || 'Cita'
-              return (
-                <li key={ev.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                  <span className="text-neutral-700">
-                    <span className="tabular-nums text-neutral-500">{formatTimeMx(ev.starts_at)}</span>
-                    {' · '}
-                    <span className="font-medium">{title}</span>
-                    {' · '}
-                    {name}
-                  </span>
-                  {ev.lead_id ? (
-                    <Link
-                      to={`/leads/${ev.lead_id}`}
-                      className="shrink-0 text-primary text-sm font-medium hover:underline"
-                    >
-                      Ir al lead
-                    </Link>
-                  ) : null}
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
-
-      {/* Bloque B */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-neutral-800 mb-3">Embudo vs. meta semanal</h2>
-        <ul className="space-y-2">
-          {EMBUDO_SLUGS.map((slug) => {
-            const st = stageBySlug.get(slug)
-            if (!st) return null
-            const count = countsByStageId[st.id] ?? 0
-            const target = weeklyTargetForPipelineSlug(slug, targetsMap)
-            const bajo =
-              target != null &&
-              !pipelineTargetIsWeeklyPremiumMxn(slug) &&
-              count < target
-            return (
-              <li key={slug}>
-                <Link
-                  to="/pipeline"
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-2 -mx-2 hover:bg-neutral-50 text-sm"
-                >
-                  <span className="font-medium text-neutral-800">{displayStageName(st.name)}</span>
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className={bajo ? 'tabular-nums text-orange-600 font-semibold' : 'tabular-nums text-neutral-700'}>
-                      {count}
-                      {target != null ? (
-                        <>
-                          {' / '}
-                          {formatPipelineWeeklyTargetDisplay(slug, target)}
-                          {!pipelineTargetIsWeeklyPremiumMxn(slug) && !bajo ? ' ✓' : null}
-                        </>
-                      ) : null}
-                    </span>
-                    {bajo ? <span className="text-xs text-orange-600">Bajo meta</span> : null}
-                    <span className="text-xs text-primary">Pipeline →</span>
-                  </span>
-                </Link>
-              </li>
-            )
-          })}
-        </ul>
-      </section>
-
-      {/* Bloque C */}
-      <section className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-neutral-800 mb-3">Leads sin cita (urgentes)</h2>
-        {leadsSinCitaTop5.length === 0 ? (
-          <p className="text-sm text-neutral-500">Todos los leads activos tienen al menos una cita programada.</p>
-        ) : (
-          <ul className="space-y-3">
-            {leadsSinCitaTop5.map((lead) => {
-              const stName = stages.find((s) => s.id === lead.stage_id)?.name ?? '—'
-              const dias = diffDaysFloor(lead.stage_changed_at, new Date())
-              return (
-                <li
-                  key={lead.id}
-                  className="flex flex-wrap items-center justify-between gap-2 border-b border-neutral-100 pb-3 last:border-0 last:pb-0"
-                >
-                  <div className="text-sm text-neutral-700 min-w-0">
-                    <span className="font-medium">{lead.full_name}</span>
-                    <span className="text-neutral-400"> · </span>
-                    <span>{displayStageName(stName)}</span>
-                    <span className="text-neutral-400"> · </span>
-                    <span className="text-orange-700">{dias} días sin cita</span>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => void openScheduleForLead(lead.id)}
-                      className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white hover:opacity-90"
-                    >
-                      Agendar
-                    </button>
-                    <Link to={`/leads/${lead.id}`} className="text-xs text-primary font-medium hover:underline">
-                      Ver lead
-                    </Link>
-                  </div>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-      </section>
+        </div>
+      </div>
 
       {calModal != null && calModal.mode === 'create' && (
         <AppointmentFormModal
@@ -376,6 +334,6 @@ export function AdvisorHomePage() {
       {toast ? (
         <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} durationMs={2400} />
       ) : null}
-    </div>
+    </>
   )
 }
