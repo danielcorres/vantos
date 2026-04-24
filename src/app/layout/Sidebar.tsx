@@ -15,7 +15,6 @@ import {
   IconChevronRight,
   IconPipeline,
   IconBookOpen,
-  IconFocus,
   IconCalendar,
 } from './icons'
 import { useAuth } from '../../shared/auth/AuthProvider'
@@ -86,12 +85,6 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
           label: 'Pipeline',
           path: '/pipeline',
           icon: IconPipeline,
-          visible: (r) => r === 'advisor' || r === 'manager' || r === 'owner',
-        },
-        {
-          label: 'Próximas citas',
-          path: '/focus',
-          icon: IconFocus,
           visible: (r) => r === 'advisor' || r === 'manager' || r === 'owner',
         },
         {

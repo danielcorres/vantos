@@ -450,10 +450,10 @@ export function PipelineSettingsPage() {
 
       <div className="card" style={{ marginTop: '24px' }}>
         <p className="muted" style={{ margin: 0, fontSize: '13px' }}>
-          <strong>Nota:</strong> Los SLAs configurados determinarán qué leads
-          aparecen en la página "Qué hacer hoy". Cuando un lead supere el SLA
-          o se acerque a la fecha de advertencia, aparecerá en el focus para
-          seguimiento.
+          <strong>Nota:</strong> Los SLAs configurados ayudan a priorizar el
+          seguimiento en el pipeline y el calendario. Cuando un lead supere el
+          SLA o se acerque a la fecha de advertencia, verás las señales en el
+          embudo y en las citas programadas.
         </p>
       </div>
     </div>

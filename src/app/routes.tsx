@@ -33,9 +33,6 @@ const CalendarPage = lazy(() =>
 const ProductivityPage = lazy(() =>
   import('../pages/ProductivityPage').then((m) => ({ default: m.ProductivityPage }))
 )
-const FocusPage = lazy(() =>
-  import('../pages/FocusPage').then((m) => ({ default: m.FocusPage }))
-)
 const LeadDetailPage = lazy(() =>
   import('../pages/LeadDetailPage').then((m) => ({ default: m.LeadDetailPage }))
 )
@@ -171,16 +168,6 @@ export const router = createBrowserRouter([
           <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
             <Suspense fallback={<PageSkeleton />}>
               <ProductivityPage />
-            </Suspense>
-          </RoleGuard>
-        ),
-      },
-      {
-        path: 'focus',
-        element: (
-          <RoleGuard allowedRoles={[...ADVISOR_AREA_ROLES]}>
-            <Suspense fallback={<PageSkeleton />}>
-              <FocusPage />
             </Suspense>
           </RoleGuard>
         ),
