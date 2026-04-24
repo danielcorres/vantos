@@ -1,6 +1,39 @@
 import { supabase } from '../../../lib/supabase'
 import { emitGoogleCalendarSyncError } from '../utils/googleCalendarSyncListeners'
 
+type GoogleCalendarFnBody = {
+  error?: string
+  missing_keys?: string[]
+}
+
+/** Con respuestas no-2xx, supabase-js puede devolver `error` y aun así el JSON en `data`. */
+function logGoogleCalendarInvokeFailure(context: string, data: unknown, errMsg: string): void {
+  const body = data as GoogleCalendarFnBody | null
+  if (body?.error === 'server_misconfigured' && Array.isArray(body.missing_keys) && body.missing_keys.length > 0) {
+    console.error(
+      `[google-calendar ${context}] Falta secretos en Supabase (Edge Functions → google-calendar → Secrets). ` +
+        `Definir: ${body.missing_keys.join(', ')}`
+    )
+    return
+  }
+  if (body?.error) {
+    console.error(`[google-calendar ${context}]`, body.error, data)
+    return
+  }
+  console.warn(`[google-calendar ${context}]`, errMsg)
+}
+
+function misconfiguredUserMessage(data: unknown): string | null {
+  const body = data as GoogleCalendarFnBody | null
+  if (body?.error === 'server_misconfigured' && Array.isArray(body.missing_keys) && body.missing_keys.length > 0) {
+    return (
+      'El calendario de Google no está configurado en el servidor. ' +
+      `Faltan variables en Supabase (Edge Functions): ${body.missing_keys.join(', ')}.`
+    )
+  }
+  return null
+}
+
 export type GoogleCalendarSyncPushResult =
   | { ok: true; skipped?: boolean }
   | { ok: false; message: string }
@@ -34,7 +67,10 @@ export async function invokeGoogleCalendarSync(
       headers: { Authorization: `Bearer ${session.access_token}` },
     })
     if (error) {
-      const message = mapFunctionsInvokeError(error.message || 'Error al sincronizar con Google Calendar')
+      logGoogleCalendarInvokeFailure('sync', data, error.message)
+      const specific = misconfiguredUserMessage(data)
+      const message =
+        specific ?? mapFunctionsInvokeError(error.message || 'Error al sincronizar con Google Calendar')
       console.warn('[google-calendar sync]', message)
       emitGoogleCalendarSyncError(message)
       return { ok: false, message }
@@ -71,7 +107,7 @@ export async function getGoogleCalendarStatus(): Promise<GoogleCalendarConnectio
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
   if (error) {
-    console.warn('[google-calendar status]', error.message)
+    logGoogleCalendarInvokeFailure('status', data, error.message)
     return null
   }
   const d = data as { connected?: boolean; google_email?: string | null }
@@ -101,8 +137,12 @@ export async function startGoogleCalendarOAuth(options?: {
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
   if (error) {
-    console.warn('[google-calendar oauth-start]', error.message)
-    return { ok: false, message: mapFunctionsInvokeError(error.message || '') }
+    logGoogleCalendarInvokeFailure('oauth-start', data, error.message)
+    const specific = misconfiguredUserMessage(data)
+    return {
+      ok: false,
+      message: specific ?? mapFunctionsInvokeError(error.message || ''),
+    }
   }
   const authUrl = (data as { authUrl?: string })?.authUrl
   if (!authUrl || typeof authUrl !== 'string') {
@@ -124,13 +164,14 @@ export async function disconnectGoogleCalendar(): Promise<DisconnectGoogleCalend
   if (!session?.access_token) {
     return { ok: false, message: 'No hay sesión activa.' }
   }
-  const { error } = await supabase.functions.invoke('google-calendar', {
+  const { data, error } = await supabase.functions.invoke('google-calendar', {
     body: { action: 'disconnect' },
     headers: { Authorization: `Bearer ${session.access_token}` },
   })
   if (error) {
-    console.warn('[google-calendar disconnect]', error.message)
-    return { ok: false, message: mapFunctionsInvokeError(error.message || '') }
+    logGoogleCalendarInvokeFailure('disconnect', data, error.message)
+    const specific = misconfiguredUserMessage(data)
+    return { ok: false, message: specific ?? mapFunctionsInvokeError(error.message || '') }
   }
   return { ok: true }
 }

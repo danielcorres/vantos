@@ -52,6 +52,16 @@ https://lyvnyjkfgkbrobetzxvs.supabase.co/functions/v1/google-calendar?action=cal
 https://cayibyaingcvhzwhfrhy.supabase.co/functions/v1/google-calendar?action=callback
 ```
 
+## Si ves HTTP 503 al conectar o al estado de Google Calendar
+
+La función responde `503` con cuerpo `{ "error": "server_misconfigured", "missing_keys": [...] }` cuando **falta alguno** de estos secretos en el proyecto (prod o staging):
+
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `OAUTH_STATE_SECRET`.
+
+En el dashboard: **Project Settings → Edge Functions → Secrets** (o la sección de secretos por función) y define cada clave. Además define **`APP_SITE_URL`** (p. ej. `https://vant.asesoresconsulta.com`) aunque no dispare el 503 por sí sola, la necesita OAuth y redirects.
+
+Tras guardar secretos, no hace falta redeploy: la próxima invocación ya los lee.
+
 ## Verificación
 
 1. Dashboard → Edge Functions → `google-calendar` desplegada.
