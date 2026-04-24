@@ -100,6 +100,7 @@ export type LeadStageHistoryRow = {
   moved_at: string
   occurred_at: string | null
   idempotency_key: string
+  is_retroceso?: boolean
 }
 
 export const pipelineApi = {
@@ -352,7 +353,7 @@ export const pipelineApi = {
   async getLeadStageHistory(leadId: string): Promise<LeadStageHistoryRow[]> {
     const { data, error } = await supabase
       .from('lead_stage_history')
-      .select('id, lead_id, from_stage_id, to_stage_id, moved_at, occurred_at, idempotency_key')
+      .select('id, lead_id, from_stage_id, to_stage_id, moved_at, occurred_at, idempotency_key, is_retroceso')
       .eq('lead_id', leadId)
       .order('moved_at', { ascending: true })
 
@@ -364,7 +365,8 @@ export const pipelineApi = {
     leadId: string,
     toStageId: string,
     idempotencyKey: string,
-    occurredAt?: string | null
+    occurredAt?: string | null,
+    onlyForward?: boolean
   ): Promise<void> {
     const payload: Record<string, unknown> = {
       p_lead_id: leadId,
@@ -373,6 +375,9 @@ export const pipelineApi = {
     }
     if (occurredAt != null) {
       payload.p_occurred_at = occurredAt
+    }
+    if (onlyForward) {
+      payload.p_only_forward = true
     }
     const { error } = await supabase.rpc('move_lead_stage', payload)
 

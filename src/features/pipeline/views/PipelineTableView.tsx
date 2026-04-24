@@ -10,6 +10,7 @@ import {
 import { generateIdempotencyKey } from '../pipeline.store'
 import { LeadCreateModal } from '../components/LeadCreateModal'
 import { PostCreateCalendarAskDialog } from '../components/PostCreateCalendarAskDialog'
+import { MoveBackwardConfirmDialog } from '../components/MoveBackwardConfirmDialog'
 import {
   AppointmentFormModal,
   type AppointmentEditFocus,
@@ -30,6 +31,7 @@ import {
   type SchedulingGuidance,
 } from '../../calendar/utils/stageSchedulingGuidance'
 import { resolveCalModalFromGuidance } from '../utils/resolveCalModalFromGuidance'
+import { isBackwardStageMove } from '../utils/stageMoveDirection'
 
 const BTN_PRIMARY =
   'h-9 rounded-xl bg-neutral-900 text-white px-4 text-sm font-semibold gap-2 hover:bg-neutral-800 active:scale-[0.98] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-1 flex-shrink-0 inline-flex items-center justify-center'
@@ -109,6 +111,11 @@ export function PipelineTableView({
   const [calModal, setCalModal] = useState<CalModalState>(null)
   const [collapsedStages, setCollapsedStages] = useState<Record<string, boolean>>({})
   const [highlightLeadId, setHighlightLeadId] = useState<string | null>(null)
+  const [backwardPending, setBackwardPending] = useState<{
+    leadId: string
+    fromStageId: string
+    toStageId: string
+  } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sourceFilter, setSourceFilter] = useState('')
   /** '' = todas; '__null__' = sin clasificar; frio|tibio|caliente */
@@ -545,7 +552,10 @@ export function PipelineTableView({
     const lead = baseLeads.find((l) => l.id === leadId)
     if (!lead || lead.stage_id === toStageId) return
     const fromStageId = lead.stage_id
-
+    if (isBackwardStageMove(fromStageId, toStageId, stages)) {
+      setBackwardPending({ leadId, fromStageId, toStageId })
+      return
+    }
     await executeMoveStage(leadId, fromStageId, toStageId)
   }
 
@@ -888,6 +898,32 @@ export function PipelineTableView({
         onClose={() => setIsCreateModalOpen(false)}
         onSubmit={handleCreateLead}
         onLeadCreated={handleLeadCreatedForCalendar}
+      />
+
+      <MoveBackwardConfirmDialog
+        isOpen={backwardPending != null}
+        leadDisplayName={
+          backwardPending
+            ? baseLeads.find((l) => l.id === backwardPending.leadId)?.full_name?.trim() || 'Este contacto'
+            : ''
+        }
+        currentStageName={
+          backwardPending
+            ? displayStageName(stages.find((s) => s.id === backwardPending.fromStageId)?.name || 'Etapa actual')
+            : ''
+        }
+        targetStageName={
+          backwardPending
+            ? displayStageName(stages.find((s) => s.id === backwardPending.toStageId)?.name || 'Etapa')
+            : ''
+        }
+        onCancel={() => setBackwardPending(null)}
+        onConfirm={() => {
+          const p = backwardPending
+          setBackwardPending(null)
+          if (!p) return
+          void executeMoveStage(p.leadId, p.fromStageId, p.toStageId)
+        }}
       />
 
       <PostCreateCalendarAskDialog

@@ -99,7 +99,9 @@ async function tryMoveLeadToStageForAppointment(
     await pipelineApi.moveLeadStage(
       leadId,
       stageId,
-      calendarStageIdempotencyKey(eventId, slug)
+      calendarStageIdempotencyKey(eventId, slug),
+      null,
+      true
     )
   } catch (err) {
     console.warn('[calendar] No se pudo mover etapa del lead:', err)

@@ -265,10 +265,14 @@ export function AdvisorHomePage() {
   )
 
   const leadsSinCitaSorted = useMemo(() => {
-    const sin = activosLeads.filter((l) => !nextByLeadId[l.id])
+    const contactosStage = stageBySlug.get('contactos_nuevos')
+    const sin = activosLeads.filter(
+      (l) =>
+        !nextByLeadId[l.id] && (!contactosStage || l.stage_id === contactosStage.id)
+    )
     sin.sort((a, b) => (a.stage_changed_at < b.stage_changed_at ? 1 : a.stage_changed_at > b.stage_changed_at ? -1 : 0))
     return sin
-  }, [activosLeads, nextByLeadId])
+  }, [activosLeads, nextByLeadId, stageBySlug])
 
   const leadsSinCitaTop5 = useMemo(
     () => leadsSinCitaSorted.slice(0, HUB_LIST_VISIBLE_CAP),

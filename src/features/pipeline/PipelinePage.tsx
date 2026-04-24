@@ -15,6 +15,7 @@ import {
 import { KanbanBoard } from './components/KanbanBoard'
 import { LeadCreateModal } from './components/LeadCreateModal'
 import { PostCreateCalendarAskDialog } from './components/PostCreateCalendarAskDialog'
+import { MoveBackwardConfirmDialog } from './components/MoveBackwardConfirmDialog'
 import {
   AppointmentFormModal,
   type AppointmentEditFocus,
@@ -31,6 +32,7 @@ import type { CreateLeadInput } from './pipeline.api'
 import { calendarApi } from '../calendar/api/calendar.api'
 import type { CalendarEvent } from '../calendar/types/calendar.types'
 import { resolveCalModalFromGuidance } from './utils/resolveCalModalFromGuidance'
+import { isBackwardStageMove } from './utils/stageMoveDirection'
 
 const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
   contactos_nuevos: 'Contactos',
@@ -115,6 +117,13 @@ export function PipelinePage() {
 
   const [calModal, setCalModal] = useState<CalModalState>(null)
   const [draggedLead, setDraggedLead] = useState<Lead | null>(null)
+  const [backwardPending, setBackwardPending] = useState<{
+    leadId: string
+    fromStageId: string
+    toStageId: string
+    prevStageChangedAt: string | null
+    scrollY: number
+  } | null>(null)
   const kanbanRef = useRef<HTMLDivElement>(null)
 
   const [nextAppointmentByLeadId, setNextAppointmentByLeadId] = useState<
@@ -386,6 +395,50 @@ export function PipelinePage() {
     [dispatch, refreshDataSilent]
   )
 
+  const runStageMove = useCallback(
+    async (
+      leadId: string,
+      fromStageId: string,
+      toStageId: string,
+      prevStageChangedAt: string | null,
+      scrollY: number
+    ) => {
+      dispatch({
+        type: 'MOVE_OPTIMISTIC',
+        payload: { leadId, fromStageId, toStageId, prevStageChangedAt },
+      })
+      const idempotencyKey = generateIdempotencyKey(leadId, fromStageId, toStageId)
+      const stageName = state.stages.find((s) => s.id === toStageId)?.name
+      try {
+        await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
+        await refreshAffectedStages(fromStageId, toStageId)
+        setPipelineToast({
+          type: 'success',
+          message: stageName ? `Movido a ${displayStageName(stageName)}` : 'Etapa actualizada',
+        })
+      } catch (err: unknown) {
+        dispatch({
+          type: 'MOVE_ROLLBACK',
+          payload: { leadId, fromStageId, prevStageChangedAt },
+        })
+        setPipelineToast({
+          type: 'error',
+          message:
+            err instanceof Error && err.message
+              ? err.message
+              : 'No se pudo mover la etapa. Intenta nuevamente.',
+        })
+      } finally {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            window.scrollTo({ top: scrollY, left: window.scrollX, behavior: 'auto' })
+          })
+        })
+      }
+    },
+    [dispatch, refreshAffectedStages, state.stages]
+  )
+
   const handleLoadMoreStage = useCallback(async (stageId: string) => {
     const meta = stageLoadMetaRef.current[stageId]
     if (!meta || meta.loaded >= meta.total) return
@@ -499,104 +552,56 @@ export function PipelinePage() {
       if (!draggedLead) return
       const fromStageId = draggedLead.stage_id
       const prevStageChangedAt = draggedLead.stage_changed_at ?? null
+      const scrollY = window.scrollY
+      const d = draggedLead
       if (fromStageId === toStageId) {
         setDraggedLead(null)
         return
       }
-      dispatch({
-        type: 'MOVE_OPTIMISTIC',
-        payload: {
-          leadId: draggedLead.id,
+      if (isBackwardStageMove(fromStageId, toStageId, state.stages)) {
+        setBackwardPending({
+          leadId: d.id,
           fromStageId,
           toStageId,
           prevStageChangedAt,
-        },
-      })
-      const idempotencyKey = generateIdempotencyKey(
-        draggedLead.id,
-        fromStageId,
-        toStageId
-      )
-      try {
-        await pipelineApi.moveLeadStage(draggedLead.id, toStageId, idempotencyKey)
-        await refreshAffectedStages(fromStageId, toStageId)
-        const stageName = state.stages.find((s) => s.id === toStageId)?.name
-        setPipelineToast({
-          type: 'success',
-          message: stageName ? `Movido a ${displayStageName(stageName)}` : 'Etapa actualizada',
+          scrollY,
         })
-      } catch {
-        dispatch({
-          type: 'MOVE_ROLLBACK',
-          payload: {
-            leadId: draggedLead.id,
-            fromStageId,
-            prevStageChangedAt,
-          },
-        })
-        setPipelineToast({
-          type: 'error',
-          message: 'No se pudo mover la etapa. Intenta nuevamente.',
-        })
-      } finally {
         setDraggedLead(null)
+        return
       }
+      await runStageMove(d.id, fromStageId, toStageId, prevStageChangedAt, scrollY)
+      setDraggedLead(null)
     },
-    [draggedLead, dispatch, refreshAffectedStages, state.stages]
+    [draggedLead, state.stages, runStageMove]
   )
 
   /**
    * Mobile Kanban no usa drag&drop. Reutilizamos la misma lógica de movimiento
    * (optimistic + idempotency + reload) que el drop del tablero.
    */
-  const handleMoveStage = useCallback(async (leadId: string, toStageId: string) => {
-    const lead = state.leads.find((l) => l.id === leadId)
-    if (!lead) return
-    const fromStageId = lead.stage_id
-    const prevStageChangedAt = lead.stage_changed_at ?? null
-    if (fromStageId === toStageId) return
+  const handleMoveStage = useCallback(
+    async (leadId: string, toStageId: string) => {
+      const lead = state.leads.find((l) => l.id === leadId)
+      if (!lead) return
+      const fromStageId = lead.stage_id
+      const prevStageChangedAt = lead.stage_changed_at ?? null
+      if (fromStageId === toStageId) return
 
-    const scrollY = window.scrollY
-    const stageName = state.stages.find((s) => s.id === toStageId)?.name
-
-    dispatch({
-      type: 'MOVE_OPTIMISTIC',
-      payload: {
-        leadId,
-        fromStageId,
-        toStageId,
-        prevStageChangedAt,
-      },
-    })
-    const idempotencyKey = generateIdempotencyKey(leadId, fromStageId, toStageId)
-    try {
-      await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
-      await refreshAffectedStages(fromStageId, toStageId)
-      setPipelineToast({
-        type: 'success',
-        message: stageName ? `Movido a ${displayStageName(stageName)}` : 'Etapa actualizada',
-      })
-    } catch (err: unknown) {
-      dispatch({
-        type: 'MOVE_ROLLBACK',
-        payload: {
+      const scrollY = window.scrollY
+      if (isBackwardStageMove(fromStageId, toStageId, state.stages)) {
+        setBackwardPending({
           leadId,
           fromStageId,
+          toStageId,
           prevStageChangedAt,
-        },
-      })
-      setPipelineToast({
-        type: 'error',
-        message: err instanceof Error ? err.message : 'Error al mover',
-      })
-    } finally {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: scrollY, left: window.scrollX, behavior: 'auto' })
+          scrollY,
         })
-      })
-    }
-  }, [state.leads, state.stages, dispatch, refreshAffectedStages])
+        return
+      }
+      await runStageMove(leadId, fromStageId, toStageId, prevStageChangedAt, scrollY)
+    },
+    [state.leads, state.stages, runStageMove]
+  )
 
   if (state.loading) {
     return (
@@ -930,6 +935,34 @@ export function PipelinePage() {
           defaultStageId={createStageId}
         />
       )}
+
+      <MoveBackwardConfirmDialog
+        isOpen={backwardPending != null}
+        leadDisplayName={
+          backwardPending
+            ? state.leads.find((l) => l.id === backwardPending.leadId)?.full_name?.trim() || 'Este contacto'
+            : ''
+        }
+        currentStageName={
+          backwardPending
+            ? displayStageName(
+                state.stages.find((s) => s.id === backwardPending.fromStageId)?.name || 'Etapa actual'
+              )
+            : ''
+        }
+        targetStageName={
+          backwardPending
+            ? displayStageName(state.stages.find((s) => s.id === backwardPending.toStageId)?.name || 'Etapa')
+            : ''
+        }
+        onCancel={() => setBackwardPending(null)}
+        onConfirm={() => {
+          const p = backwardPending
+          setBackwardPending(null)
+          if (!p) return
+          void runStageMove(p.leadId, p.fromStageId, p.toStageId, p.prevStageChangedAt, p.scrollY)
+        }}
+      />
 
       <PostCreateCalendarAskDialog
         isOpen={postCreateAskLead != null}
