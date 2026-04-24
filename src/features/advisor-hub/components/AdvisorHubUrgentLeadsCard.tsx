@@ -17,12 +17,23 @@ export function AdvisorHubUrgentLeadsCard({ leads, totalSinCita, stages, onAgend
 
   return (
     <section
-      className={`${HUB_CARD} col-span-12 w-full min-w-0 md:col-span-5 flex flex-col min-h-0 md:min-h-[11rem]`}
+      className={`${HUB_CARD} col-span-12 w-full min-w-0 md:col-span-5 flex flex-col min-h-0 md:min-h-[11rem] !border-amber-200/90 !bg-amber-50/55 shadow-amber-900/[0.06] dark:!border-amber-800/55 dark:!bg-amber-950/30 dark:shadow-none`}
     >
-      <h2 className={`${HUB_SECTION_TITLE} mb-4`}>Leads sin cita (urgentes)</h2>
+      <h2 className={`${HUB_SECTION_TITLE} mb-2`}>Contactos listos para agendar</h2>
+      {totalSinCita > 0 ? (
+        <p className="mb-3 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
+          Prioriza agendar: un embudo de <span className="font-medium text-neutral-800 dark:text-neutral-200">Contactos</span> con
+          volumen evita que se enfríe el seguimiento.
+        </p>
+      ) : (
+        <p className="mb-3 text-xs leading-relaxed text-neutral-600 dark:text-neutral-400">
+          Mantén la etapa <span className="font-medium text-neutral-800 dark:text-neutral-200">Contactos</span> con volumen: un
+          embudo lleno evita que se enfríe el seguimiento.
+        </p>
+      )}
       {totalSinCita === 0 ? (
         <p className="flex-1 text-sm leading-relaxed text-neutral-500 dark:text-neutral-400">
-          Todos los leads activos tienen al menos una cita programada.
+          No hay contactos pendientes de agendar en este momento.
         </p>
       ) : (
         <div className="flex min-h-0 flex-1 flex-col gap-3">
@@ -33,26 +44,26 @@ export function AdvisorHubUrgentLeadsCard({ leads, totalSinCita, stages, onAgend
               return (
                 <li
                   key={lead.id}
-                  className="flex flex-col gap-2 rounded-xl border border-neutral-100 bg-neutral-50/50 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800/80 dark:bg-neutral-900/35"
+                  className="flex flex-col gap-2 rounded-xl border border-amber-100 bg-white/85 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-amber-900/40 dark:bg-neutral-950/40"
                 >
                   <div className="min-w-0 break-words text-sm text-neutral-700 dark:text-neutral-200">
                     <span className="font-medium">{lead.full_name}</span>
                     <span className="text-neutral-400 dark:text-neutral-500"> · </span>
                     <span>{displayStageName(stName)}</span>
                     <span className="text-neutral-400 dark:text-neutral-500"> · </span>
-                    <span className="font-medium text-amber-800 dark:text-amber-200/90">{dias} días sin cita</span>
+                    <span className="font-medium text-yellow-800 dark:text-yellow-200">{dias} días sin cita</span>
                   </div>
                   <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
                     <button
                       type="button"
                       onClick={() => onAgendar(lead.id)}
-                      className="w-full rounded-xl bg-neutral-900 px-3 py-2 text-xs font-semibold text-white hover:bg-neutral-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400 sm:w-auto sm:py-1.5 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-white"
+                      className="w-full rounded-xl bg-amber-500 px-3 py-2 text-xs font-semibold text-neutral-900 shadow-sm hover:bg-amber-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2 focus-visible:ring-offset-amber-50 dark:bg-amber-500 dark:text-neutral-950 dark:hover:bg-amber-400 dark:focus-visible:ring-amber-400 dark:focus-visible:ring-offset-amber-950/50 sm:w-auto sm:py-1.5"
                     >
                       Agendar
                     </button>
                     <Link
                       to={`/leads/${lead.id}`}
-                      className="inline-flex w-full items-center justify-center rounded-xl border border-neutral-200 bg-white px-3 py-2 text-xs font-medium text-neutral-800 hover:bg-neutral-50 sm:w-auto sm:border-0 sm:bg-transparent sm:py-0 sm:underline sm:underline-offset-2 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 sm:dark:border-0 sm:dark:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+                      className="inline-flex w-full items-center justify-center rounded-xl border border-amber-200/80 bg-white/90 px-3 py-2 text-xs font-medium text-neutral-800 hover:bg-amber-50/80 sm:w-auto sm:border-0 sm:bg-transparent sm:py-0 sm:underline sm:underline-offset-2 dark:border-amber-800/50 dark:bg-transparent dark:text-neutral-100 dark:hover:bg-transparent sm:dark:border-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500/60"
                     >
                       Ver lead
                     </Link>
@@ -63,7 +74,7 @@ export function AdvisorHubUrgentLeadsCard({ leads, totalSinCita, stages, onAgend
           </ul>
           {hasMore ? (
             <p className="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
-              Hay {totalSinCita} leads sin cita; aquí los {leads.length} más urgentes.{' '}
+              Hay {totalSinCita} contactos listos para agendar; aquí los {leads.length} más prioritarios.{' '}
               <Link
                 to="/pipeline"
                 className="font-medium text-neutral-800 underline-offset-2 hover:underline dark:text-neutral-200"

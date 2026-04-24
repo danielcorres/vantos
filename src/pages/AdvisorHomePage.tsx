@@ -79,6 +79,7 @@ export function AdvisorHomePage() {
 
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([])
   const [eventLeadNames, setEventLeadNames] = useState<Record<string, string>>({})
+  const [eventLeadStageNames, setEventLeadStageNames] = useState<Record<string, string>>({})
 
   const [activosLeads, setActivosLeads] = useState<Lead[]>([])
   const [nextByLeadId, setNextByLeadId] = useState<Record<string, CalendarEvent | null>>({})
@@ -137,8 +138,15 @@ export function AdvisorHomePage() {
       const nameRows =
         leadIdsFromEvents.length > 0 ? await pipelineApi.getLeadsByIds(leadIdsFromEvents) : []
       const names: Record<string, string> = {}
-      for (const row of nameRows) names[row.id] = row.full_name
+      const stageById = new Map(stagesList.map((s) => [s.id, s.name]))
+      const stageNames: Record<string, string> = {}
+      for (const row of nameRows) {
+        names[row.id] = row.full_name
+        const label = stageById.get(row.stage_id)
+        if (label) stageNames[row.id] = label
+      }
       setEventLeadNames(names)
+      setEventLeadStageNames(stageNames)
 
       const activosIds = activos.map((l) => l.id)
       const nextMap = activosIds.length > 0 ? await batchNextByLeadIds(activosIds) : {}
@@ -321,6 +329,7 @@ export function AdvisorHomePage() {
               visibleEvents={todayEventsVisible}
               totalTodayCount={todayEventsSorted.length}
               eventLeadNames={eventLeadNames}
+              eventLeadStageNames={eventLeadStageNames}
             />
             <AdvisorHubUrgentLeadsCard
               leads={leadsSinCitaTop5}

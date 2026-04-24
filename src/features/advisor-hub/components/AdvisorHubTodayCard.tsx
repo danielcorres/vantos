@@ -27,9 +27,16 @@ type Props = {
   /** Total de citas del día (puede ser mayor que visibleEvents.length). */
   totalTodayCount: number
   eventLeadNames: Record<string, string>
+  /** Nombre de etapa del pipeline por lead_id (misma clave que eventLeadNames). */
+  eventLeadStageNames: Record<string, string>
 }
 
-export function AdvisorHubTodayCard({ visibleEvents, totalTodayCount, eventLeadNames }: Props) {
+export function AdvisorHubTodayCard({
+  visibleEvents,
+  totalTodayCount,
+  eventLeadNames,
+  eventLeadStageNames,
+}: Props) {
   const hasMore = totalTodayCount > visibleEvents.length
 
   return (
@@ -52,7 +59,8 @@ export function AdvisorHubTodayCard({ visibleEvents, totalTodayCount, eventLeadN
           <ul className="max-h-[min(22rem,45vh)] min-h-0 space-y-3 overflow-y-auto pr-0.5">
             {visibleEvents.map((ev) => {
               const name = ev.lead_id ? eventLeadNames[ev.lead_id] ?? 'Lead' : 'Sin lead'
-              const title = ev.title?.trim() || 'Cita'
+              const stage =
+                ev.lead_id != null && ev.lead_id !== '' ? eventLeadStageNames[ev.lead_id] ?? '' : ''
               const type = appointmentType(ev)
               return (
                 <li
@@ -64,9 +72,13 @@ export function AdvisorHubTodayCard({ visibleEvents, totalTodayCount, eventLeadN
                       {formatTimeMx(ev.starts_at)}
                     </span>
                     <span className="text-neutral-400 dark:text-neutral-500"> · </span>
-                    <span className="font-medium">{title}</span>
-                    <span className="text-neutral-400 dark:text-neutral-500"> · </span>
-                    <span>{name}</span>
+                    <span className="font-medium">{name}</span>
+                    {stage !== '' ? (
+                      <>
+                        <span className="text-neutral-400 dark:text-neutral-500"> · </span>
+                        <span>{stage}</span>
+                      </>
+                    ) : null}
                   </div>
                   <div className="flex flex-wrap items-center gap-2 sm:shrink-0 sm:justify-end">
                     <span
