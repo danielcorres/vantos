@@ -1,6 +1,5 @@
 /**
  * Integración Google Calendar (OAuth en Perfil/Calendario + push desde guardado de citas).
- * `false` = pausa: sin UI de conexión y sin llamadas a la Edge Function.
- * Cambiar a `true` cuando se reactive la implementación.
+ * Desactivar: poner en `false` si hay que ocultar la UI y las llamadas a la Edge Function.
  */
-export const GOOGLE_CALENDAR_INTEGRATION_ENABLED = false
+export const GOOGLE_CALENDAR_INTEGRATION_ENABLED = true
