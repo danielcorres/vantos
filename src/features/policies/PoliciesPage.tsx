@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { policiesApi } from './policies.api'
+import { DEFAULT_INSURER } from './policies.constants'
 import type { Policy } from './policies.types'
 import { usePolicies } from './hooks/usePolicies'
 import { PolicyFilters } from './components/PolicyFilters'
@@ -45,7 +46,7 @@ export function PoliciesPage() {
         <div>
           <h1 className="text-xl font-semibold text-text">Pólizas</h1>
           <p className="text-sm text-muted mt-0.5">
-            Registro de pólizas (Vida, GMM y otros ramos). Solo ves las pólizas de tu cuenta.
+            Registro de pólizas Vida y GMM ({DEFAULT_INSURER}). Solo ves las pólizas de tu cuenta.
           </p>
         </div>
         <button type="button" className="btn btn-primary text-sm font-medium shrink-0" onClick={openCreate}>

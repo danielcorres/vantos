@@ -1,6 +1,5 @@
 import type { PolicyFilters as PolicyFiltersType } from '../policies.types'
 import { RamoSelect } from './selects/RamoSelect'
-import { InsurerSelect } from './selects/InsurerSelect'
 import { ReceiptStatusSelect } from './selects/ReceiptStatusSelect'
 import { policyFieldClass } from './selects/fieldClasses'
 
@@ -13,20 +12,13 @@ export function PolicyFilters({ filters, onChange }: PolicyFiltersProps) {
   return (
     <div className="card p-4 space-y-3">
       <h2 className="text-sm font-semibold text-text">Filtros</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <RamoSelect
           id="filter_ramo"
           label="Ramo"
           value={filters.ramo ?? ''}
           onChange={(ramo) => onChange({ ...filters, ramo: ramo || undefined })}
           allowEmpty
-        />
-        <InsurerSelect
-          id="filter_insurer"
-          label="Aseguradora"
-          value={filters.insurer ?? ''}
-          onChange={(insurer) => onChange({ ...filters, insurer: insurer.trim() || undefined })}
-          placeholder="Buscar por nombre…"
         />
         <ReceiptStatusSelect
           id="filter_receipt"

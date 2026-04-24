@@ -1,4 +1,6 @@
-import { RAMOS, type Ramo } from '../../policies.types'
+import { useMemo } from 'react'
+import { FORM_RAMOS } from '../../policies.constants'
+import type { Ramo } from '../../policies.types'
 import { RAMO_LABELS } from '../../policiesLabels'
 import { policyFieldClass } from './fieldClasses'
 
@@ -12,6 +14,14 @@ type RamoSelectProps = {
   allowEmpty?: boolean
 }
 
+function buildOptions(value: Ramo | ''): Ramo[] {
+  const base = [...FORM_RAMOS]
+  if (value && !(FORM_RAMOS as readonly string[]).includes(value)) {
+    return [value as Ramo, ...base]
+  }
+  return base
+}
+
 export function RamoSelect({
   id = 'policy_ramo',
   label,
@@ -20,6 +30,8 @@ export function RamoSelect({
   disabled,
   allowEmpty,
 }: RamoSelectProps) {
+  const options = useMemo(() => buildOptions(value), [value])
+
   return (
     <div>
       {label ? (
@@ -35,11 +47,15 @@ export function RamoSelect({
         className={policyFieldClass}
       >
         {allowEmpty ? <option value="">Todos los ramos</option> : null}
-        {RAMOS.map((r) => (
-          <option key={r} value={r}>
-            {RAMO_LABELS[r]}
-          </option>
-        ))}
+        {options.map((r) => {
+          const legacy = !(FORM_RAMOS as readonly string[]).includes(r)
+          return (
+            <option key={r} value={r}>
+              {RAMO_LABELS[r]}
+              {legacy ? ' (legado)' : ''}
+            </option>
+          )
+        })}
       </select>
     </div>
   )

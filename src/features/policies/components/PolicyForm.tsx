@@ -1,8 +1,9 @@
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
+import { useAuth } from '../../../shared/auth/AuthProvider'
 import { usePolicyForm } from '../hooks/usePolicyForm'
 import type { Policy } from '../policies.types'
+import { DEFAULT_INSURER } from '../policies.constants'
 import { RamoSelect } from './selects/RamoSelect'
-import { InsurerSelect } from './selects/InsurerSelect'
 import { CurrencySelect } from './selects/CurrencySelect'
 import { FrequencySelect } from './selects/FrequencySelect'
 import { ReceiptStatusSelect } from './selects/ReceiptStatusSelect'
@@ -15,7 +16,19 @@ type PolicyFormProps = {
   onSaved: () => void
 }
 
+/** Origen de campaña y contabilización: no visible para asesor. */
+function useShowPolicyAdvancedFields(): boolean {
+  const { role } = useAuth()
+  return (
+    role === 'manager' ||
+    role === 'owner' ||
+    role === 'developer' ||
+    role === 'super_admin'
+  )
+}
+
 export function PolicyForm({ isOpen, onClose, editingPolicy, onSaved }: PolicyFormProps) {
+  const showAdvancedSection = useShowPolicyAdvancedFields()
   const prefersReducedMotion = useReducedMotion()
   const { values, setField, submitting, error, submit, reset } = usePolicyForm({
     editingPolicy,
@@ -74,13 +87,15 @@ export function PolicyForm({ isOpen, onClose, editingPolicy, onSaved }: PolicyFo
                 className={policyFieldClass}
               />
             </div>
-            <InsurerSelect
-              id="form_insurer"
-              label="Aseguradora *"
-              value={values.insurer}
-              onChange={(v) => setField('insurer', v)}
-              disabled={submitting}
-            />
+            <div>
+              <span className="block text-xs font-medium text-muted mb-1">Aseguradora</span>
+              <div
+                className={`${policyFieldClass} bg-surface/60 dark:bg-neutral-900/60 text-muted`}
+                aria-readonly="true"
+              >
+                {DEFAULT_INSURER}
+              </div>
+            </div>
             <div>
               <label htmlFor="policy_number" className="block text-xs font-medium text-muted mb-1">
                 Número de póliza *
@@ -206,33 +221,37 @@ export function PolicyForm({ isOpen, onClose, editingPolicy, onSaved }: PolicyFo
             />
           </section>
 
-          <section className="space-y-3">
-            <h3 className="text-xs font-semibold text-muted uppercase tracking-wide">Otros</h3>
-            <div>
-              <label htmlFor="campaign_source" className="block text-xs font-medium text-muted mb-1">
-                Origen de campaña (opcional)
+          {showAdvancedSection ? (
+            <section className="space-y-3">
+              <h3 className="text-xs font-semibold text-muted uppercase tracking-wide">Otros</h3>
+              <div>
+                <label htmlFor="campaign_source" className="block text-xs font-medium text-muted mb-1">
+                  Origen de campaña (opcional)
+                </label>
+                <input
+                  id="campaign_source"
+                  type="text"
+                  value={values.campaign_source ?? ''}
+                  onChange={(e) =>
+                    setField('campaign_source', e.target.value.trim() ? e.target.value : null)
+                  }
+                  disabled={submitting}
+                  className={policyFieldClass}
+                  placeholder="Para uso futuro"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={values.is_countable}
+                  onChange={(e) => setField('is_countable', e.target.checked)}
+                  disabled={submitting}
+                  className="rounded border-border"
+                />
+                Contabilizar en métricas futuras
               </label>
-              <input
-                id="campaign_source"
-                type="text"
-                value={values.campaign_source ?? ''}
-                onChange={(e) => setField('campaign_source', e.target.value.trim() ? e.target.value : null)}
-                disabled={submitting}
-                className={policyFieldClass}
-                placeholder="Para uso futuro"
-              />
-            </div>
-            <label className="flex items-center gap-2 text-sm cursor-pointer">
-              <input
-                type="checkbox"
-                checked={values.is_countable}
-                onChange={(e) => setField('is_countable', e.target.checked)}
-                disabled={submitting}
-                className="rounded border-border"
-              />
-              Contabilizar en métricas futuras
-            </label>
-          </section>
+            </section>
+          ) : null}
 
           {error ? (
             <div className="p-2.5 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900 rounded text-xs text-red-700 dark:text-red-200">

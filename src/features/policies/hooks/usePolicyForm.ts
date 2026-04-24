@@ -1,11 +1,21 @@
 import { useCallback, useEffect, useState } from 'react'
 import { policiesApi } from '../policies.api'
+import { DEFAULT_INSURER, FORM_RAMOS, isFormRamo } from '../policies.constants'
 import type { CreatePolicyInput, Policy } from '../policies.types'
+
+function normalizeForSave(values: CreatePolicyInput): CreatePolicyInput {
+  const ramo = isFormRamo(values.ramo) ? values.ramo : (FORM_RAMOS[0] as CreatePolicyInput['ramo'])
+  return {
+    ...values,
+    insurer: DEFAULT_INSURER,
+    ramo,
+  }
+}
 
 const defaultValues = (): CreatePolicyInput => ({
   lead_id: null,
   contractor_name: '',
-  insurer: '',
+  insurer: DEFAULT_INSURER,
   policy_number: '',
   ramo: 'vida',
   product_name: '',
@@ -107,7 +117,8 @@ export function usePolicyForm(options: {
   }, [editingPolicy])
 
   const submit = useCallback(async () => {
-    const msg = validatePolicyForm(values)
+    const payload = normalizeForSave(values)
+    const msg = validatePolicyForm(payload)
     if (msg) {
       setError(msg)
       return
@@ -116,9 +127,9 @@ export function usePolicyForm(options: {
     setSubmitting(true)
     try {
       if (editingPolicy) {
-        await policiesApi.update(editingPolicy.id, values)
+        await policiesApi.update(editingPolicy.id, payload)
       } else {
-        await policiesApi.create(values)
+        await policiesApi.create(payload)
       }
       onSaved?.()
     } catch (e: unknown) {
