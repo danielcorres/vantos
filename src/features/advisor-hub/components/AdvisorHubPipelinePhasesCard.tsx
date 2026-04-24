@@ -12,7 +12,10 @@ import { PIPELINE_PHASE_1_SLUGS, PIPELINE_PHASE_2_SLUGS } from '../constants'
 
 type Props = {
   stageBySlug: Map<string, PipelineStage>
-  countsByStageId: Record<string, number>
+  /** Entradas a etapa en la semana (lun–dom), misma fuente que Productividad / lead_stage_history. */
+  weeklyEntryCountsBySlug: Record<StageSlug, number>
+  /** Lunes de la semana en YYYY-MM-DD (alineado con Productividad y filtro de Pipeline). */
+  hubWeekStartYmd: string
   targetsMap: WeeklyMinimumTargetsMap
 }
 
@@ -21,14 +24,16 @@ function PhaseColumn({
   description,
   slugs,
   stageBySlug,
-  countsByStageId,
+  weeklyEntryCountsBySlug,
+  hubWeekStartYmd,
   targetsMap,
 }: {
   title: string
   description: string
   slugs: StageSlug[]
   stageBySlug: Map<string, PipelineStage>
-  countsByStageId: Record<string, number>
+  weeklyEntryCountsBySlug: Record<StageSlug, number>
+  hubWeekStartYmd: string
   targetsMap: WeeklyMinimumTargetsMap
 }) {
   return (
@@ -41,7 +46,7 @@ function PhaseColumn({
         {slugs.map((slug) => {
           const st = stageBySlug.get(slug)
           if (!st) return null
-          const count = countsByStageId[st.id] ?? 0
+          const count = weeklyEntryCountsBySlug[slug] ?? 0
           const target = weeklyTargetForPipelineSlug(slug, targetsMap)
           const metaCumplida = target == null || count >= target
           const pendiente = target != null && count < target
@@ -49,7 +54,7 @@ function PhaseColumn({
           return (
             <li key={slug}>
               <Link
-                to="/pipeline"
+                to={`/pipeline?stage=${encodeURIComponent(slug)}&weekStart=${encodeURIComponent(hubWeekStartYmd)}`}
                 className={`group block rounded-lg px-2 py-2 text-sm transition-colors hover:bg-white/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:hover:bg-neutral-800/60 ${
                   pendiente ? 'bg-sky-50/90 dark:bg-sky-950/25' : ''
                 }`}
@@ -106,19 +111,25 @@ function PhaseColumn({
   )
 }
 
-export function AdvisorHubPipelinePhasesCard({ stageBySlug, countsByStageId, targetsMap }: Props) {
+export function AdvisorHubPipelinePhasesCard({
+  stageBySlug,
+  weeklyEntryCountsBySlug,
+  hubWeekStartYmd,
+  targetsMap,
+}: Props) {
   return (
     <section className={`${HUB_CARD} col-span-12`}>
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h2 className={`${HUB_SECTION_TITLE}`}>Embudo vs. meta semanal</h2>
           <p className="mt-1 text-sm text-neutral-600 dark:text-neutral-400">
-            Conteo en etapa frente a mínimos OKR de la semana.
+            Entradas a cada etapa esta semana (lun–dom, hora Monterrey) frente a mínimos OKR. Si un lead avanza de
+            etapa, el logro de la semana se conserva en la etapa donde entró.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link
-            to="/productividad"
+            to={`/productividad?weekStart=${encodeURIComponent(hubWeekStartYmd)}`}
             className="inline-flex items-center rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-800 hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800"
           >
             Productividad
@@ -137,7 +148,8 @@ export function AdvisorHubPipelinePhasesCard({ stageBySlug, countsByStageId, tar
           description="Contactos nuevos, citas agendadas y casos abiertos."
           slugs={PIPELINE_PHASE_1_SLUGS}
           stageBySlug={stageBySlug}
-          countsByStageId={countsByStageId}
+          weeklyEntryCountsBySlug={weeklyEntryCountsBySlug}
+          hubWeekStartYmd={hubWeekStartYmd}
           targetsMap={targetsMap}
         />
         <PhaseColumn
@@ -145,7 +157,8 @@ export function AdvisorHubPipelinePhasesCard({ stageBySlug, countsByStageId, tar
           description="Citas de cierre, solicitudes ingresadas y pólizas pagadas."
           slugs={PIPELINE_PHASE_2_SLUGS}
           stageBySlug={stageBySlug}
-          countsByStageId={countsByStageId}
+          weeklyEntryCountsBySlug={weeklyEntryCountsBySlug}
+          hubWeekStartYmd={hubWeekStartYmd}
           targetsMap={targetsMap}
         />
       </div>

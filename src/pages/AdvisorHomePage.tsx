@@ -7,10 +7,13 @@ import { calendarApi } from '../features/calendar/api/calendar.api'
 import type { CalendarEvent } from '../features/calendar/types/calendar.types'
 import { fetchWeeklyMinimumTargetsForOwner } from '../modules/okr/dashboard/weeklyMinimumTargets'
 import {
+  getMondayOfWeekYmd,
   startOfTodayMonterreyISO,
   timestampToYmdInTz,
   todayLocalYmd,
 } from '../shared/utils/dates'
+import { getWeeklyProductivity } from '../features/productivity/api/productivity.api'
+import type { StageSlug } from '../features/productivity/types/productivity.types'
 import type { LeadSchedulingSummary } from '../features/calendar/utils/stageSchedulingGuidance'
 import { resolveCalModalFromGuidance } from '../features/pipeline/utils/resolveCalModalFromGuidance'
 import { AppointmentFormModal } from '../features/calendar/components/AppointmentFormModal'
@@ -62,7 +65,10 @@ export function AdvisorHomePage() {
   const [error, setError] = useState<string | null>(null)
 
   const [stages, setStages] = useState<PipelineStage[]>([])
-  const [countsByStageId, setCountsByStageId] = useState<Record<string, number>>({})
+  const [weeklyEntryCountsBySlug, setWeeklyEntryCountsBySlug] = useState<Record<StageSlug, number>>(
+    () => ({}) as Record<StageSlug, number>
+  )
+  const [hubWeekStartYmd, setHubWeekStartYmd] = useState('')
   const [targetsMap, setTargetsMap] = useState<
     Awaited<ReturnType<typeof fetchWeeklyMinimumTargetsForOwner>>['targets']
   >({} as never)
@@ -106,16 +112,16 @@ export function AdvisorHomePage() {
       setMyConnectionDate(profile?.connection_date ?? null)
 
       const stagesList = await pipelineApi.getStages()
-      const stageIds = stagesList.map((s) => s.id)
 
       const startToday = startOfTodayMonterreyISO()
       const todayYmd = todayLocalYmd()
+      const weekStartHubYmd = getMondayOfWeekYmd(todayYmd)
 
-      const [counts, { targets }, upcomingRaw, activos] = await Promise.all([
-        pipelineApi.getActiveLeadCountsByStages(stageIds),
+      const [{ targets }, upcomingRaw, activos, weeklyProd] = await Promise.all([
         fetchWeeklyMinimumTargetsForOwner(supabase, targetsOwnerId),
         calendarApi.listUpcomingEvents({ from: startToday, limit: 40 }),
         pipelineApi.getLeads('activos'),
+        getWeeklyProductivity(weekStartHubYmd),
       ])
 
       const todayEv = upcomingRaw.filter((e) => timestampToYmdInTz(e.starts_at) === todayYmd)
@@ -134,7 +140,8 @@ export function AdvisorHomePage() {
         activosIds.length > 0 ? await calendarApi.getSchedulingSummaries(activosIds) : {}
 
       setStages(stagesList)
-      setCountsByStageId(counts)
+      setWeeklyEntryCountsBySlug(weeklyProd.counts)
+      setHubWeekStartYmd(weeklyProd.weekStartYmd)
       setTargetsMap(targets)
       setActivosLeads(activos)
       setNextByLeadId(nextMap)
@@ -293,7 +300,8 @@ export function AdvisorHomePage() {
             />
             <AdvisorHubPipelinePhasesCard
               stageBySlug={stageBySlug}
-              countsByStageId={countsByStageId}
+              weeklyEntryCountsBySlug={weeklyEntryCountsBySlug}
+              hubWeekStartYmd={hubWeekStartYmd}
               targetsMap={targetsMap}
             />
             {myAdvisorStatus === 'asesor_12_meses' && hubMilestoneStatus ? (

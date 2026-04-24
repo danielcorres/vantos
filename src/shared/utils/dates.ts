@@ -73,6 +73,18 @@ export function addDaysYmd(ymd: string, delta: number): string {
 }
 
 /**
+ * Lunes de la semana calendario que contiene `ymd` (YYYY-MM-DD).
+ * Misma lógica que la vista Productividad (día local del navegador + addDaysYmd).
+ */
+export function getMondayOfWeekYmd(ymd: string): string {
+  const [y, m, d] = ymd.split('-').map(Number)
+  const dt = new Date(y, m - 1, d)
+  const day = dt.getDay()
+  const diff = day === 0 ? -6 : 1 - day
+  return addDaysYmd(ymd, diff)
+}
+
+/**
  * Calcular diferencia de días entre dos fechas YYYY-MM-DD
  * @param ymd1 Fecha inicial (YYYY-MM-DD)
  * @param ymd2 Fecha final (YYYY-MM-DD)

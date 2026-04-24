@@ -5,7 +5,7 @@ import { StageDrilldownModal } from '../features/productivity/components/StageDr
 import { buildProductivityTargetsFromOkr } from '../features/productivity/utils/productivityOkrTargets'
 import type { WeeklyProductivity, StageSlug } from '../features/productivity/types/productivity.types'
 import { STAGE_SLUGS_ORDER } from '../features/productivity/types/productivity.types'
-import { todayLocalYmd, addDaysYmd } from '../shared/utils/dates'
+import { todayLocalYmd, addDaysYmd, getMondayOfWeekYmd } from '../shared/utils/dates'
 import { IconArrowRight } from '../app/layout/icons'
 import { getMyProfile } from '../lib/profile'
 import { supabase } from '../lib/supabase'
@@ -25,14 +25,6 @@ const STAGE_LABELS: Record<StageSlug, string> = {
 }
 
 const TOOLTIP_TEXT = 'Cuenta cuántos leads entraron a esta etapa esta semana.'
-
-function getMondayOfWeekYmd(ymd: string): string {
-  const [y, m, d] = ymd.split('-').map(Number)
-  const dt = new Date(y, m - 1, d)
-  const day = dt.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  return addDaysYmd(ymd, diff)
-}
 
 function formatShortDate(ymd: string): string {
   const [y, m, d] = ymd.split('-').map(Number)
