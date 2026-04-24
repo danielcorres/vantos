@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { MoreHorizontal } from 'lucide-react'
 import { Toast } from '../../../shared/components/Toast'
 import { getSystemOwnerId } from '../../../lib/systemOwner'
 import { useAuth } from '../../../shared/auth/AuthProvider'
@@ -11,6 +12,7 @@ import { RoleChip } from './components/RoleChip'
 import { LeaderSlotPopover } from './components/LeaderSlotPopover'
 import { TeamHierarchyBoard } from './components/TeamHierarchyBoard'
 import { ConfirmDialog } from './components/ConfirmDialog'
+import { AssignmentEstadoActionsMenu } from './components/AssignmentEstadoActionsMenu'
 
 type Tab = 'people' | 'teams' | 'audit'
 
@@ -35,6 +37,7 @@ export function DirectorAssignmentsView() {
     name: string
   } | null>(null)
   const [confirmBusy, setConfirmBusy] = useState(false)
+  const [estadoMenu, setEstadoMenu] = useState<{ userId: string; anchor: HTMLElement } | null>(null)
 
   const {
     profiles,
@@ -199,6 +202,12 @@ export function DirectorAssignmentsView() {
     popoverAdvisor,
   ])
 
+  useEffect(() => {
+    if (!estadoMenu) return
+    const mp = profiles.find((p) => p.user_id === estadoMenu.userId)
+    if (!mp) setEstadoMenu(null)
+  }, [estadoMenu, profiles])
+
   if (loading || !ownerResolved) {
     return (
       <div className="text-center p-8">
@@ -302,9 +311,7 @@ export function DirectorAssignmentsView() {
                 <th className="text-left p-3 font-medium text-text">Usuario</th>
                 <th className="text-left p-3 font-medium text-text">Rol</th>
                 <th className="text-left p-3 font-medium text-text">Líderes</th>
-                <th className="text-left p-3 font-medium text-text min-w-[12rem] whitespace-nowrap">
-                  Estado
-                </th>
+                <th className="text-left p-3 font-medium text-text min-w-[13rem]">Estado</th>
               </tr>
             </thead>
             <tbody>
@@ -332,6 +339,8 @@ export function DirectorAssignmentsView() {
                 const canRestoreThis =
                   canAssignRoles && isAdvisorRow && !isReadOnly && !isSelf && isArchived
                 const canDeleteThis = isOwner && isAdvisorRow && !isReadOnly && !isSelf
+                const hasEstadoMenuActions =
+                  isAdvisorRow && !isReadOnly && !isSelf && (canArchiveThis || canRestoreThis || canDeleteThis)
 
                 return (
                   <tr
@@ -405,27 +414,45 @@ export function DirectorAssignmentsView() {
                         <span className="text-muted text-xs">—</span>
                       )}
                     </td>
-                    <td className="p-3 min-w-[11rem] align-top">
-                      <div className="flex flex-col gap-2">
+                    <td className="p-3 min-w-[12rem] align-middle">
+                      <div className="flex flex-row flex-wrap items-center gap-1.5">
                         {isReadOnly ? (
-                          <span
-                            className={`inline-flex w-fit items-center px-2 py-1 rounded-md text-xs font-medium ${
-                              isArchived
-                                ? 'bg-slate-200 text-slate-800 dark:bg-neutral-700 dark:text-neutral-100'
-                                : profile.account_status === 'suspended'
-                                  ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-100'
-                                  : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-100'
-                            }`}
-                          >
-                            {isArchived
-                              ? 'Archivado'
-                              : profile.account_status === 'suspended'
-                                ? 'Suspendido'
-                                : 'Activo'}
-                          </span>
+                          isArchived ? (
+                            <span className="inline-flex rounded-md border border-border dark:border-neutral-700 overflow-hidden shadow-sm pointer-events-none select-none opacity-95">
+                              <span className="px-2.5 py-1 text-xs font-medium bg-slate-200 text-slate-800 dark:bg-neutral-700 dark:text-neutral-100">
+                                Archivado
+                              </span>
+                            </span>
+                          ) : (
+                            <div
+                              className="inline-flex rounded-md border border-border dark:border-neutral-700 overflow-hidden shadow-sm pointer-events-none select-none opacity-95"
+                              aria-hidden
+                            >
+                              <span
+                                className={`px-2.5 py-1 text-xs font-medium border-0 ${
+                                  profile.account_status === 'active'
+                                    ? 'bg-primary text-white'
+                                    : 'bg-surface text-muted dark:bg-neutral-900'
+                                }`}
+                              >
+                                Activo
+                              </span>
+                              <span
+                                className={`px-2.5 py-1 text-xs font-medium border-0 border-l border-border dark:border-neutral-700 ${
+                                  profile.account_status === 'suspended'
+                                    ? 'bg-amber-600 text-white'
+                                    : 'bg-surface text-muted dark:bg-neutral-900'
+                                }`}
+                              >
+                                Suspendido
+                              </span>
+                            </div>
+                          )
                         ) : isArchived ? (
-                          <span className="inline-flex w-fit items-center px-2 py-1 rounded-md text-xs font-medium bg-slate-200 text-slate-800 dark:bg-neutral-700 dark:text-neutral-100">
-                            Archivado
+                          <span className="inline-flex rounded-md border border-border dark:border-neutral-700 overflow-hidden shadow-sm">
+                            <span className="px-2.5 py-1 text-xs font-medium bg-slate-200 text-slate-800 dark:bg-neutral-700 dark:text-neutral-100">
+                              Archivado
+                            </span>
                           </span>
                         ) : (
                           <div
@@ -476,66 +503,34 @@ export function DirectorAssignmentsView() {
                             </button>
                           </div>
                         )}
-                        {isAdvisorRow && !isReadOnly && !isSelf && (
-                          <div className="flex flex-wrap items-center gap-2">
-                            {canArchiveThis && (
-                              <button
-                                type="button"
-                                className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
-                                disabled={saveState === 'saving'}
-                                onClick={() =>
-                                  setConfirm({
-                                    kind: 'archive',
-                                    userId: profile.user_id,
-                                    name: displayName,
-                                  })
-                                }
-                              >
-                                Archivar
-                              </button>
-                            )}
-                            {canRestoreThis && (
-                              <button
-                                type="button"
-                                className="text-xs font-medium text-primary hover:underline disabled:opacity-50"
-                                disabled={saveState === 'saving'}
-                                onClick={() =>
-                                  setConfirm({
-                                    kind: 'restore',
-                                    userId: profile.user_id,
-                                    name: displayName,
-                                  })
-                                }
-                              >
-                                Restaurar
-                              </button>
-                            )}
-                            {canDeleteThis && (
-                              <button
-                                type="button"
-                                className="text-xs font-medium text-red-600 hover:underline dark:text-red-400 disabled:opacity-50"
-                                disabled={saveState === 'saving'}
-                                onClick={() =>
-                                  setConfirm({
-                                    kind: 'delete',
-                                    userId: profile.user_id,
-                                    name: displayName,
-                                  })
-                                }
-                              >
-                                Borrar
-                              </button>
-                            )}
-                          </div>
+                        {hasEstadoMenuActions && (
+                          <button
+                            type="button"
+                            className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-muted hover:bg-black/[0.04] hover:text-text dark:border-neutral-700 dark:hover:bg-white/10 disabled:opacity-50"
+                            disabled={saveState === 'saving'}
+                            aria-busy={saveState === 'saving' || undefined}
+                            aria-label="Más acciones"
+                            aria-haspopup="menu"
+                            aria-expanded={estadoMenu?.userId === profile.user_id}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const el = e.currentTarget
+                              setEstadoMenu((prev) =>
+                                prev?.userId === profile.user_id ? null : { userId: profile.user_id, anchor: el }
+                              )
+                            }}
+                          >
+                            <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+                          </button>
                         )}
                         {saveState === 'saving' && (
-                          <span className="text-xs text-muted">Guardando…</span>
+                          <span className="text-xs text-muted whitespace-nowrap">Guardando…</span>
                         )}
                         {saveState === 'saved' && (
-                          <span className="text-xs text-green-600">Guardado</span>
+                          <span className="text-xs text-green-600 whitespace-nowrap">Listo</span>
                         )}
                         {saveState === 'error' && (
-                          <span className="text-xs text-red-600">Error</span>
+                          <span className="text-xs text-red-600 whitespace-nowrap">Error</span>
                         )}
                       </div>
                     </td>
@@ -611,6 +606,37 @@ export function DirectorAssignmentsView() {
           )}
         </div>
       )}
+
+      {estadoMenu &&
+        (() => {
+          const mp = profiles.find((x) => x.user_id === estadoMenu.userId)
+          if (!mp) return null
+          const isAdv = mp.role === 'advisor'
+          const isRO = mp.user_id === ownerUserId
+          const isSl = currentUserId != null && mp.user_id === currentUserId
+          const isArc = Boolean(mp.archived_at)
+          const cArchive = canAssignRoles && isAdv && !isRO && !isSl && !isArc
+          const cRestore = canAssignRoles && isAdv && !isRO && !isSl && isArc
+          const cDelete = isOwner && isAdv && !isRO && !isSl
+          const dn = getAssignmentDisplayName(mp)
+          const ss = rowSaveStates[mp.user_id] || 'idle'
+          if (!cArchive && !cRestore && !cDelete) return null
+          return (
+            <AssignmentEstadoActionsMenu
+              key={estadoMenu.userId}
+              open
+              anchorEl={estadoMenu.anchor}
+              onClose={() => setEstadoMenu(null)}
+              disabled={ss === 'saving'}
+              canArchive={cArchive}
+              canRestore={cRestore}
+              canDelete={cDelete}
+              onArchive={() => setConfirm({ kind: 'archive', userId: mp.user_id, name: dn })}
+              onRestore={() => setConfirm({ kind: 'restore', userId: mp.user_id, name: dn })}
+              onDelete={() => setConfirm({ kind: 'delete', userId: mp.user_id, name: dn })}
+            />
+          )
+        })()}
 
       {popoverAdvisor && (
         <LeaderSlotPopover
