@@ -31,6 +31,9 @@ import { AdvisorHubUrgentLeadsCard } from '../features/advisor-hub/components/Ad
 import { AdvisorHubPipelinePhasesCard } from '../features/advisor-hub/components/AdvisorHubPipelinePhasesCard'
 import { AdvisorHubMilestones12mCard } from '../features/advisor-hub/components/AdvisorHubMilestones12mCard'
 
+/** Máximo de filas en Citas de hoy y en Leads sin cita en el hub (evita tarjetas muy altas). */
+const HUB_LIST_VISIBLE_CAP = 5
+
 type CalModalState =
   | null
   | {
@@ -65,6 +68,7 @@ export function AdvisorHomePage() {
   const [error, setError] = useState<string | null>(null)
 
   const [stages, setStages] = useState<PipelineStage[]>([])
+  const [inventoryCountsByStageId, setInventoryCountsByStageId] = useState<Record<string, number>>({})
   const [weeklyEntryCountsBySlug, setWeeklyEntryCountsBySlug] = useState<Record<StageSlug, number>>(
     () => ({}) as Record<StageSlug, number>
   )
@@ -112,12 +116,14 @@ export function AdvisorHomePage() {
       setMyConnectionDate(profile?.connection_date ?? null)
 
       const stagesList = await pipelineApi.getStages()
+      const stageIds = stagesList.map((s) => s.id)
 
       const startToday = startOfTodayMonterreyISO()
       const todayYmd = todayLocalYmd()
       const weekStartHubYmd = getMondayOfWeekYmd(todayYmd)
 
-      const [{ targets }, upcomingRaw, activos, weeklyProd] = await Promise.all([
+      const [inventoryCounts, { targets }, upcomingRaw, activos, weeklyProd] = await Promise.all([
+        pipelineApi.getActiveLeadCountsByStages(stageIds),
         fetchWeeklyMinimumTargetsForOwner(supabase, targetsOwnerId),
         calendarApi.listUpcomingEvents({ from: startToday, limit: 40 }),
         pipelineApi.getLeads('activos'),
@@ -140,6 +146,7 @@ export function AdvisorHomePage() {
         activosIds.length > 0 ? await calendarApi.getSchedulingSummaries(activosIds) : {}
 
       setStages(stagesList)
+      setInventoryCountsByStageId(inventoryCounts)
       setWeeklyEntryCountsBySlug(weeklyProd.counts)
       setHubWeekStartYmd(weeklyProd.weekStartYmd)
       setTargetsMap(targets)
@@ -190,11 +197,29 @@ export function AdvisorHomePage() {
     return m
   }, [stages])
 
-  const leadsSinCitaTop5 = useMemo(() => {
+  const todayEventsSorted = useMemo(() => {
+    return [...todayEvents].sort(
+      (a, b) => new Date(a.starts_at).getTime() - new Date(b.starts_at).getTime()
+    )
+  }, [todayEvents])
+
+  const todayEventsVisible = useMemo(
+    () => todayEventsSorted.slice(0, HUB_LIST_VISIBLE_CAP),
+    [todayEventsSorted]
+  )
+
+  const leadsSinCitaSorted = useMemo(() => {
     const sin = activosLeads.filter((l) => !nextByLeadId[l.id])
     sin.sort((a, b) => (a.stage_changed_at < b.stage_changed_at ? 1 : a.stage_changed_at > b.stage_changed_at ? -1 : 0))
-    return sin.slice(0, 5)
+    return sin
   }, [activosLeads, nextByLeadId])
+
+  const leadsSinCitaTop5 = useMemo(
+    () => leadsSinCitaSorted.slice(0, HUB_LIST_VISIBLE_CAP),
+    [leadsSinCitaSorted]
+  )
+
+  const urgentesSinCitaTotal = leadsSinCitaSorted.length
 
   const hubMilestoneStatus = useMemo(() => {
     if (myAdvisorStatus !== 'asesor_12_meses') return null
@@ -292,14 +317,20 @@ export function AdvisorHomePage() {
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
           <div className="grid grid-cols-1 gap-y-6 gap-x-4 md:grid-cols-12 md:gap-6">
             <AdvisorHubHeader />
-            <AdvisorHubTodayCard todayEvents={todayEvents} eventLeadNames={eventLeadNames} />
+            <AdvisorHubTodayCard
+              visibleEvents={todayEventsVisible}
+              totalTodayCount={todayEventsSorted.length}
+              eventLeadNames={eventLeadNames}
+            />
             <AdvisorHubUrgentLeadsCard
               leads={leadsSinCitaTop5}
+              totalSinCita={urgentesSinCitaTotal}
               stages={stages}
               onAgendar={(id) => void openScheduleForLead(id)}
             />
             <AdvisorHubPipelinePhasesCard
               stageBySlug={stageBySlug}
+              inventoryCountsByStageId={inventoryCountsByStageId}
               weeklyEntryCountsBySlug={weeklyEntryCountsBySlug}
               hubWeekStartYmd={hubWeekStartYmd}
               targetsMap={targetsMap}

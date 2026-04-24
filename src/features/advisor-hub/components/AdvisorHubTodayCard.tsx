@@ -15,17 +15,22 @@ function formatTimeMx(iso: string): string {
 }
 
 type Props = {
-  todayEvents: CalendarEvent[]
+  /** Citas a mostrar (ya ordenadas y acotadas en la página). */
+  visibleEvents: CalendarEvent[]
+  /** Total de citas del día (puede ser mayor que visibleEvents.length). */
+  totalTodayCount: number
   eventLeadNames: Record<string, string>
 }
 
-export function AdvisorHubTodayCard({ todayEvents, eventLeadNames }: Props) {
+export function AdvisorHubTodayCard({ visibleEvents, totalTodayCount, eventLeadNames }: Props) {
+  const hasMore = totalTodayCount > visibleEvents.length
+
   return (
     <section
       className={`${HUB_CARD} col-span-12 w-full min-w-0 md:col-span-7 flex flex-col min-h-0 md:min-h-[11rem]`}
     >
       <h2 className={`${HUB_SECTION_TITLE} mb-4`}>Citas de hoy</h2>
-      {todayEvents.length === 0 ? (
+      {totalTodayCount === 0 ? (
         <div className="flex flex-1 flex-col justify-center gap-3 text-sm text-neutral-600 dark:text-neutral-400">
           <p>Sin citas hoy.</p>
           <Link
@@ -36,36 +41,49 @@ export function AdvisorHubTodayCard({ todayEvents, eventLeadNames }: Props) {
           </Link>
         </div>
       ) : (
-        <ul className="space-y-3">
-          {todayEvents.map((ev) => {
-            const name = ev.lead_id ? eventLeadNames[ev.lead_id] ?? 'Lead' : 'Sin lead'
-            const title = ev.title?.trim() || 'Cita'
-            return (
-              <li
-                key={ev.id}
-                className="flex flex-col gap-2 rounded-xl border border-neutral-100 bg-neutral-50/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800/80 dark:bg-neutral-900/40"
+        <div className="flex min-h-0 flex-1 flex-col gap-3">
+          <ul className="max-h-[min(22rem,45vh)] min-h-0 space-y-3 overflow-y-auto pr-0.5">
+            {visibleEvents.map((ev) => {
+              const name = ev.lead_id ? eventLeadNames[ev.lead_id] ?? 'Lead' : 'Sin lead'
+              const title = ev.title?.trim() || 'Cita'
+              return (
+                <li
+                  key={ev.id}
+                  className="flex flex-col gap-2 rounded-xl border border-neutral-100 bg-neutral-50/60 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between dark:border-neutral-800/80 dark:bg-neutral-900/40"
+                >
+                  <div className="min-w-0 break-words text-sm leading-relaxed text-neutral-800 dark:text-neutral-200">
+                    <span className="tabular-nums font-medium text-neutral-500 dark:text-neutral-400">
+                      {formatTimeMx(ev.starts_at)}
+                    </span>
+                    <span className="text-neutral-400 dark:text-neutral-500"> · </span>
+                    <span className="font-medium">{title}</span>
+                    <span className="text-neutral-400 dark:text-neutral-500"> · </span>
+                    <span>{name}</span>
+                  </div>
+                  {ev.lead_id ? (
+                    <Link
+                      to={`/leads/${ev.lead_id}`}
+                      className="inline-flex w-full shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50 sm:w-auto sm:justify-center sm:border-0 sm:bg-transparent sm:py-0 sm:text-left sm:underline-offset-2 sm:hover:underline dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 sm:dark:border-0 sm:dark:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
+                    >
+                      Ir al lead
+                    </Link>
+                  ) : null}
+                </li>
+              )
+            })}
+          </ul>
+          {hasMore ? (
+            <p className="text-xs leading-relaxed text-neutral-500 dark:text-neutral-400">
+              Mostrando {visibleEvents.length} de {totalTodayCount}.{' '}
+              <Link
+                to="/calendar"
+                className="font-medium text-neutral-800 underline-offset-2 hover:underline dark:text-neutral-200"
               >
-                <div className="min-w-0 break-words text-sm leading-relaxed text-neutral-800 dark:text-neutral-200">
-                  <span className="tabular-nums font-medium text-neutral-500 dark:text-neutral-400">
-                    {formatTimeMx(ev.starts_at)}
-                  </span>
-                  <span className="text-neutral-400 dark:text-neutral-500"> · </span>
-                  <span className="font-medium">{title}</span>
-                  <span className="text-neutral-400 dark:text-neutral-500"> · </span>
-                  <span>{name}</span>
-                </div>
-                {ev.lead_id ? (
-                  <Link
-                    to={`/leads/${ev.lead_id}`}
-                    className="inline-flex w-full shrink-0 items-center justify-center rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50 sm:w-auto sm:justify-center sm:border-0 sm:bg-transparent sm:py-0 sm:text-left sm:underline-offset-2 sm:hover:underline dark:border-neutral-600 dark:bg-neutral-900 dark:text-neutral-100 dark:hover:bg-neutral-800 sm:dark:border-0 sm:dark:bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-400"
-                  >
-                    Ir al lead
-                  </Link>
-                ) : null}
-              </li>
-            )
-          })}
-        </ul>
+                Ver calendario
+              </Link>
+            </p>
+          ) : null}
+        </div>
       )}
     </section>
   )

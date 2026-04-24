@@ -270,6 +270,10 @@ export const pipelineApi = {
     return { leads: (data || []).map(normalizeLead), total: count ?? 0 }
   },
 
+  /**
+   * Crea lead en la etapa indicada (cualquier etapa del embudo).
+   * El historial `lead_stage_history` para hub/productividad semanal lo inserta la BD (trigger after insert).
+   */
   async createLead(input: CreateLeadInput): Promise<Lead> {
     const { data, error } = await supabase
       .from('leads')
