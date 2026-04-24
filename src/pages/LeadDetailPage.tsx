@@ -12,6 +12,7 @@ import { UnsavedChangesBar, UNSAVED_BAR_HEIGHT } from '../shared/components/Unsa
 import { getStageTagClasses, displayStageName } from '../shared/utils/stageStyles'
 import { LeadSourceTag } from '../components/pipeline/LeadSourceTag'
 import { LeadAppointmentsList } from '../features/calendar/components/LeadAppointmentsList'
+import { AppointmentFormModal } from '../features/calendar/components/AppointmentFormModal'
 import type { LeadTemperature } from '../features/pipeline/pipeline.api'
 
 type LeadData = {
@@ -166,6 +167,8 @@ export function LeadDetailPage() {
   // Dropdown Acciones (Archivar/Restaurar)
   const [actionsOpen, setActionsOpen] = useState(false)
   const actionsRef = useRef<HTMLDivElement>(null)
+  const [appointmentModalOpen, setAppointmentModalOpen] = useState(false)
+  const [appointmentsListKey, setAppointmentsListKey] = useState(0)
   /** Evita marcar dirty hasta que el formulario refleje el lead de la ruta (evita bloqueo fantasma al cargar). */
   const [leadFormHydrated, setLeadFormHydrated] = useState(false)
   /** Permite un intento de navegación sin pasar por useBlocker (p. ej. Regresar tras confirmar o con estado desfasado). */
@@ -656,6 +659,7 @@ export function LeadDetailPage() {
   const waNumber = normalizeWhatsAppNumber(phoneDigits(lead.phone || ''))
 
   return (
+    <>
     <div
       className={`mx-auto max-w-6xl px-2 sm:px-4 ${dirty ? '' : 'pb-6'}`}
       style={{ paddingBottom: dirty ? UNSAVED_BAR_HEIGHT : undefined }}
@@ -1008,7 +1012,11 @@ export function LeadDetailPage() {
           </div>
 
           <div className={`${CARD_SURFACE} ${CARD_PAD} ${prefersReducedMotion ? '' : 'motion-safe:transition-shadow duration-150'}`}>
-            <LeadAppointmentsList leadId={id!} />
+            <LeadAppointmentsList
+              key={`${id}-${appointmentsListKey}`}
+              leadId={id!}
+              onRequestNewAppointment={() => setAppointmentModalOpen(true)}
+            />
           </div>
 
           <div className={`${CARD_SURFACE} ${CARD_PAD}`}>
@@ -1251,5 +1259,19 @@ export function LeadDetailPage() {
         </div>
       </div>
     </div>
+
+    <AppointmentFormModal
+      key={`lead-appt-create-${id}`}
+      isOpen={appointmentModalOpen}
+      onClose={() => setAppointmentModalOpen(false)}
+      mode="create"
+      onSaved={() => {
+        setAppointmentsListKey((k) => k + 1)
+        setAppointmentModalOpen(false)
+      }}
+      initialLeadId={id ?? null}
+      createDefaults={{ durationMinutes: 30 }}
+    />
+    </>
   )
 }

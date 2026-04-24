@@ -22,6 +22,8 @@ function formatDateTimeLocal(isoString: string): string {
 interface LeadAppointmentsListProps {
   leadId: string
   leadLabel?: string
+  /** Si está definido, «Agendar» abre este flujo (p. ej. modal en LeadDetail) en lugar de ir al calendario. */
+  onRequestNewAppointment?: () => void
 }
 
 const rowClass =
@@ -32,7 +34,7 @@ const rowClass =
  * Las citas se crean y editan desde el Calendario.
  * Envolver en la misma card que el resto de secciones del detalle (`CARD_SURFACE` + `CARD_PAD`).
  */
-export function LeadAppointmentsList({ leadId }: LeadAppointmentsListProps) {
+export function LeadAppointmentsList({ leadId, onRequestNewAppointment }: LeadAppointmentsListProps) {
   const navigate = useNavigate()
   const [events, setEvents] = useState<CalendarEvent[]>([])
   const [loading, setLoading] = useState(true)
@@ -72,6 +74,14 @@ export function LeadAppointmentsList({ leadId }: LeadAppointmentsListProps) {
     navigate(`/calendar?lead=${encodeURIComponent(leadId)}`)
   }
 
+  const handleAgendar = () => {
+    if (onRequestNewAppointment) {
+      onRequestNewAppointment()
+      return
+    }
+    goToCalendar()
+  }
+
   return (
     <>
       <div className="mb-3 flex items-center justify-between gap-2 border-b border-neutral-100 pb-2.5 dark:border-neutral-800/80">
@@ -94,11 +104,14 @@ export function LeadAppointmentsList({ leadId }: LeadAppointmentsListProps) {
       ) : events.length === 0 ? (
         <div className="flex flex-col gap-2 py-1 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-neutral-500 dark:text-neutral-400">
-            Este lead no tiene citas. Las citas se gestionan desde el Calendario.
+            Este lead no tiene citas.{' '}
+            {onRequestNewAppointment
+              ? 'Usa Agendar para crear una cita sin salir de esta pantalla, o abre el calendario completo.'
+              : 'Las citas se gestionan desde el Calendario.'}
           </p>
           <button
             type="button"
-            onClick={goToCalendar}
+            onClick={handleAgendar}
             className="btn btn-primary text-sm shrink-0 self-start sm:self-auto"
           >
             Agendar
@@ -112,7 +125,7 @@ export function LeadAppointmentsList({ leadId }: LeadAppointmentsListProps) {
                 <p className="text-sm text-neutral-500 dark:text-neutral-400">Sin citas programadas</p>
                 <button
                   type="button"
-                  onClick={goToCalendar}
+                  onClick={handleAgendar}
                   className="btn btn-primary text-sm shrink-0 self-start sm:self-auto"
                 >
                   Agendar
