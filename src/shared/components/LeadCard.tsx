@@ -3,7 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { pipelineApi, type PipelineStage } from '../../features/pipeline/pipeline.api'
 import { generateIdempotencyKey } from '../../features/pipeline/pipeline.store'
 import { MoveBackwardConfirmDialog } from '../../features/pipeline/components/MoveBackwardConfirmDialog'
-import { isBackwardStageMove } from '../../features/pipeline/utils/stageMoveDirection'
+import {
+  getMultiStepBackwardBlockedMessage,
+  isBackwardStageMove,
+  isImmediateBackwardStageMove,
+} from '../../features/pipeline/utils/stageMoveDirection'
 import { formatDate } from '../utils/focusHelpers'
 import { displayStageName } from '../utils/stageStyles'
 
@@ -82,6 +86,7 @@ export function LeadCard({
   const [selectedStageId, setSelectedStageId] = useState(stageId || '')
   const [moving, setMoving] = useState(false)
   const [moveMessage, setMoveMessage] = useState<string | null>(null)
+  const [moveBlockedHint, setMoveBlockedHint] = useState<string | null>(null)
   const [backwardConfirmToId, setBackwardConfirmToId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -93,6 +98,7 @@ export function LeadCard({
 
     setMoving(true)
     setMoveMessage(null)
+    setMoveBlockedHint(null)
 
     try {
       const idempotencyKey = generateIdempotencyKey(leadId, stageId, toStageId)
@@ -115,6 +121,13 @@ export function LeadCard({
   const onClickMove = () => {
     if (!stageId || !selectedStageId || selectedStageId === stageId) return
     if (isBackwardStageMove(stageId, selectedStageId, stages as PipelineStage[])) {
+      if (!isImmediateBackwardStageMove(stageId, selectedStageId, stages as PipelineStage[])) {
+        const hint = getMultiStepBackwardBlockedMessage(stageId, stages as PipelineStage[])
+        setMoveBlockedHint(hint)
+        setTimeout(() => setMoveBlockedHint(null), 7000)
+        setSelectedStageId(stageId || '')
+        return
+      }
       setBackwardConfirmToId(selectedStageId)
       return
     }
@@ -196,6 +209,11 @@ export function LeadCard({
           >
             {moving ? '...' : moveMessage || '✓'}
           </button>
+          {moveBlockedHint && (
+            <p className="w-full text-[11px] text-amber-800 dark:text-amber-200 leading-snug mt-1">
+              {moveBlockedHint}
+            </p>
+          )}
         </div>
       )}
 

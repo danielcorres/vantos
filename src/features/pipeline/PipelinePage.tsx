@@ -32,7 +32,11 @@ import type { CreateLeadInput } from './pipeline.api'
 import { calendarApi } from '../calendar/api/calendar.api'
 import type { CalendarEvent } from '../calendar/types/calendar.types'
 import { resolveCalModalFromGuidance } from './utils/resolveCalModalFromGuidance'
-import { isBackwardStageMove } from './utils/stageMoveDirection'
+import {
+  getMultiStepBackwardBlockedMessage,
+  isBackwardStageMove,
+  isImmediateBackwardStageMove,
+} from './utils/stageMoveDirection'
 
 const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
   contactos_nuevos: 'Contactos',
@@ -559,6 +563,14 @@ export function PipelinePage() {
         return
       }
       if (isBackwardStageMove(fromStageId, toStageId, state.stages)) {
+        if (!isImmediateBackwardStageMove(fromStageId, toStageId, state.stages)) {
+          setPipelineToast({
+            type: 'error',
+            message: getMultiStepBackwardBlockedMessage(fromStageId, state.stages),
+          })
+          setDraggedLead(null)
+          return
+        }
         setBackwardPending({
           leadId: d.id,
           fromStageId,
@@ -589,6 +601,13 @@ export function PipelinePage() {
 
       const scrollY = window.scrollY
       if (isBackwardStageMove(fromStageId, toStageId, state.stages)) {
+        if (!isImmediateBackwardStageMove(fromStageId, toStageId, state.stages)) {
+          setPipelineToast({
+            type: 'error',
+            message: getMultiStepBackwardBlockedMessage(fromStageId, state.stages),
+          })
+          return
+        }
         setBackwardPending({
           leadId,
           fromStageId,

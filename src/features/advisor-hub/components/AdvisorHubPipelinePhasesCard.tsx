@@ -12,7 +12,7 @@ import { HUB_CARD, HUB_SECTION_TITLE } from '../hubStyles'
 import { PIPELINE_PHASE_1_SLUGS, PIPELINE_PHASE_2_SLUGS } from '../constants'
 
 const EMBUDO_HUB_INFO_TITLE =
-  'Ventana America/Monterrey (lunes a domingo). El número y la barra comparan entradas a la etapa en esa semana con el mínimo OKR. «En pipeline ahora» es el inventario de leads activos en la columna al cargar la página. Fuente de entradas: historial de movimientos entre etapas (misma lógica que Productividad).'
+  'Ventana America/Monterrey (lunes a domingo). El número y la barra comparan entradas a la etapa en esa semana con el mínimo OKR. «En pipeline ahora» es el inventario de leads activos en la columna al cargar la página. Fuente de entradas: historial de movimientos entre etapas (misma lógica que Productividad). Para mantener estos conteos alineados, al retroceder un lead solo se permite ir a la etapa inmediatamente anterior (no saltar varias columnas hacia atrás de una vez).'
 
 type Props = {
   stageBySlug: Map<string, PipelineStage>

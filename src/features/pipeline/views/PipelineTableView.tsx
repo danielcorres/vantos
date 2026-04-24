@@ -31,7 +31,11 @@ import {
   type SchedulingGuidance,
 } from '../../calendar/utils/stageSchedulingGuidance'
 import { resolveCalModalFromGuidance } from '../utils/resolveCalModalFromGuidance'
-import { isBackwardStageMove } from '../utils/stageMoveDirection'
+import {
+  getMultiStepBackwardBlockedMessage,
+  isBackwardStageMove,
+  isImmediateBackwardStageMove,
+} from '../utils/stageMoveDirection'
 
 const BTN_PRIMARY =
   'h-9 rounded-xl bg-neutral-900 text-white px-4 text-sm font-semibold gap-2 hover:bg-neutral-800 active:scale-[0.98] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-1 flex-shrink-0 inline-flex items-center justify-center'
@@ -553,6 +557,10 @@ export function PipelineTableView({
     if (!lead || lead.stage_id === toStageId) return
     const fromStageId = lead.stage_id
     if (isBackwardStageMove(fromStageId, toStageId, stages)) {
+      if (!isImmediateBackwardStageMove(fromStageId, toStageId, stages)) {
+        setToast({ type: 'error', message: getMultiStepBackwardBlockedMessage(fromStageId, stages) })
+        return
+      }
       setBackwardPending({ leadId, fromStageId, toStageId })
       return
     }

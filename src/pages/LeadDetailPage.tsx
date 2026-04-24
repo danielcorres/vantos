@@ -4,7 +4,11 @@ import { useParams, useNavigate, useBlocker } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { pipelineApi, type LeadStageHistoryRow, type PipelineStage } from '../features/pipeline/pipeline.api'
 import { MoveBackwardConfirmDialog } from '../features/pipeline/components/MoveBackwardConfirmDialog'
-import { isBackwardStageMove } from '../features/pipeline/utils/stageMoveDirection'
+import {
+  getMultiStepBackwardBlockedMessage,
+  isBackwardStageMove,
+  isImmediateBackwardStageMove,
+} from '../features/pipeline/utils/stageMoveDirection'
 import { generateIdempotencyKey } from '../features/pipeline/pipeline.store'
 import { formatDateMX, diffDaysFloor, ymdToLocalNoonISO } from '../shared/utils/dates'
 import { formatCurrencyMXN } from '../shared/utils/format'
@@ -537,6 +541,16 @@ export function LeadDetailPage() {
   const confirmStageChange = () => {
     if (!pendingStageId || !lead) return
     if (isBackwardStageMove(lead.stage_id, pendingStageId, stages as PipelineStage[])) {
+      if (!isImmediateBackwardStageMove(lead.stage_id, pendingStageId, stages as PipelineStage[])) {
+        setPendingStageId(null)
+        setSelectedStageId(lead.stage_id)
+        setToast({
+          kind: 'error',
+          text: getMultiStepBackwardBlockedMessage(lead.stage_id, stages as PipelineStage[]),
+        })
+        setTimeout(() => setToast(null), TOAST_CLEAR_MS)
+        return
+      }
       setBackwardConfirmToStageId(pendingStageId)
       setPendingStageId(null)
       setSelectedStageId(lead.stage_id)

@@ -40,9 +40,10 @@ export function MoveBackwardConfirmDialog({
           </h2>
           <p className="text-sm text-muted mt-2 leading-relaxed">
             <span className="font-medium text-neutral-800 dark:text-neutral-200">{leadDisplayName}</span> está en{' '}
-            <span className="font-medium">{currentStageName}</span>. Si lo mueves a{' '}
-            <span className="font-medium">{targetStageName}</span>, se descontará del conteo semanal en{' '}
-            <span className="font-medium">{currentStageName}</span> (embudo vs. meta y productividad).
+            <span className="font-medium">{currentStageName}</span>. El retroceso en el embudo es solo a la etapa
+            inmediatamente anterior; si confirmas el paso a <span className="font-medium">{targetStageName}</span>, se
+            descontará del conteo semanal en <span className="font-medium">{currentStageName}</span> (embudo vs. meta y
+            productividad).
           </p>
         </div>
         <div className="p-4 flex flex-col sm:flex-row gap-2 sm:justify-end">
