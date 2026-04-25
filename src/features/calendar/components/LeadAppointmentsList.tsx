@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { calendarApi } from '../api/calendar.api'
 import type { CalendarEvent } from '../types/calendar.types'
 import { getTypePillClass, getStatusPillClass, getTypeLabel, getStatusLabel } from '../utils/pillStyles'
+import { eventDisplayLabel } from '../utils/eventDisplay'
 
 /** Misma tipografía que las secciones en LeadDetailPage (Datos, Actividad, …). */
 const SECTION_LABEL =
@@ -143,7 +144,7 @@ export function LeadAppointmentsList({ leadId, onRequestNewAppointment }: LeadAp
                     {formatDateTimeLocal(ev.starts_at)}
                   </span>
                   <span className="text-sm text-neutral-800 dark:text-neutral-200 truncate min-w-0 flex-1">
-                    {ev.title?.trim() || 'Sin título'}
+                    {eventDisplayLabel(ev)}
                   </span>
                 </div>
               ))
@@ -184,7 +185,7 @@ export function LeadAppointmentsList({ leadId, onRequestNewAppointment }: LeadAp
                         </span>
                       ) : null}
                       <span className="text-sm text-neutral-800 dark:text-neutral-200 truncate min-w-0 flex-1">
-                        {ev.title?.trim() || 'Sin título'}
+                        {eventDisplayLabel(ev)}
                       </span>
                     </div>
                   ))}

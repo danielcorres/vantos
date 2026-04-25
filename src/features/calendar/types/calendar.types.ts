@@ -26,6 +26,10 @@ export interface CalendarEvent {
   meeting_link: string | null
   /** ID del evento en Google Calendar (integración futura). */
   google_event_id: string | null
+  /** Relleno por API (JOIN leads) cuando hay lead_id. */
+  lead_full_name?: string | null
+  /** Columna BD: nombre si el lead fue eliminado (FK set null). */
+  lead_name_snapshot?: string | null
   created_at: string
   updated_at: string
 }

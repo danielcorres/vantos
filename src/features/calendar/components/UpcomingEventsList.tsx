@@ -3,6 +3,7 @@ import { calendarApi } from '../api/calendar.api'
 import type { CalendarEvent } from '../types/calendar.types'
 import type { AppointmentEditFocus } from './AppointmentFormModal'
 import { getTypePillClass, getStatusPillClass, getTypeLabel, getStatusLabel } from '../utils/pillStyles'
+import { eventDisplayLabel } from '../utils/eventDisplay'
 import { todayLocalYmd, addDaysYmd } from '../../../shared/utils/dates'
 
 function formatTime(isoString: string): string {
@@ -149,7 +150,7 @@ export function UpcomingEventsList({ onEventClick, refreshKey = 0 }: UpcomingEve
                     onClick={() => onEventClick(ev)}
                     className="min-w-0 flex-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded"
                   >
-                    <span className="text-sm text-text block truncate">{ev.title?.trim() || 'Sin título'}</span>
+                    <span className="text-sm text-text block truncate">{eventDisplayLabel(ev)}</span>
                     {ev.lead_id ? (
                       <span className="text-xs text-muted">{shortLeadId(ev.lead_id)}</span>
                     ) : null}

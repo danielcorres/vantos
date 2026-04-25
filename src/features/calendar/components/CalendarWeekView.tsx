@@ -4,6 +4,7 @@ import type { CalendarEvent } from '../types/calendar.types'
 import type { AppointmentEditFocus } from './AppointmentFormModal'
 import { getWeekRangeFromDate } from '../utils/weekRange'
 import { getTypePillClass, getTypeLabel, getStatusPillClass, getStatusLabel } from '../utils/pillStyles'
+import { eventDisplayLabel } from '../utils/eventDisplay'
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -82,7 +83,7 @@ function EventRowMobile({
         onClick={() => onEventClick(ev)}
         className="min-w-0 flex-1 text-left text-sm text-text truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded px-0.5 -mx-0.5"
       >
-        {ev.title?.trim() || 'Sin título'}
+        {eventDisplayLabel(ev)}
         {ev.lead_id ? <span className="text-xs text-muted shrink-0 ml-1">{shortLeadId(ev.lead_id)}</span> : null}
       </button>
     </div>
@@ -96,7 +97,7 @@ function EventRowDesktop({
   ev: CalendarEvent
   onEventClick: (event: CalendarEvent, focus?: AppointmentEditFocus) => void
 }) {
-  const titleText = ev.title?.trim() || 'Sin título'
+  const titleText = eventDisplayLabel(ev)
   const openGeneral = () => onEventClick(ev)
 
   const handleCardKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {

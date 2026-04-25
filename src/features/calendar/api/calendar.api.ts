@@ -12,7 +12,29 @@ import type { CalendarStageSlug } from '../utils/appointmentStageRules'
 import type { LeadSchedulingSummary } from '../utils/stageSchedulingGuidance'
 import { invokeGoogleCalendarSync } from './googleCalendarEdge'
 
+/** Select PostgREST: join lead para lead_full_name en cliente. */
+const CALENDAR_EVENT_SELECT = '*, leads!calendar_events_lead_id_fkey ( id, full_name )'
+
+function leadFullNameFromRow(row: Record<string, unknown>): string | null {
+  const raw = row.leads
+  if (raw == null) return null
+  const obj = Array.isArray(raw) ? raw[0] : raw
+  if (!obj || typeof obj !== 'object') return null
+  const fn = (obj as { full_name?: unknown }).full_name
+  if (typeof fn !== 'string') return null
+  const t = fn.trim()
+  return t.length > 0 ? t : null
+}
+
 function normalizeEvent(row: Record<string, unknown>): CalendarEvent {
+  const snapRaw = row.lead_name_snapshot
+  const snap =
+    snapRaw == null || snapRaw === ''
+      ? null
+      : typeof snapRaw === 'string'
+        ? snapRaw.trim() || null
+        : String(snapRaw).trim() || null
+
   return {
     id: row.id as string,
     owner_user_id: row.owner_user_id as string,
@@ -26,6 +48,8 @@ function normalizeEvent(row: Record<string, unknown>): CalendarEvent {
     location: (row.location as string | null) ?? null,
     meeting_link: (row.meeting_link as string | null) ?? null,
     google_event_id: (row.google_event_id as string | null) ?? null,
+    lead_full_name: leadFullNameFromRow(row),
+    lead_name_snapshot: snap,
     created_at: row.created_at as string,
     updated_at: row.updated_at as string,
   }
@@ -67,7 +91,7 @@ async function queryNextScheduledByLeadIds(leadIds: string[]): Promise<Record<st
   const now = new Date().toISOString()
   const { data, error } = await supabase
     .from('calendar_events')
-    .select('*')
+    .select(CALENDAR_EVENT_SELECT)
     .in('lead_id', leadIds)
     .eq('status', 'scheduled')
     .gte('starts_at', now)
@@ -110,7 +134,11 @@ async function tryMoveLeadToStageForAppointment(
 
 export const calendarApi = {
   async getEventById(id: string): Promise<CalendarEvent | null> {
-    const { data, error } = await supabase.from('calendar_events').select('*').eq('id', id).maybeSingle()
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select(CALENDAR_EVENT_SELECT)
+      .eq('id', id)
+      .maybeSingle()
     if (error) throw new Error(error.message)
     if (!data) return null
     return normalizeEvent(data as Record<string, unknown>)
@@ -149,7 +177,7 @@ export const calendarApi = {
   }): Promise<CalendarEvent[]> {
     let query = supabase
       .from('calendar_events')
-      .select('*')
+      .select(CALENDAR_EVENT_SELECT)
       .gte('starts_at', params.from)
       .lte('starts_at', params.to)
       .order('starts_at', { ascending: true })
@@ -177,7 +205,7 @@ export const calendarApi = {
 
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('*')
+      .select(CALENDAR_EVENT_SELECT)
       .gte('starts_at', from)
       .in('status', ['scheduled'])
       .order('starts_at', { ascending: true })
@@ -202,7 +230,7 @@ export const calendarApi = {
   async listLeadEvents(leadId: string): Promise<CalendarEvent[]> {
     const { data, error } = await supabase
       .from('calendar_events')
-      .select('*')
+      .select(CALENDAR_EVENT_SELECT)
       .eq('lead_id', leadId)
       .order('starts_at', { ascending: false })
 
@@ -234,7 +262,7 @@ export const calendarApi = {
     const { data, error } = await supabase
       .from('calendar_events')
       .insert(row)
-      .select()
+      .select(CALENDAR_EVENT_SELECT)
       .single()
 
     if (error) throw new Error(error.message)
@@ -262,7 +290,7 @@ export const calendarApi = {
       .from('calendar_events')
       .update(updates)
       .eq('id', id)
-      .select()
+      .select(CALENDAR_EVENT_SELECT)
       .single()
 
     if (error) throw new Error(error.message)
@@ -281,7 +309,7 @@ export const calendarApi = {
       .from('calendar_events')
       .update({ status })
       .eq('id', id)
-      .select()
+      .select(CALENDAR_EVENT_SELECT)
       .single()
 
     if (error) throw new Error(error.message)

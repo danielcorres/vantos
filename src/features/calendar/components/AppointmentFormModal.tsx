@@ -301,10 +301,8 @@ export function AppointmentFormModal({
       return
     }
 
-    const resolvedTitle =
-      (initialTitle?.trim() || '') ||
-      (selectedLead ? selectedLead.full_name : clientDraft.trim()) ||
-      null
+    /** No copiar full_name del lead a title: el nombre sale del JOIN (lead_full_name). Solo asunto explícito (p. ej. pipeline). */
+    const titleForCreate = initialTitle?.trim() ? initialTitle.trim() : null
     const notesOut = notesBody.trim() || null
 
     setLoading(true)
@@ -316,7 +314,7 @@ export function AppointmentFormModal({
           starts_at,
           ends_at,
           lead_id: effectiveLeadId != null && effectiveLeadId !== '' ? effectiveLeadId : undefined,
-          title: resolvedTitle,
+          title: titleForCreate,
           notes: notesOut,
           location: null,
           meeting_link: null,

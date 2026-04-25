@@ -1,6 +1,7 @@
 import type { AppointmentType } from '../types/calendar.types'
 import type { CalendarEvent } from '../types/calendar.types'
 import type { Lead } from '../../pipeline/pipeline.api'
+import { eventDisplayLabel } from './eventDisplay'
 
 export type SchedulingGuidanceMode = 'agendar' | 'reprogramar'
 
@@ -44,7 +45,10 @@ export function getSchedulingGuidance(
       mode: 'reprogramar',
       buttonLabel: 'Reprogramar',
       suggestedType: next.type,
-      suggestedTitle: next.title?.trim() || `Cita: ${nm}`,
+      suggestedTitle: (() => {
+        const d = eventDisplayLabel(next)
+        return d === 'Sin título' ? `Cita: ${nm}` : d
+      })(),
       editEventId: next.id,
       helpText: null,
     }

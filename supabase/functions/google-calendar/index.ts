@@ -6,6 +6,25 @@
  */
 import { createClient } from '@supabase/supabase-js'
 
+/** Incluye columnas necesarias para sync + embed del lead para el summary. */
+const CALENDAR_EVENT_GOOGLE_SELECT = '*, leads!calendar_events_lead_id_fkey ( full_name )'
+
+function calendarSummaryFromRow(row: Record<string, unknown>): string {
+  const raw = row.leads as { full_name?: string } | { full_name?: string }[] | null | undefined
+  let fromLead = ''
+  if (raw && !Array.isArray(raw)) {
+    fromLead = String((raw as { full_name?: string }).full_name ?? '').trim()
+  } else if (Array.isArray(raw) && raw[0]) {
+    fromLead = String((raw[0] as { full_name?: string }).full_name ?? '').trim()
+  }
+  if (fromLead) return fromLead
+  const snap = String(row.lead_name_snapshot ?? '').trim()
+  if (snap) return snap
+  const title = String(row.title ?? '').trim()
+  if (title) return title
+  return 'Cita'
+}
+
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -417,7 +436,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: row, error: evErr } = await admin
       .from('calendar_events')
-      .select('*')
+      .select(CALENDAR_EVENT_GOOGLE_SELECT)
       .eq('id', eventId)
       .maybeSingle()
     if (evErr) return json({ error: evErr.message }, 500)
@@ -444,7 +463,7 @@ Deno.serve(async (req: Request) => {
       return json({ ok: true, cleaned: true })
     }
 
-    const summary = (row.title as string | null)?.trim() || 'Cita'
+    const summary = calendarSummaryFromRow(row as Record<string, unknown>)
     const gBody = {
       summary,
       description: (row.notes as string | null) ?? undefined,
