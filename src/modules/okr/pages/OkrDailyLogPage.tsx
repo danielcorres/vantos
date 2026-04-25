@@ -4,7 +4,7 @@ import { supabase } from '../../../lib/supabase'
 import { isNetworkError, isAuthError, getErrorMessage } from '../../../lib/supabaseErrorHandler'
 import { okrQueries, type DailyEntry, type PointsProgress, type OkrTier } from '../data/okrQueries'
 import { DailyGoalProgress } from '../components/DailyGoalProgress'
-import { Toast } from '../../../shared/components/Toast'
+import { useNotify } from '../../../shared/utils/notify'
 import { useAutoRefresh } from '../../../shared/hooks/useAutoRefresh'
 import { timeAgo } from '../../../shared/utils/timeAgo'
 import { todayLocalYmd, addDaysYmd } from '../../../shared/utils/dates'
@@ -23,6 +23,7 @@ type MetricDefinition = {
 }
 
 export function OkrDailyLogPage() {
+  const notify = useNotify()
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const dateParam = searchParams.get('date')
@@ -47,7 +48,6 @@ export function OkrDailyLogPage() {
   const [hasChanges, setHasChanges] = useState(false)
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   // Estado temporal para inputs en mobile (permite string vacío mientras se escribe)
   const [inputValues, setInputValues] = useState<Record<string, string>>({})
   const hasChangesRef = useRef(false)
@@ -167,22 +167,12 @@ export function OkrDailyLogPage() {
       if (!isMounted) return
       
       const errorMsg = getErrorMessage(err)
-      setToast({
-        type: 'error',
-        message: errorMsg,
-      })
-
-      // Si es error de red, mostrar mensaje específico
       if (isNetworkError(err)) {
-        setToast({
-          type: 'error',
-          message: 'Supabase local no responde. Corre: supabase start',
-        })
+        notify.error('okr.supabase_local')
       } else if (isAuthError(err)) {
-        setToast({
-          type: 'error',
-          message: 'Error de autenticación. Por favor, recarga la página.',
-        })
+        notify.error('okr.auth_reload')
+      } else {
+        notify.raw(errorMsg, 'error')
       }
     } finally {
       if (isMounted && !silent) {
@@ -301,7 +291,6 @@ export function OkrDailyLogPage() {
 
   const handleSave = async () => {
     setSaving(true)
-    setToast(null)
 
     try {
       // Preparar entries (incluir todas las métricas, incluso con 0)
@@ -341,35 +330,25 @@ export function OkrDailyLogPage() {
       // Guardar timestamp de último guardado
       setLastSavedAt(new Date())
       setSaveError(null)
-      setToast({ type: 'success', message: 'Guardado ✅' })
+      notify.success('okr.daily_saved')
     } catch (err: unknown) {
       // Logging útil para debugging
       console.error('Error saving daily entries:', err)
 
       const errorMsg = getErrorMessage(err)
       setSaveError(errorMsg)
-      setToast({
-        type: 'error',
-        message: 'Error al guardar',
-      })
 
-      // Si es error de red, mostrar mensaje específico
       if (isNetworkError(err)) {
         setSaveError('No se pudo conectar. Reintenta.')
-        setToast({
-          type: 'error',
-          message: 'Supabase local no responde. Corre: supabase start',
-        })
+        notify.error('okr.supabase_local')
       } else if (isAuthError(err)) {
         setSaveError('Error de autenticación')
-        setToast({
-          type: 'error',
-          message: 'Error de autenticación. Por favor, recarga la página.',
-        })
+        notify.error('okr.auth_reload')
+      } else {
+        notify.error('generic.error_retry')
       }
     } finally {
       setSaving(false)
-      setTimeout(() => setToast(null), 2000)
     }
   }
 
@@ -760,18 +739,11 @@ export function OkrDailyLogPage() {
             disabled={!hasChanges || saving}
             className="btn btn-primary px-6 py-2.5"
           >
-            {saving ? 'Guardando...' : hasChanges ? 'Guardar' : 'Guardado ✅'}
+            {saving ? 'Guardando...' : hasChanges ? 'Guardar' : 'Guardado'}
           </button>
         </div>
       </div>
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
     </div>
   )
 }

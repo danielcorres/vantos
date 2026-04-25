@@ -4,7 +4,7 @@ import { supabase } from '../../../lib/supabase'
 import { isNetworkError, isAuthError, getErrorMessage } from '../../../lib/supabaseErrorHandler'
 import { okrQueries } from '../data/okrQueries'
 import { DailyGoalProgress } from '../components/DailyGoalProgress'
-import { Toast } from '../../../shared/components/Toast'
+import { useNotify } from '../../../shared/utils/notify'
 import { todayLocalYmd, timestampToYmdInTz, addDaysYmd, TZ_MTY } from '../../../shared/utils/dates'
 import { compareOkrMetricDisplayOrder, getMetricLabel } from '../domain/metricLabels'
 
@@ -19,6 +19,7 @@ interface TodaySummary {
 }
 
 export function OkrTodayPage() {
+  const notify = useNotify()
   const navigate = useNavigate()
   const [data, setData] = useState<TodaySummary[]>([])
   const [totalPoints, setTotalPoints] = useState(0)
@@ -27,8 +28,6 @@ export function OkrTodayPage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null)
-
   const load = async () => {
     setLoading(true)
     setError(null)
@@ -102,15 +101,9 @@ export function OkrTodayPage() {
 
       // Si es error de red, mostrar mensaje específico
       if (isNetworkError(err)) {
-        setToast({
-          type: 'error',
-          message: 'Supabase local no responde. Corre: supabase start',
-        })
+        notify.error('okr.supabase_local')
       } else if (isAuthError(err)) {
-        setToast({
-          type: 'error',
-          message: 'Error de autenticación. Por favor, recarga la página.',
-        })
+        notify.error('okr.auth_reload')
       }
     } finally {
       setLoading(false)
@@ -136,11 +129,11 @@ export function OkrTodayPage() {
 
       if (err) throw err
       await load()
-      setToast({ type: 'success', message: 'Registrado ✅' })
+      notify.success('okr.activity_registered')
     } catch (err: unknown) {
       const errorMessage = getErrorMessage(err) || 'Error al registrar actividad'
       setError(errorMessage)
-      setToast({ type: 'error', message: errorMessage })
+      notify.raw(errorMessage, 'error')
     } finally {
       setBusy(false)
     }
@@ -156,11 +149,11 @@ export function OkrTodayPage() {
 
       if (err) throw err
       await load()
-      setToast({ type: 'success', message: 'Deshecho ✅' })
+      notify.success('okr.last_event_undone')
     } catch (err: unknown) {
       const errorMessage = getErrorMessage(err) || 'Error al deshacer'
       setError(errorMessage)
-      setToast({ type: 'error', message: errorMessage })
+      notify.raw(errorMessage, 'error')
     } finally {
       setBusy(false)
     }
@@ -269,13 +262,6 @@ export function OkrTodayPage() {
         ))}
       </div>
 
-      {toast && (
-        <Toast
-          type={toast.type}
-          message={toast.message}
-          onClose={() => setToast(null)}
-        />
-      )}
     </div>
   )
 }

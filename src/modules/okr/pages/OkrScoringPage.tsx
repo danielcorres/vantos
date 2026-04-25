@@ -3,7 +3,7 @@ import { Navigate } from 'react-router-dom'
 import { supabase } from '../../../lib/supabase'
 import { isNetworkError, isAuthError, getErrorMessage } from '../../../lib/supabaseErrorHandler'
 import { okrQueries, type OkrTier } from '../data/okrQueries'
-import { Toast } from '../../../shared/components/Toast'
+import { useNotify } from '../../../shared/utils/notify'
 import { useUserRole } from '../../../shared/hooks/useUserRole'
 import { useAuth } from '../../../shared/auth/AuthProvider'
 import { compareOkrMetricDisplayOrder, getMetricLabel } from '../domain/metricLabels'
@@ -16,6 +16,7 @@ type MetricDefinition = {
 }
 
 export function OkrScoringPage() {
+  const notify = useNotify()
   // Hook para obtener auth state
   const { session, user, loading: authLoading, systemOwnerId } = useAuth()
   
@@ -35,7 +36,6 @@ export function OkrScoringPage() {
   const [saving, setSaving] = useState(false)
   const [savingSettings, setSavingSettings] = useState(false)
   const [savingDailyTarget, setSavingDailyTarget] = useState(false)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const scoresLoadInProgressRef = useRef(false)
 
@@ -124,22 +124,12 @@ export function OkrScoringPage() {
       setMetrics(filteredMetrics)
     } catch (err: unknown) {
       const errorMsg = getErrorMessage(err)
-      setToast({
-        type: 'error',
-        message: errorMsg,
-      })
-
-      // Si es error de red, mostrar mensaje específico
       if (isNetworkError(err)) {
-        setToast({
-          type: 'error',
-          message: 'Supabase local no responde. Corre: supabase start',
-        })
+        notify.error('okr.supabase_local')
       } else if (isAuthError(err)) {
-        setToast({
-          type: 'error',
-          message: 'Error de autenticación. Por favor, recarga la página.',
-        })
+        notify.error('okr.auth_reload')
+      } else {
+        notify.raw(errorMsg, 'error')
       }
     } finally {
       setLoading(false)
@@ -219,15 +209,11 @@ export function OkrScoringPage() {
 
   const handleSave = async () => {
     if (!canEdit && !canInitialize) {
-      setToast({
-        type: 'error',
-        message: 'Solo el administrador puede guardar la configuración',
-      })
+      notify.error('okr.admin_only')
       return
     }
 
     setSaving(true)
-    setToast(null)
 
     try {
       // Construir array de entries
@@ -242,30 +228,22 @@ export function OkrScoringPage() {
       // Refetch de scores
       await loadScores()
 
-      setToast({ type: 'success', message: 'Guardado ✅' })
+      notify.success('okr.scoring_saved')
     } catch (err: unknown) {
       const errorMsg = getErrorMessage(err)
-      setToast({
-        type: 'error',
-        message: errorMsg,
-      })
+      notify.raw(errorMsg, 'error')
     } finally {
       setSaving(false)
-      setTimeout(() => setToast(null), 3000)
     }
   }
 
   const handleSaveDailyTarget = async () => {
     if (!canEdit && !canInitialize) {
-      setToast({
-        type: 'error',
-        message: 'Solo el administrador puede guardar la configuración',
-      })
+      notify.error('okr.admin_only')
       return
     }
 
     setSavingDailyTarget(true)
-    setToast(null)
 
     try {
       // Convertir string a int, usar 25 como default si está vacío
@@ -282,35 +260,30 @@ export function OkrScoringPage() {
       // Refetch para obtener id actualizado si se creó
       await loadData()
 
-      setToast({ type: 'success', message: 'Meta diaria guardada ✅' })
+      notify.success('okr.daily_target_saved')
     } catch (err: unknown) {
       const errorMsg = getErrorMessage(err)
-      const details = err && typeof err === 'object' && 'details' in err ? String(err.details) : ''
+      const details =
+        err && typeof err === 'object' && 'details' in err
+          ? String((err as { details?: unknown }).details)
+          : ''
       const fullMessage = details ? `${errorMsg} (${details})` : errorMsg
-      
+
       console.error('Error guardando meta diaria:', { err, dailyTarget })
-      
-      setToast({
-        type: 'error',
-        message: fullMessage,
-      })
+
+      notify.raw(fullMessage, 'error')
     } finally {
       setSavingDailyTarget(false)
-      setTimeout(() => setToast(null), 3000)
     }
   }
 
   const handleSaveSettings = async () => {
     if (!canEdit && !canInitialize) {
-      setToast({
-        type: 'error',
-        message: 'Solo el administrador puede guardar la configuración',
-      })
+      notify.error('okr.admin_only')
       return
     }
 
     setSavingSettings(true)
-    setToast(null)
 
     try {
       const dailyValue = dailyTarget.trim() === '' ? 25 : parseInt(dailyTarget, 10)
@@ -332,21 +305,20 @@ export function OkrScoringPage() {
       // Refetch
       await loadData()
 
-      setToast({ type: 'success', message: 'Configuración guardada ✅' })
+      notify.success('okr.global_settings_saved')
     } catch (err: unknown) {
       const errorMsg = getErrorMessage(err)
-      const details = err && typeof err === 'object' && 'details' in err ? String(err.details) : ''
+      const details =
+        err && typeof err === 'object' && 'details' in err
+          ? String((err as { details?: unknown }).details)
+          : ''
       const fullMessage = details ? `${errorMsg} (${details})` : errorMsg
-      
+
       console.error('Error guardando configuración:', { err, dailyTarget, weeklyDays, tiers })
-      
-      setToast({
-        type: 'error',
-        message: fullMessage,
-      })
+
+      notify.raw(fullMessage, 'error')
     } finally {
       setSavingSettings(false)
-      setTimeout(() => setToast(null), 3000)
     }
   }
 
@@ -593,9 +565,6 @@ export function OkrScoringPage() {
         )}
       </div>
 
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
     </div>
   )
 }
