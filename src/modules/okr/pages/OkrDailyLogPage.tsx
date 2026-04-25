@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { supabase } from '../../../lib/supabase'
 import { isNetworkError, isAuthError, getErrorMessage } from '../../../lib/supabaseErrorHandler'
 import { okrQueries, type DailyEntry, type PointsProgress, type OkrTier } from '../data/okrQueries'
+import { fetchActiveMetricDefinitionsCached } from '../data/okrDailyLogCache'
 import { DailyGoalProgress } from '../components/DailyGoalProgress'
+import { OkrDailyMetricRow } from '../components/OkrDailyMetricRow'
+import { useAuth } from '../../../shared/auth/AuthProvider'
 import { useNotify } from '../../../shared/utils/notify'
 import { useAutoRefresh } from '../../../shared/hooks/useAutoRefresh'
 import { timeAgo } from '../../../shared/utils/timeAgo'
@@ -16,6 +18,13 @@ import {
 
 const IS_DEV = import.meta.env.DEV
 
+const DEFAULT_STREAK = {
+  streak_days: 0,
+  last_logged_date: null as string | null,
+  is_alive: false,
+  grace_days_left: 0,
+}
+
 type MetricDefinition = {
   key: string
   label: string
@@ -24,6 +33,15 @@ type MetricDefinition = {
 
 export function OkrDailyLogPage() {
   const notify = useNotify()
+  const { user } = useAuth()
+  const mountedRef = useRef(true)
+  useEffect(() => {
+    mountedRef.current = true
+    return () => {
+      mountedRef.current = false
+    }
+  }, [])
+
   const [searchParams, setSearchParams] = useSearchParams()
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     const dateParam = searchParams.get('date')
@@ -55,29 +73,38 @@ export function OkrDailyLogPage() {
     hasChangesRef.current = hasChanges
   }, [hasChanges])
 
-  const loadData = useCallback(async (opts?: { silent?: boolean }) => {
-    const silent = opts?.silent === true
-    if (silent && hasChangesRef.current) {
+  const loadData = useCallback(async () => {
+    const userId = user?.id
+    if (!userId) {
+      setLoading(false)
       return
     }
 
-    const isMounted = true
+    setLoading(true)
+    const t0 = IS_DEV ? performance.now() : 0
 
-    if (!silent) {
-      setLoading(true)
-    }
     try {
-      // Cargar métricas disponibles
-      const { data: metricDefs, error: defsError } = await supabase
-        .from('metric_definitions')
-        .select('key, label, sort_order')
-        .eq('is_active', true)
-        .order('sort_order')
+      const [rawDefs, scoresList, dailyEntries, progressData, settingsRow, streakData] = await Promise.all([
+        fetchActiveMetricDefinitionsCached(),
+        okrQueries.getMetricScores().catch((scoresErr: unknown) => {
+          console.warn('[OkrDailyLogPage] Error al cargar scores (continuando sin scores):', scoresErr)
+          return [] as Awaited<ReturnType<typeof okrQueries.getMetricScores>>
+        }),
+        okrQueries.getDailyEntriesForUser(selectedDate, userId),
+        okrQueries.getPointsProgress(selectedDate),
+        okrQueries.getOkrSettingsGlobal().catch((settingsErr: unknown) => {
+          console.warn('Error al cargar settings global:', settingsErr)
+          return null
+        }),
+        okrQueries.getOkrStreakWithGrace().catch((streakErr: unknown) => {
+          console.warn('Error al cargar racha:', streakErr)
+          return DEFAULT_STREAK
+        }),
+      ])
 
-      if (defsError) throw defsError
+      if (!mountedRef.current) return
 
-      // Filtrar en frontend: excluir métricas que empiecen con 'pipeline.'
-      let filteredMetrics = (metricDefs || [])
+      let filteredMetrics: MetricDefinition[] = (rawDefs || [])
         .filter((m) => !m.key.startsWith('pipeline.'))
         .map((m) => ({ ...m, label: getMetricLabel(m.key) }))
         .sort((a, b) => {
@@ -86,7 +113,6 @@ export function OkrDailyLogPage() {
           return (a.sort_order ?? 0) - (b.sort_order ?? 0)
         })
 
-      // Fallback: si no hay métricas de DB, usar catálogo core
       if (filteredMetrics.length === 0) {
         filteredMetrics = OKR_CORE_METRIC_DISPLAY_ORDER.map((key, i) => ({
           key,
@@ -94,78 +120,31 @@ export function OkrDailyLogPage() {
           sort_order: i,
         }))
       }
-      
-      if (!isMounted) return
+
+      const scoresMap: Record<string, number> = {}
+      scoresList.forEach((s) => {
+        scoresMap[s.metric_key] = s.points_per_unit
+      })
 
       setMetrics(filteredMetrics)
-
-      // Cargar scores (no bloquear si falla)
-      try {
-        const existingScores = await okrQueries.getMetricScores()
-        const scoresMap: Record<string, number> = {}
-        existingScores.forEach((s) => {
-          scoresMap[s.metric_key] = s.points_per_unit
-        })
-        
-        if (!isMounted) return
-        
-        setScores(scoresMap)
-        if (IS_DEV) {
-          console.debug('[OkrDailyLogPage] scores', { len: existingScores.length })
-        }
-      } catch (scoresErr) {
-        console.warn('[OkrDailyLogPage] Error al cargar scores (continuando sin scores):', scoresErr)
-        if (!isMounted) return
-        setScores({})
-        if (IS_DEV) {
-          console.debug('[OkrDailyLogPage] scores', { len: 0 })
-        }
-      }
-
-      // Cargar entradas del día
-      const dailyEntries = await okrQueries.getDailyEntries(selectedDate)
-      
-      if (!isMounted) return
-      
+      setScores(scoresMap)
       setEntries(dailyEntries)
-      if (!silent) {
-        setInputValues({}) // Limpiar valores temporales al cargar nuevos datos
-        setHasChanges(false)
-      }
-
-      // Cargar progreso
-      const progressData = await okrQueries.getPointsProgress(selectedDate)
-      
-      if (!isMounted) return
-      
+      setInputValues({})
+      setHasChanges(false)
       setProgress(progressData)
+      setTiers(settingsRow?.tiers || [])
+      setStreak(streakData)
 
-      // Cargar settings global (para tiers)
-      try {
-        const settings = await okrQueries.getOkrSettingsGlobal()
-        setTiers(settings.tiers || [])
-      } catch (settingsErr) {
-        console.warn('Error al cargar settings global:', settingsErr)
-        // Continuar sin tiers (DailyGoalProgress tiene fallback)
-      }
-
-      // Cargar racha con tolerancia desde backend
-      try {
-        const streakData = await okrQueries.getOkrStreakWithGrace()
-        setStreak(streakData)
-      } catch (streakErr) {
-        // Si falla la racha, continuar con el resto
-        console.warn('Error al cargar racha:', streakErr)
-        setStreak({
-          streak_days: 0,
-          last_logged_date: null,
-          is_alive: false,
-          grace_days_left: 0,
+      if (IS_DEV) {
+        console.debug('[OKR Daily] loadData', {
+          ms: Math.round(performance.now() - t0),
+          scoresLen: scoresList.length,
+          parallelRequests: 6,
         })
       }
     } catch (err: unknown) {
-      if (!isMounted) return
-      
+      if (!mountedRef.current) return
+
       const errorMsg = getErrorMessage(err)
       if (isNetworkError(err)) {
         notify.error('okr.supabase_local')
@@ -175,35 +154,60 @@ export function OkrDailyLogPage() {
         notify.raw(errorMsg, 'error')
       }
     } finally {
-      if (isMounted && !silent) {
+      if (mountedRef.current) {
         setLoading(false)
       }
     }
-  }, [selectedDate])
+  }, [selectedDate, user?.id, notify])
 
   useEffect(() => {
-    loadData()
+    void loadData()
   }, [loadData])
 
-  const silentRefresh = useCallback(() => loadData({ silent: true }), [loadData])
-  useAutoRefresh(silentRefresh, { enabled: !loading && !saving })
+  const refreshVolatileData = useCallback(async () => {
+    if (hasChangesRef.current) return
+    const userId = user?.id
+    if (!userId) return
 
-  const handleEntryChange = (metricKey: string, rawValue: string) => {
-    // Normalizar: eliminar espacios (permite pegar "1 000" → "1000")
+    const t0 = IS_DEV ? performance.now() : 0
+    try {
+      const [dailyEntries, progressData, streakData] = await Promise.all([
+        okrQueries.getDailyEntriesForUser(selectedDate, userId),
+        okrQueries.getPointsProgress(selectedDate),
+        okrQueries.getOkrStreakWithGrace().catch((streakErr: unknown) => {
+          console.warn('[OkrDailyLogPage] refresh streak:', streakErr)
+          return DEFAULT_STREAK
+        }),
+      ])
+
+      if (!mountedRef.current) return
+
+      setEntries(dailyEntries)
+      setProgress(progressData)
+      setStreak(streakData)
+
+      if (IS_DEV) {
+        console.debug('[OKR Daily] refreshVolatileData', { ms: Math.round(performance.now() - t0) })
+      }
+    } catch (err: unknown) {
+      console.warn('Auto-refresh failed:', err)
+    }
+  }, [selectedDate, user?.id])
+
+  useAutoRefresh(refreshVolatileData, { enabled: !loading && !saving })
+
+  const handleEntryChange = useCallback((metricKey: string, rawValue: string) => {
     const clean = rawValue.replace(/\s/g, '')
 
-    // Validar: solo permite string vacío o dígitos
     if (clean !== '' && !/^\d*$/.test(clean)) {
-      return // Ignorar valores inválidos
+      return
     }
 
-    // Actualizar estado temporal del input
     setInputValues((prev) => ({
       ...prev,
       [metricKey]: clean,
     }))
 
-    // Si está vacío, actualizar entries a 0 para que el total refleje 0 en tiempo real
     if (clean === '') {
       setEntries((prev) => ({
         ...prev,
@@ -213,7 +217,6 @@ export function OkrDailyLogPage() {
       return
     }
 
-    // Si hay dígitos, convertir y actualizar entries
     const n = parseInt(clean, 10)
     const finalValue = Number.isFinite(n) && n >= 0 ? n : 0
 
@@ -222,49 +225,47 @@ export function OkrDailyLogPage() {
       [metricKey]: finalValue,
     }))
     setHasChanges(true)
-  }
+  }, [])
 
-  const handleEntryBlur = (metricKey: string) => {
-    const rawInputValue = inputValues[metricKey] ?? String(entries[metricKey] ?? 0)
-    // Normalizar espacios (por si acaso)
-    const cleanInputValue = rawInputValue.replace(/\s/g, '')
-    
-    // Si está vacío al hacer blur, dejar entries en 0 y limpiar estado temporal
-    if (cleanInputValue === '') {
-      setEntries((prev) => ({
-        ...prev,
-        [metricKey]: 0,
-      }))
-      setInputValues((prev) => {
-        const next = { ...prev }
-        delete next[metricKey]
-        return next
-      })
-      setHasChanges(true)
-    } else {
-      // Normalizar el valor numérico
+  const handleEntryBlur = useCallback(
+    (metricKey: string) => {
+      const rawInputValue = inputValues[metricKey] ?? String(entries[metricKey] ?? 0)
+      const cleanInputValue = rawInputValue.replace(/\s/g, '')
+
+      if (cleanInputValue === '') {
+        setEntries((prev) => ({
+          ...prev,
+          [metricKey]: 0,
+        }))
+        setInputValues((prev) => {
+          const next = { ...prev }
+          delete next[metricKey]
+          return next
+        })
+        setHasChanges(true)
+        return
+      }
+
       const n = parseInt(cleanInputValue, 10)
       const finalValue = Number.isFinite(n) && n >= 0 ? n : 0
       setEntries((prev) => ({
         ...prev,
         [metricKey]: finalValue,
       }))
-      // Limpiar estado temporal (el input mostrará el valor numérico normalizado)
       setInputValues((prev) => {
         const next = { ...prev }
         delete next[metricKey]
         return next
       })
       setHasChanges(true)
-    }
-  }
+    },
+    [entries, inputValues]
+  )
 
-  const handleIncrement = (metricKey: string) => {
-    const currentValue = entries[metricKey] ?? 0
-    const newValue = currentValue + 1
+  const handleIncrement = useCallback((metricKey: string) => {
     setEntries((prev) => ({
       ...prev,
-      [metricKey]: newValue,
+      [metricKey]: (prev[metricKey] ?? 0) + 1,
     }))
     setInputValues((prev) => {
       const next = { ...prev }
@@ -272,14 +273,12 @@ export function OkrDailyLogPage() {
       return next
     })
     setHasChanges(true)
-  }
+  }, [])
 
-  const handleDecrement = (metricKey: string) => {
-    const currentValue = entries[metricKey] ?? 0
-    const newValue = Math.max(0, currentValue - 1)
+  const handleDecrement = useCallback((metricKey: string) => {
     setEntries((prev) => ({
       ...prev,
-      [metricKey]: newValue,
+      [metricKey]: Math.max(0, (prev[metricKey] ?? 0) - 1),
     }))
     setInputValues((prev) => {
       const next = { ...prev }
@@ -287,18 +286,24 @@ export function OkrDailyLogPage() {
       return next
     })
     setHasChanges(true)
-  }
+  }, [])
 
   const handleSave = async () => {
+    const userId = user?.id
+    if (!userId) {
+      notify.error('okr.auth_reload')
+      return
+    }
+
     setSaving(true)
+    const t0 = IS_DEV ? performance.now() : 0
+    let rpcMs = 0
 
     try {
-      // Preparar entries (incluir todas las métricas, incluso con 0)
-      // Usar metrics si existe, sino catálogo core ordenado
-      const metricKeys =
+      const metricKeysSave =
         metrics.length > 0 ? metrics.map((m) => m.key) : [...OKR_CORE_METRIC_DISPLAY_ORDER]
-      
-      const entriesToSave: DailyEntry[] = metricKeys.map((metricKey) => {
+
+      const entriesToSave: DailyEntry[] = metricKeysSave.map((metricKey) => {
         const raw = entries[metricKey] ?? 0
         const n = parseInt(String(raw), 10)
         const value = Number.isFinite(n) && n >= 0 ? n : 0
@@ -308,29 +313,37 @@ export function OkrDailyLogPage() {
         }
       })
 
+      const tRpc = IS_DEV ? performance.now() : 0
       await okrQueries.saveDailyEntries(selectedDate, entriesToSave)
+      if (IS_DEV) rpcMs = Math.round(performance.now() - tRpc)
 
-      // Refetch específico de entradas y progreso (no recargar todo)
-      const dailyEntries = await okrQueries.getDailyEntries(selectedDate)
-      setEntries(dailyEntries)
-      setInputValues({}) // Limpiar valores temporales después de guardar
+      setInputValues({})
       setHasChanges(false)
-
-      const progressData = await okrQueries.getPointsProgress(selectedDate)
-      setProgress(progressData)
-
-      // Refetch de racha después de guardar
-      try {
-        const streakData = await okrQueries.getOkrStreakWithGrace()
-        setStreak(streakData)
-      } catch (streakErr) {
-        console.warn('Error al actualizar racha:', streakErr)
-      }
-
-      // Guardar timestamp de último guardado
       setLastSavedAt(new Date())
       setSaveError(null)
       notify.success('okr.daily_saved')
+
+      const [dailyEntries, progressData, streakData] = await Promise.all([
+        okrQueries.getDailyEntriesForUser(selectedDate, userId),
+        okrQueries.getPointsProgress(selectedDate),
+        okrQueries.getOkrStreakWithGrace().catch((streakErr: unknown) => {
+          console.warn('Error al actualizar racha:', streakErr)
+          return DEFAULT_STREAK
+        }),
+      ])
+
+      if (!mountedRef.current) return
+
+      setEntries(dailyEntries)
+      setProgress(progressData)
+      setStreak(streakData)
+
+      if (IS_DEV) {
+        console.debug('[OKR Daily] handleSave', {
+          rpcMs,
+          totalMs: Math.round(performance.now() - t0),
+        })
+      }
     } catch (err: unknown) {
       // Logging útil para debugging
       console.error('Error saving daily entries:', err)
@@ -381,6 +394,14 @@ export function OkrDailyLogPage() {
   const totalPoints = metricKeys.reduce((sum, metricKey) => {
     return sum + calculatePoints(metricKey, entries[metricKey] ?? 0)
   }, 0)
+
+  const metricByKey = useMemo(() => {
+    const map: Record<string, MetricDefinition> = {}
+    for (const def of metrics) {
+      map[def.key] = def
+    }
+    return map
+  }, [metrics])
 
   if (loading) {
     return (
@@ -520,65 +541,32 @@ export function OkrDailyLogPage() {
         {/* Mobile: Card Stack Layout */}
         <div className="md:hidden space-y-3 p-4">
           {metricKeys.map((metricKey) => {
-            const metric = metrics.find(m => m.key === metricKey) || {
+            const metric = metricByKey[metricKey] ?? {
               key: metricKey,
               label: getMetricLabel(metricKey),
               sort_order: 0,
             }
             const value = entries[metricKey] ?? 0
             const points = calculatePoints(metricKey, value)
-            const hasValue = value > 0
+            const inputDisplay =
+              metricKey in inputValues ? inputValues[metricKey] : value === 0 ? '' : String(value)
 
             return (
-              <div
+              <OkrDailyMetricRow
                 key={metricKey}
-                className={`p-3 rounded-lg border border-border transition-colors ${
-                  hasValue ? 'bg-primary/5 border-primary/20' : 'bg-surface'
-                }`}
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex-1">
-                    <div className="font-medium text-sm mb-1">{metric.label}</div>
-                    <div className="text-xs text-muted">Pts/u: {scores[metricKey] ?? 0}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-sm font-bold mb-1">{points} pts</div>
-                    <div className="flex items-center gap-1.5 justify-end">
-                      <button
-                        type="button"
-                        onClick={() => handleDecrement(metricKey)}
-                        disabled={saving || value === 0}
-                        className="w-11 h-11 flex items-center justify-center border border-border rounded-md text-text hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        aria-label={`Decrementar ${metric.label}`}
-                      >
-                        −
-                      </button>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        value={metricKey in inputValues ? inputValues[metricKey] : (value === 0 ? '' : String(value))}
-                        onChange={(e) => handleEntryChange(metricKey, e.target.value)}
-                        onFocus={(e) => e.currentTarget.select()}
-                        onBlur={() => handleEntryBlur(metricKey)}
-                        disabled={saving}
-                        className="scheme-light w-20 border border-border rounded-md bg-surface px-2 py-1.5 text-base text-right text-text focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="0"
-                        aria-label={`Cantidad para ${metric.label}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleIncrement(metricKey)}
-                        disabled={saving}
-                        className="w-11 h-11 flex items-center justify-center border border-border rounded-md text-text hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        aria-label={`Incrementar ${metric.label}`}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
+                variant="card"
+                metricKey={metricKey}
+                label={metric.label}
+                pointsPerUnit={scores[metricKey] ?? 0}
+                value={value}
+                points={points}
+                inputDisplay={inputDisplay}
+                saving={saving}
+                onEntryChange={handleEntryChange}
+                onEntryBlur={handleEntryBlur}
+                onIncrement={handleIncrement}
+                onDecrement={handleDecrement}
+              />
             )
           })}
           {/* Total en mobile */}
@@ -611,67 +599,33 @@ export function OkrDailyLogPage() {
             </thead>
             <tbody>
               {metricKeys.map((metricKey, index) => {
-                const metric = metrics.find(m => m.key === metricKey) || {
+                const metric = metricByKey[metricKey] ?? {
                   key: metricKey,
                   label: getMetricLabel(metricKey),
                   sort_order: 0,
                 }
                 const value = entries[metricKey] ?? 0
                 const points = calculatePoints(metricKey, value)
-                const hasValue = value > 0
+                const inputDisplay =
+                  metricKey in inputValues ? inputValues[metricKey] : value === 0 ? '' : String(value)
 
                 return (
-                  <tr
+                  <OkrDailyMetricRow
                     key={metricKey}
-                    className={`border-b border-border transition-colors ${
-                      index % 2 === 0 ? 'bg-surface' : 'bg-bg'
-                    } ${hasValue ? 'bg-primary/5' : ''} hover:bg-primary/10`}
-                  >
-                    <td className="py-2.5 px-4">
-                      <div className="font-medium text-sm">{metric.label}</div>
-                    </td>
-                    <td className="py-2.5 px-4 text-right">
-                      <span className="text-xs text-muted">{scores[metricKey] ?? 0}</span>
-                    </td>
-                    <td className="py-2.5 px-4">
-                      <div className="flex items-center gap-1.5 justify-end">
-                        <button
-                          type="button"
-                          onClick={() => handleDecrement(metricKey)}
-                          disabled={saving || value === 0}
-                          className="w-11 h-11 flex items-center justify-center border border-border rounded-md text-text hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          aria-label={`Decrementar ${metric.label}`}
-                        >
-                          −
-                        </button>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={metricKey in inputValues ? inputValues[metricKey] : (value === 0 ? '' : String(value))}
-                          onChange={(e) => handleEntryChange(metricKey, e.target.value)}
-                          onFocus={(e) => e.currentTarget.select()}
-                          onBlur={() => handleEntryBlur(metricKey)}
-                          disabled={saving}
-                          className="scheme-light w-20 border border-border rounded-md bg-surface px-2 py-1.5 text-base text-right text-text focus:outline-none focus:ring-2 focus:ring-primary"
-                          placeholder="0"
-                          aria-label={`Cantidad para ${metric.label}`}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleIncrement(metricKey)}
-                          disabled={saving}
-                          className="w-11 h-11 flex items-center justify-center border border-border rounded-md text-text hover:bg-black/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          aria-label={`Incrementar ${metric.label}`}
-                        >
-                          +
-                        </button>
-                      </div>
-                    </td>
-                    <td className="py-2.5 px-4 text-right">
-                      <span className="text-sm font-bold">{points} pts</span>
-                    </td>
-                  </tr>
+                    variant="table"
+                    rowIndex={index}
+                    metricKey={metricKey}
+                    label={metric.label}
+                    pointsPerUnit={scores[metricKey] ?? 0}
+                    value={value}
+                    points={points}
+                    inputDisplay={inputDisplay}
+                    saving={saving}
+                    onEntryChange={handleEntryChange}
+                    onEntryBlur={handleEntryBlur}
+                    onIncrement={handleIncrement}
+                    onDecrement={handleDecrement}
+                  />
                 )
               })}
             </tbody>
@@ -696,7 +650,7 @@ export function OkrDailyLogPage() {
           disabled={!hasChanges || saving}
           className="w-full btn btn-primary py-2.5"
         >
-          {saving ? 'Guardando...' : hasChanges ? 'Guardar' : 'Guardado ✅'}
+          {saving ? 'Guardando...' : hasChanges ? 'Guardar' : 'Guardado'}
         </button>
       </div>
 

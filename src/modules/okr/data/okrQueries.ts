@@ -1,5 +1,6 @@
 import { supabase } from '../../../lib/supabase'
 import { timestampToYmdInTz, TZ_MTY } from '../../../shared/utils/dates'
+import { fetchMetricScoresCached, invalidateOkrDailyLogStaticCache } from './okrDailyLogCache'
 
 export type MetricScore = {
   metric_key: string
@@ -50,13 +51,7 @@ export const okrQueries = {
    * Usa okr_metric_scores_global para scoring consistente para todos los usuarios
    */
   async getMetricScores(): Promise<MetricScore[]> {
-    const { data, error } = await supabase
-      .from('okr_metric_scores_global')
-      .select('metric_key, points_per_unit')
-      .order('metric_key')
-
-    if (error) throw error
-    return data || []
+    return fetchMetricScoresCached()
   },
 
   /**
@@ -101,6 +96,7 @@ export const okrQueries = {
       }
       throw error
     }
+    invalidateOkrDailyLogStaticCache()
   },
 
   /**
@@ -108,27 +104,18 @@ export const okrQueries = {
    * SOLO eventos okr_daily manual (no pipeline)
    * IMPORTANTE: Filtra por actor_user_id = auth.uid() para que cada usuario vea solo su actividad
    */
-  async getDailyEntries(dateLocal: string): Promise<Record<string, number>> {
-    // Obtener usuario actual (requerido para filtrar)
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
-      throw new Error('Not authenticated')
-    }
-
-    // Query directa filtrando SOLO okr_daily manual del usuario actual
-    // Convertir dateLocal (YYYY-MM-DD en Monterrey) a timestamps UTC para query
+  /**
+   * Entradas OKR diario para una fecha y usuario (evita getUser() en cada llamada).
+   */
+  async getDailyEntriesForUser(dateLocal: string, userId: string): Promise<Record<string, number>> {
     const [y, m, d] = dateLocal.split('-').map(Number)
-    // Crear timestamps en UTC para el inicio y fin del día en Monterrey
-    // Usar UTC-6 como aproximación (Monterrey está en UTC-6 o UTC-5 según DST)
-    const dateStart = new Date(Date.UTC(y, m - 1, d, 6, 0, 0)) // 00:00 Monterrey ≈ 06:00 UTC
-    const dateEnd = new Date(Date.UTC(y, m - 1, d + 1, 5, 59, 59)) // 23:59 Monterrey ≈ 05:59 UTC siguiente día
+    const dateStart = new Date(Date.UTC(y, m - 1, d, 6, 0, 0))
+    const dateEnd = new Date(Date.UTC(y, m - 1, d + 1, 5, 59, 59))
 
     const { data, error } = await supabase
       .from('activity_events')
       .select('metric_key, value, recorded_at, metadata')
-      .eq('actor_user_id', user.id) // CRÍTICO: Filtrar por usuario actual
+      .eq('actor_user_id', userId)
       .eq('source', 'manual')
       .eq('is_void', false)
       .gte('recorded_at', dateStart.toISOString())
@@ -137,21 +124,17 @@ export const okrQueries = {
 
     if (error) throw error
 
-    // Filtrar SOLO eventos okr_daily y agrupar por metric_key
     const entries: Record<string, number> = {}
     const seen = new Set<string>()
 
     for (const event of data || []) {
-      // Verificar que es okr_daily (filtro principal)
       const entrySource = event.metadata?.entry_source
       if (entrySource !== 'okr_daily') {
-        continue // Saltar eventos que no son okr_daily
+        continue
       }
 
-      // Verificar metadata.date_local si existe, o convertir recorded_at a YYYY-MM-DD en Monterrey
       const eventDateLocal =
-        event.metadata?.date_local ||
-        timestampToYmdInTz(event.recorded_at, TZ_MTY)
+        event.metadata?.date_local || timestampToYmdInTz(event.recorded_at, TZ_MTY)
 
       if (eventDateLocal === dateLocal && !seen.has(event.metric_key)) {
         entries[event.metric_key] = event.value
@@ -160,6 +143,16 @@ export const okrQueries = {
     }
 
     return entries
+  },
+
+  async getDailyEntries(dateLocal: string): Promise<Record<string, number>> {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) {
+      throw new Error('Not authenticated')
+    }
+    return this.getDailyEntriesForUser(dateLocal, user.id)
   },
 
   /**
