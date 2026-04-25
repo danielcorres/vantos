@@ -13,6 +13,7 @@ import {
 import { getStatusPillClass, getStatusLabel, getTypeLabel } from '../utils/pillStyles'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 import { AppointmentLeadPicker } from './AppointmentLeadPicker'
+import { useToast } from '../../../shared/components/ToastContext'
 
 const DURATION_OPTIONS = [30, 45, 60, 90] as const
 const STATUS_OPTIONS: AppointmentStatus[] = ['scheduled', 'completed', 'no_show', 'canceled']
@@ -91,6 +92,7 @@ export function AppointmentFormModal({
   helpText = null,
   initialEditFocus = null,
 }: AppointmentFormModalProps) {
+  const { showToast } = useToast()
   const dateTimeSectionRef = useRef<HTMLDivElement>(null)
   const dateInputRef = useRef<HTMLInputElement>(null)
   const statusSectionRef = useRef<HTMLDivElement>(null)
@@ -330,6 +332,7 @@ export function AppointmentFormModal({
             }
           }
         }
+        showToast('Cita creada correctamente', 'success')
       } else if (event) {
         await calendarApi.updateEvent(event.id, {
           type: effectiveType,
@@ -353,11 +356,14 @@ export function AppointmentFormModal({
             }
           }
         }
+        showToast('Cita actualizada correctamente', 'success')
       }
       onSaved()
       onClose()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al guardar')
+      const fallbackMessage = mode === 'create' ? 'Error al crear la cita' : 'Error al actualizar la cita'
+      setError(err instanceof Error ? err.message : fallbackMessage)
+      showToast(fallbackMessage, 'error')
     } finally {
       setLoading(false)
     }
