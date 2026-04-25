@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CalendarWeekView } from '../features/calendar/components/CalendarWeekView'
+import { CalendarWeekView, type CalendarWeekScope } from '../features/calendar/components/CalendarWeekView'
 import { UpcomingEventsList } from '../features/calendar/components/UpcomingEventsList'
 import { AppointmentFormModal } from '../features/calendar/components/AppointmentFormModal'
 import type { CalendarEvent } from '../features/calendar/types/calendar.types'
@@ -26,12 +26,12 @@ function getMondayOf(date: Date): Date {
   return d
 }
 
-function formatWeekLabel(monday: Date): string {
-  const sunday = new Date(monday)
-  sunday.setDate(sunday.getDate() + 6)
+function formatWeekLabel(monday: Date, scope: CalendarWeekScope): string {
+  const endDate = new Date(monday)
+  endDate.setDate(endDate.getDate() + (scope === 'weekdays' ? 4 : 6))
   const opts: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short' }
   const start = monday.toLocaleDateString('es-MX', opts)
-  const end = sunday.toLocaleDateString('es-MX', opts)
+  const end = endDate.toLocaleDateString('es-MX', opts)
   const year = monday.getFullYear()
   return `${start} – ${end}, ${year}`
 }
@@ -40,6 +40,7 @@ export function CalendarPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [viewMode, setViewMode] = useState<ViewMode>('week')
   const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()))
+  const [weekScope, setWeekScope] = useState<CalendarWeekScope>('weekdays')
   const [refreshKey, setRefreshKey] = useState(0)
   const [modalOpen, setModalOpen] = useState(false)
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
@@ -300,39 +301,69 @@ export function CalendarPage() {
 
         {/* Navegación de semana — solo visible en vista Semana */}
         {viewMode === 'week' && (
-          <div className="flex items-center gap-2 mt-2">
-            <button
-              type="button"
-              onClick={goToPrevWeek}
-              aria-label="Semana anterior"
-              className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            </button>
-            <span className="text-sm text-neutral-600 dark:text-neutral-400 min-w-[200px] text-center">
-              {formatWeekLabel(weekStart)}
-            </span>
-            <button
-              type="button"
-              onClick={goToNextWeek}
-              aria-label="Semana siguiente"
-              className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-              </svg>
-            </button>
-            {!isCurrentWeek && (
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-2">
+            <div className="flex items-center justify-center gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={goToToday}
-                className="px-2.5 py-1 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors"
+                onClick={goToPrevWeek}
+                aria-label="Semana anterior"
+                className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
               >
-                Hoy
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
               </button>
-            )}
+              <span className="text-sm text-neutral-600 dark:text-neutral-400 min-w-[200px] text-center">
+                {formatWeekLabel(weekStart, weekScope)}
+              </span>
+              <button
+                type="button"
+                onClick={goToNextWeek}
+                aria-label="Semana siguiente"
+                className="p-1.5 rounded-lg text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                </svg>
+              </button>
+              {!isCurrentWeek && (
+                <button
+                  type="button"
+                  onClick={goToToday}
+                  className="px-2.5 py-1 text-xs font-medium text-primary border border-primary/30 rounded-lg hover:bg-primary/5 transition-colors"
+                >
+                  Hoy
+                </button>
+              )}
+            </div>
+            <div
+              className="flex justify-center sm:justify-end rounded-lg border border-border bg-bg/80 p-0.5 shrink-0"
+              role="group"
+              aria-label="Rango de días de la semana"
+            >
+              <button
+                type="button"
+                onClick={() => setWeekScope('weekdays')}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  weekScope === 'weekdays'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-muted hover:text-text'
+                }`}
+              >
+                Lun–Vie
+              </button>
+              <button
+                type="button"
+                onClick={() => setWeekScope('full')}
+                className={`px-2.5 py-1 text-xs font-medium rounded-md transition-colors ${
+                  weekScope === 'full'
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'text-muted hover:text-text'
+                }`}
+              >
+                Semana completa
+              </button>
+            </div>
           </div>
         )}
       </header>
@@ -343,6 +374,7 @@ export function CalendarPage() {
             weekStart={weekStart}
             onEventClick={openEdit}
             refreshKey={refreshKey}
+            weekScope={weekScope}
           />
         )}
         {viewMode === 'upcoming' && (
