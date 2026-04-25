@@ -31,10 +31,12 @@ export function TeamConsistencyTable({
         <table className="w-full text-sm">
           <thead className="bg-bg border-b border-border">
             <tr>
-              <th className="text-left py-2 px-4 text-xs font-medium text-muted uppercase">Asesor</th>
+              <th className="sticky left-0 z-10 bg-bg dark:bg-neutral-950 text-left py-2 px-4 text-xs font-medium text-muted uppercase">
+                Asesor
+              </th>
               <th className="text-right py-2 px-4 text-xs font-medium text-muted uppercase">Cumplidas</th>
-              <th className="text-right py-2 px-4 text-xs font-medium text-muted uppercase">Promedio</th>
-              <th className="text-right py-2 px-4 text-xs font-medium text-muted uppercase">Mejor</th>
+              <th className="hidden sm:table-cell text-right py-2 px-4 text-xs font-medium text-muted uppercase">Promedio</th>
+              <th className="hidden md:table-cell text-right py-2 px-4 text-xs font-medium text-muted uppercase">Mejor</th>
             </tr>
           </thead>
           <tbody>
@@ -49,12 +51,14 @@ export function TeamConsistencyTable({
                 const isConsistent = stat.averagePoints >= weeklyTarget
                 return (
                   <tr key={stat.advisor.user_id} className={`border-b border-border hover:bg-primary/5 transition-colors ${index % 2 === 0 ? 'bg-bg' : 'bg-surface'}`}>
-                    <td className="py-2 px-4 font-medium text-left">{getAdvisorName(stat.advisor)}</td>
+                    <td className={`sticky left-0 z-10 py-2 px-4 font-medium text-left ${index % 2 === 0 ? 'bg-bg dark:bg-neutral-950' : 'bg-surface dark:bg-neutral-900'}`}>
+                      {getAdvisorName(stat.advisor)}
+                    </td>
                     <td className="py-2 px-4 text-right">
                       <span className="font-semibold">{stat.weeksCompleted}</span>
                       <span className="text-muted"> / 12</span>
                     </td>
-                    <td className="py-2 px-4 text-right">
+                    <td className="hidden sm:table-cell py-2 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
                         <span className="font-medium">{stat.averagePoints} pts</span>
                         {isConsistent && (
@@ -64,7 +68,7 @@ export function TeamConsistencyTable({
                         )}
                       </div>
                     </td>
-                    <td className="py-2 px-4 text-right font-medium">{stat.bestWeek} pts</td>
+                    <td className="hidden md:table-cell py-2 px-4 text-right font-medium">{stat.bestWeek} pts</td>
                   </tr>
                 )
               })

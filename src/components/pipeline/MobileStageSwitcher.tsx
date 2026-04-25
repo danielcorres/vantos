@@ -51,7 +51,7 @@ export function MobileStageSwitcher({
             ) : null}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
             <button
               type="button"
               onClick={() => onChange(prev?.id)}
@@ -62,7 +62,7 @@ export function MobileStageSwitcher({
             </button>
 
             {/* Selector */}
-            <div className="relative">
+            <div className="relative min-w-0 flex-1">
               {/* Dot de color de la etapa (sutil) */}
               <span
                 className={`pointer-events-none absolute left-3 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full ${dotClass}`}
@@ -71,7 +71,7 @@ export function MobileStageSwitcher({
               <select
                 value={value}
                 onChange={(e) => onChange(e.target.value)}
-                className="h-10 w-[210px] appearance-none rounded-xl border border-neutral-200 bg-white pl-8 pr-9 text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-200"
+                className="h-10 w-full min-w-0 appearance-none rounded-xl border border-neutral-200 bg-white pl-8 pr-9 text-sm text-neutral-800 focus:outline-none focus:ring-2 focus:ring-neutral-200"
                 aria-label="Seleccionar etapa"
               >
                 {stages.map((s) => (

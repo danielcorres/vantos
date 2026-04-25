@@ -112,7 +112,7 @@ export function LeadCreateModal({
           <button
             type="button"
             onClick={handleClose}
-            className="btn btn-ghost text-sm px-2 py-1"
+            className="inline-flex h-10 w-10 items-center justify-center rounded-lg text-xl text-muted hover:bg-black/5 active:bg-black/10 transition-colors"
           >
             ×
           </button>
@@ -130,7 +130,7 @@ export function LeadCreateModal({
               onChange={(e) => setFullName(e.target.value)}
               required
               disabled={loading}
-              className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
+              className="w-full px-3 py-2.5 text-sm border border-border rounded bg-bg text-text"
               placeholder="Nombre completo"
             />
           </div>
@@ -145,7 +145,7 @@ export function LeadCreateModal({
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               disabled={loading}
-              className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
+              className="w-full px-3 py-2.5 text-sm border border-border rounded bg-bg text-text"
               placeholder="10 dígitos"
             />
           </div>
@@ -159,7 +159,7 @@ export function LeadCreateModal({
               value={stageId}
               onChange={(e) => setStageId(e.target.value)}
               disabled={loading}
-              className="w-full px-2.5 py-1.5 text-sm border border-border rounded bg-bg text-text"
+              className="w-full px-3 py-2.5 text-sm border border-border rounded bg-bg text-text"
             >
               {stages.map((stage) => (
                 <option key={stage.id} value={stage.id}>

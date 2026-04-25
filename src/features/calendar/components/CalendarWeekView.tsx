@@ -111,61 +111,90 @@ export function CalendarWeekView({ weekStart, onEventClick, refreshKey = 0 }: Ca
 
   return (
     <div className="space-y-4">
-      {weekDays.map(({ key, dayName, dayNum }) => (
-        <div key={key} className="rounded-lg border border-border bg-bg/50 overflow-hidden">
-          <div className="px-3 py-2 border-b border-border bg-surface/50 text-sm font-medium text-muted flex items-center gap-2">
-            <span>{dayName}</span>
-            <span className="text-text">{dayNum}</span>
+      <div className="md:hidden space-y-4">
+        {weekDays.map(({ key, dayName, dayNum }) => (
+          <div key={key} className="rounded-lg border border-border bg-bg/50 overflow-hidden">
+            <div className="px-3 py-2 border-b border-border bg-surface/50 text-sm font-medium text-muted flex items-center gap-2">
+              <span>{dayName}</span>
+              <span className="text-text">{dayNum}</span>
+            </div>
+            <div className="p-2 space-y-1.5 min-h-[44px]">
+              {(eventsByDay[key] ?? []).length === 0 ? (
+                <p className="text-xs text-muted py-2 px-1">Sin eventos</p>
+              ) : (
+                (eventsByDay[key] ?? []).map((ev) => (
+                  <div
+                    key={ev.id}
+                    role="group"
+                    aria-label="Cita"
+                    className="w-full rounded-md px-2 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex items-center gap-2 flex-wrap"
+                  >
+                    <button
+                      type="button"
+                      title="Editar fecha y hora"
+                      onClick={() => onEventClick(ev, 'datetime')}
+                      className="inline-flex items-center gap-2 flex-wrap shrink-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    >
+                      <span className="text-xs font-medium tabular-nums text-muted shrink-0">
+                        {formatTime(ev.starts_at)}
+                      </span>
+                      <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getTypePillClass(ev.type)}`}>
+                        {getTypeLabel(ev.type)}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      title="Cambiar estado"
+                      onClick={() => onEventClick(ev, 'status')}
+                      className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${getStatusPillClass(ev.status)}`}
+                    >
+                      {getStatusLabel(ev.status)}
+                    </button>
+                    <button
+                      type="button"
+                      title="Editar cita"
+                      onClick={() => onEventClick(ev)}
+                      className="min-w-0 flex-1 text-left text-sm text-text truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded px-0.5 -mx-0.5"
+                    >
+                      {ev.title?.trim() || 'Sin título'}
+                      {ev.lead_id ? (
+                        <span className="text-xs text-muted shrink-0 ml-1">{shortLeadId(ev.lead_id)}</span>
+                      ) : null}
+                    </button>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
-          <div className="p-2 space-y-1.5 min-h-[44px]">
-            {(eventsByDay[key] ?? []).length === 0 ? (
-              <p className="text-xs text-muted py-2 px-1">Sin eventos</p>
-            ) : (
-              (eventsByDay[key] ?? []).map((ev) => (
-                <div
-                  key={ev.id}
-                  role="group"
-                  aria-label="Cita"
-                  className="w-full rounded-md px-2 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors flex items-center gap-2 flex-wrap"
-                >
+        ))}
+      </div>
+      <div className="hidden md:grid md:grid-cols-7 gap-3">
+        {weekDays.map(({ key, dayName, dayNum }) => (
+          <div key={key} className="rounded-lg border border-border bg-bg/50 overflow-hidden min-h-[260px]">
+            <div className="px-2.5 py-2 border-b border-border bg-surface/60 text-xs font-semibold text-muted flex items-center justify-between">
+              <span>{dayName}</span>
+              <span className="text-text">{dayNum}</span>
+            </div>
+            <div className="p-2 space-y-1">
+              {(eventsByDay[key] ?? []).length === 0 ? (
+                <p className="text-[11px] text-muted py-1">Sin eventos</p>
+              ) : (
+                (eventsByDay[key] ?? []).map((ev) => (
                   <button
+                    key={ev.id}
                     type="button"
-                    title="Editar fecha y hora"
-                    onClick={() => onEventClick(ev, 'datetime')}
-                    className="inline-flex items-center gap-2 flex-wrap shrink-0 rounded-md text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                  >
-                    <span className="text-xs font-medium tabular-nums text-muted shrink-0">
-                      {formatTime(ev.starts_at)}
-                    </span>
-                    <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${getTypePillClass(ev.type)}`}>
-                      {getTypeLabel(ev.type)}
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    title="Cambiar estado"
-                    onClick={() => onEventClick(ev, 'status')}
-                    className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 ${getStatusPillClass(ev.status)}`}
-                  >
-                    {getStatusLabel(ev.status)}
-                  </button>
-                  <button
-                    type="button"
-                    title="Editar cita"
                     onClick={() => onEventClick(ev)}
-                    className="min-w-0 flex-1 text-left text-sm text-text truncate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 rounded px-0.5 -mx-0.5"
+                    className="w-full text-left rounded border border-border/70 bg-surface px-2 py-1.5 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
                   >
-                    {ev.title?.trim() || 'Sin título'}
-                    {ev.lead_id ? (
-                      <span className="text-xs text-muted shrink-0 ml-1">{shortLeadId(ev.lead_id)}</span>
-                    ) : null}
+                    <div className="text-[11px] text-muted">{formatTime(ev.starts_at)}</div>
+                    <div className="text-xs font-medium truncate">{ev.title?.trim() || 'Sin título'}</div>
                   </button>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   )
 }

@@ -81,14 +81,14 @@ export function TeamProfileList({
   return (
     <div className="space-y-3">
       {/* Filtros rápidos */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex-1">
           <input
             type="text"
             placeholder="Buscar por nombre..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-3 py-1.5 text-sm border border-border rounded-md bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="w-full px-3 py-2.5 text-sm border border-border rounded-md bg-surface text-text focus:outline-none focus:ring-2 focus:ring-primary/50"
           />
         </div>
         <label className="flex items-center gap-2 text-xs cursor-pointer hover:text-text transition-colors">
@@ -107,10 +107,10 @@ export function TeamProfileList({
         <table className="w-full text-sm">
           <thead className="bg-bg border-b-2 border-border">
             <tr>
-              <th className="text-left py-2 px-4 text-xs font-semibold text-muted uppercase">Asesor</th>
+              <th className="sticky left-0 z-10 bg-bg dark:bg-neutral-950 text-left py-2 px-4 text-xs font-semibold text-muted uppercase">Asesor</th>
               <th className="text-center py-2 px-4 text-xs font-semibold text-muted uppercase">Perfil</th>
-              <th className="text-right py-2 px-4 text-xs font-semibold text-muted uppercase">Cumplimiento</th>
-              <th className="text-left py-2 px-4 text-xs font-semibold text-muted uppercase">Faltan</th>
+              <th className="hidden sm:table-cell text-right py-2 px-4 text-xs font-semibold text-muted uppercase">Cumplimiento</th>
+              <th className="hidden md:table-cell text-left py-2 px-4 text-xs font-semibold text-muted uppercase">Faltan</th>
               <th className="text-center py-2 px-4 text-xs font-semibold text-muted uppercase w-12">Ayuda</th>
             </tr>
           </thead>
@@ -142,7 +142,9 @@ export function TeamProfileList({
                     } ${isClickable ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/50' : ''}`}
                     onClick={() => isClickable && onAdvisorClick(item.advisor.user_id)}
                   >
-                    <td className="py-2 px-4 font-medium text-left">{getAdvisorName(item.advisor)}</td>
+                    <td className={`sticky left-0 z-10 py-2 px-4 font-medium text-left ${index % 2 === 0 ? 'bg-bg dark:bg-neutral-950' : 'bg-surface dark:bg-neutral-900'}`}>
+                      {getAdvisorName(item.advisor)}
+                    </td>
                     <td className="py-2 px-4 text-center">
                       <span
                         className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${getProfileBadgeStyle(
@@ -152,10 +154,10 @@ export function TeamProfileList({
                         {item.profile.label}
                       </span>
                     </td>
-                    <td className="py-2 px-4 text-right text-xs text-muted">
+                    <td className="hidden sm:table-cell py-2 px-4 text-right text-xs text-muted">
                       Cumple {met}/{total} mínimos
                     </td>
-                    <td className="py-2 px-4 text-left">
+                    <td className="hidden md:table-cell py-2 px-4 text-left">
                       {item.profile.missing.length > 0 ? (
                         <div className="flex flex-wrap gap-1">
                           {item.profile.missing.slice(0, 2).map((missing) => {

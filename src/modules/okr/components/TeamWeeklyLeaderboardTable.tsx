@@ -169,17 +169,45 @@ export function TeamWeeklyLeaderboardTable({
         <div className="flex items-center gap-2">
           <h2 className="text-base font-semibold">Leaderboard Semanal</h2>
           <div className="group relative">
-            <div className="w-4 h-4 flex items-center justify-center bg-black/5 rounded-full cursor-help">
+            <div className="w-5 h-5 flex items-center justify-center bg-black/5 rounded-full cursor-help">
               <span className="text-[10px] text-muted">ⓘ</span>
             </div>
-            <div className="absolute left-0 top-full mt-1 w-64 p-2 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 pointer-events-none z-20 shadow-lg">
+            <div className="absolute left-0 top-full mt-1 w-64 p-2 bg-black text-white text-xs rounded opacity-0 group-hover:opacity-100 group-active:opacity-100 group-focus-within:opacity-100 pointer-events-none z-20 shadow-lg">
               Métricas reales de la semana. Da click en un asesor para ver detalle y plan.
               <div className="absolute left-4 top-0 -translate-y-full w-0 h-0 border-l-4 border-r-4 border-b-4 border-transparent border-b-black"></div>
             </div>
           </div>
         </div>
       </div>
-      <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e0e0e0 transparent' }}>
+      <div className="md:hidden divide-y divide-border">
+        {sortedStats.length === 0 ? (
+          <div className="text-center py-8 px-4 text-muted bg-surface">No hay asesores registrados</div>
+        ) : (
+          sortedStats.map(({ stat, statusLabel, statusColor, statusBg }, index) => (
+            <button
+              key={stat.advisor.user_id}
+              type="button"
+              className={`w-full p-3 flex items-center justify-between gap-2 text-left ${
+                index % 2 === 0 ? 'bg-bg' : 'bg-surface'
+              }`}
+              onClick={() => handleRowClick(stat.advisor.user_id)}
+              disabled={!onAdvisorClick}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">{getAdvisorName(stat.advisor)}</p>
+                <p className="text-xs text-muted">{Math.round(stat.percentOfTarget)}% meta</p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="text-sm font-bold">{Math.round(stat.weekPoints)} pts</span>
+                <span className={`px-2 py-1 rounded text-xs font-medium ${statusBg} ${statusColor}`}>
+                  {statusLabel}
+                </span>
+              </div>
+            </button>
+          ))
+        )}
+      </div>
+      <div className="hidden md:block overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#e0e0e0 transparent' }}>
         <style>{`
           div::-webkit-scrollbar {
             height: 6px;
@@ -199,7 +227,7 @@ export function TeamWeeklyLeaderboardTable({
           <thead className="bg-bg border-b-2 border-border">
             <tr>
               <th
-                className="sticky left-0 z-10 bg-bg text-left py-1.5 px-4 text-xs font-semibold text-muted uppercase cursor-pointer hover:bg-black/5 min-w-[120px] border-r border-border"
+                className="sticky left-0 z-10 bg-bg dark:bg-neutral-950 text-left py-1.5 px-4 text-xs font-semibold text-muted uppercase cursor-pointer hover:bg-black/5 min-w-[120px] border-r border-border"
                 onClick={() => handleSort('points')}
               >
                 Asesor {leaderboardSortIndicator('points', sortField, sortDirection)}
@@ -271,7 +299,7 @@ export function TeamWeeklyLeaderboardTable({
                     onClick={() => isClickable && handleRowClick(stat.advisor.user_id)}
                   >
                     <td className={`sticky left-0 z-10 py-1.5 px-4 font-medium text-left min-w-[120px] border-r border-border ${
-                      index % 2 === 0 ? 'bg-bg' : 'bg-surface'
+                      index % 2 === 0 ? 'bg-bg dark:bg-neutral-950' : 'bg-surface dark:bg-neutral-900'
                     }`}>
                       {getAdvisorName(stat.advisor)}
                     </td>

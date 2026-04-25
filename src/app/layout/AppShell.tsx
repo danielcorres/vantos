@@ -1,18 +1,19 @@
 import { useEffect, useState, useRef } from 'react'
-import { Outlet, useNavigate } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../shared/auth/AuthProvider'
 import { Sidebar } from './Sidebar'
-import { IconMenu, IconX } from './icons'
+import { IconCalendar, IconHome, IconMenu, IconPipeline, IconUser, IconX } from './icons'
 import { getUserDisplayName } from '../../lib/profile'
 import { VantMark } from '../../components/branding/VantMark'
 import { VantLogo } from '../../components/branding/VantLogo'
+import { getHomePathForRole } from '../../modules/auth/getHomePathForRole'
 
 const SIDEBAR_EXPANDED = 256 // 64 * 4 (w-64)
 const SIDEBAR_COLLAPSED = 64 // w-16
 
 export function AppShell() {
   const navigate = useNavigate()
-  const { user, loading: authLoading, error: authError, signOut } = useAuth()
+  const { user, role, loading: authLoading, error: authError, signOut } = useAuth()
   const [displayName, setDisplayName] = useState<string | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -21,6 +22,7 @@ export function AppShell() {
 
   // Calcular width del sidebar en desktop
   const sidebarWidth = sidebarCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED
+  const mobileHomePath = getHomePathForRole(role)
 
   // Resetear displayNameLoadedRef cuando cambia el usuario (antes de cargar nombre)
   useEffect(() => {
@@ -120,7 +122,7 @@ export function AppShell() {
         <div className="flex items-center justify-center h-14 px-4 relative">
           <button
             onClick={() => setSidebarOpen(true)}
-            className="absolute left-4 p-2 text-text dark:text-neutral-100 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors"
+            className="absolute left-4 p-2 text-text dark:text-neutral-100 hover:bg-black/5 active:bg-black/10 dark:hover:bg-white/10 dark:active:bg-white/20 rounded-lg transition-colors"
             aria-label="Abrir menú"
           >
             <IconMenu />
@@ -150,7 +152,7 @@ export function AppShell() {
               <h2 className="text-base font-semibold text-text dark:text-neutral-100">Menú</h2>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="p-2 text-text dark:text-neutral-100 hover:bg-black/5 dark:hover:bg-white/10 rounded-lg transition-colors"
+                className="p-2 text-text dark:text-neutral-100 hover:bg-black/5 active:bg-black/10 dark:hover:bg-white/10 dark:active:bg-white/20 rounded-lg transition-colors"
                 aria-label="Cerrar menú"
               >
                 <IconX />
@@ -170,11 +172,37 @@ export function AppShell() {
 
       {/* Main Content */}
       <div className="flex-1 min-w-0 flex flex-col">
-        <main className="flex-1 pt-14 md:pt-0">
+        <main className="flex-1 pt-14 pb-16 md:pb-0 md:pt-0">
           <div className="w-full max-w-screen-2xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
             <Outlet />
           </div>
         </main>
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-border dark:border-neutral-800 bg-surface dark:bg-neutral-900">
+          <div className="grid grid-cols-4">
+            {[
+              { to: mobileHomePath, label: 'Inicio', icon: IconHome },
+              { to: '/pipeline', label: 'Pipeline', icon: IconPipeline },
+              { to: '/calendar', label: 'Calendario', icon: IconCalendar },
+              { to: '/profile', label: 'Perfil', icon: IconUser },
+            ].map((item) => {
+              const Icon = item.icon
+              return (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  className={({ isActive }) =>
+                    `flex flex-col items-center justify-center gap-0.5 py-2.5 text-[11px] transition-colors ${
+                      isActive ? 'text-primary' : 'text-muted'
+                    }`
+                  }
+                >
+                  <Icon size={18} />
+                  <span>{item.label}</span>
+                </NavLink>
+              )
+            })}
+          </div>
+        </nav>
         {/* Footer Global */}
         <footer className="border-t border-border dark:border-neutral-800 bg-surface dark:bg-neutral-900 py-4 px-4 sm:px-6 lg:px-8">
           <div className="w-full max-w-screen-2xl mx-auto text-center">

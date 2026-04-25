@@ -311,7 +311,7 @@ export function ManagerDashboardPage() {
             <h1 className="text-2xl font-bold mb-1">Dashboard Manager</h1>
             <p className="text-sm text-muted">Seguimiento operativo del equipo</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {IS_DEV && (
               <button
                 onClick={handleCopySnapshot}
@@ -323,11 +323,11 @@ export function ManagerDashboardPage() {
           </div>
         </div>
         {/* Controles de navegación de semana */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-muted">
             Semana del {formatWeekRangePretty(weekStartLocal, weekEndLocal)}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handlePreviousWeek}
               className="px-3 py-1.5 text-sm hover:bg-black/5 transition-colors rounded border border-border bg-bg"
@@ -498,7 +498,7 @@ export function ManagerDashboardPage() {
       {/* D) Perfil del equipo - Reemplaza Consistencia 12 semanas */}
       <div className="card p-0 overflow-hidden">
         <div className="p-3 border-b border-border">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <h2 className="text-base font-semibold">Perfil del equipo</h2>
               <p className="text-xs text-muted mt-0.5">Diagnóstico rápido para dirigir la semana</p>

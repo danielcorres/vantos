@@ -293,7 +293,7 @@ export function DirectorAssignmentsView() {
       </div>
 
       {tab === 'people' && (
-        <div className="card overflow-x-auto">
+        <div className="card">
           <div className="flex flex-wrap items-center justify-end gap-3 px-3 py-2 border-b border-border dark:border-neutral-800">
             <label className="flex items-center gap-2 text-sm text-muted dark:text-neutral-400 cursor-pointer select-none">
               <input
@@ -305,6 +305,104 @@ export function DirectorAssignmentsView() {
               Mostrar archivados
             </label>
           </div>
+          <div className="md:hidden divide-y divide-border">
+            {peopleProfiles.length === 0 && (
+              <div className="p-6 text-center text-sm text-muted">
+                {showArchived
+                  ? 'No hay usuarios en el directorio.'
+                  : 'No hay usuarios activos. Activa «Mostrar archivados» para ver asesores dados de baja.'}
+              </div>
+            )}
+            {peopleProfiles.map((profile) => {
+              const saveState = rowSaveStates[profile.user_id] || 'idle'
+              const displayName = getAssignmentDisplayName(profile)
+              const isSystemOwner = profile.user_id === ownerUserId
+              const isReadOnly = isSystemOwner
+              const isSelf = currentUserId != null && profile.user_id === currentUserId
+              const isArchived = Boolean(profile.archived_at)
+              const isAdvisorRow = profile.role === 'advisor'
+              const canArchiveThis =
+                canAssignRoles && isAdvisorRow && !isReadOnly && !isSelf && !isArchived
+              const canRestoreThis =
+                canAssignRoles && isAdvisorRow && !isReadOnly && !isSelf && isArchived
+              const canDeleteThis = isOwner && isAdvisorRow && !isReadOnly && !isSelf
+              const hasEstadoMenuActions =
+                isAdvisorRow && !isReadOnly && !isSelf && (canArchiveThis || canRestoreThis || canDeleteThis)
+
+              return (
+                <div key={profile.user_id} className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-medium text-text truncate">{displayName}</div>
+                      <div className="text-xs text-muted">{roleLabelEs(profile.role)}</div>
+                    </div>
+                    {hasEstadoMenuActions && (
+                      <button
+                        type="button"
+                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-surface text-muted hover:bg-black/[0.04] hover:text-text dark:border-neutral-700 dark:hover:bg-white/10"
+                        onClick={(e) => {
+                          const el = e.currentTarget
+                          setEstadoMenu((prev) =>
+                            prev?.userId === profile.user_id ? null : { userId: profile.user_id, anchor: el }
+                          )
+                        }}
+                      >
+                        <MoreHorizontal className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted">{profile.user_id.slice(0, 8)}…</span>
+                    {isArchived && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs bg-slate-200 text-slate-800 dark:bg-neutral-700 dark:text-neutral-100">
+                        Archivado
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!isReadOnly && !isArchived ? (
+                      <div className="inline-flex rounded-md border border-border dark:border-neutral-700 overflow-hidden shadow-sm">
+                        <button
+                          type="button"
+                          className={`px-2.5 py-1.5 text-xs font-medium ${
+                            profile.account_status === 'active'
+                              ? 'bg-primary text-white'
+                              : 'bg-surface text-muted'
+                          }`}
+                          disabled={profile.account_status === 'active' || saveState === 'saving'}
+                          onClick={() =>
+                            void handleAccountStatusChange(profile.user_id, ownerUserId, 'active')
+                          }
+                        >
+                          Activo
+                        </button>
+                        <button
+                          type="button"
+                          className={`px-2.5 py-1.5 text-xs font-medium border-l border-border dark:border-neutral-700 ${
+                            profile.account_status === 'suspended'
+                              ? 'bg-amber-600 text-white'
+                              : 'bg-surface text-muted'
+                          }`}
+                          disabled={profile.account_status === 'suspended' || saveState === 'saving'}
+                          onClick={() =>
+                            void handleAccountStatusChange(profile.user_id, ownerUserId, 'suspended')
+                          }
+                        >
+                          Suspendido
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="inline-flex px-2.5 py-1 rounded text-xs font-medium bg-black/5 text-text">
+                        {isArchived ? 'Archivado' : profile.account_status === 'suspended' ? 'Suspendido' : 'Activo'}
+                      </span>
+                    )}
+                    {saveState === 'saving' && <span className="text-xs text-muted">Guardando…</span>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
@@ -539,6 +637,7 @@ export function DirectorAssignmentsView() {
               })}
             </tbody>
           </table>
+          </div>
         </div>
       )}
 
