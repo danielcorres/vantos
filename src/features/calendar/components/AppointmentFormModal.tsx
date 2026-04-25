@@ -13,7 +13,7 @@ import {
 import { getStatusPillClass, getStatusLabel, getTypeLabel } from '../utils/pillStyles'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 import { AppointmentLeadPicker } from './AppointmentLeadPicker'
-import { useToast } from '../../../shared/components/ToastContext'
+import { Toast } from '../../../shared/components/Toast'
 
 const DURATION_OPTIONS = [30, 45, 60, 90] as const
 const STATUS_OPTIONS: AppointmentStatus[] = ['scheduled', 'completed', 'no_show', 'canceled']
@@ -92,7 +92,6 @@ export function AppointmentFormModal({
   helpText = null,
   initialEditFocus = null,
 }: AppointmentFormModalProps) {
-  const { showToast } = useToast()
   const dateTimeSectionRef = useRef<HTMLDivElement>(null)
   const dateInputRef = useRef<HTMLInputElement>(null)
   const statusSectionRef = useRef<HTMLDivElement>(null)
@@ -106,6 +105,7 @@ export function AppointmentFormModal({
   const [status, setStatus] = useState<AppointmentStatus>('scheduled')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const prefersReducedMotion = useReducedMotion()
 
@@ -332,7 +332,7 @@ export function AppointmentFormModal({
             }
           }
         }
-        showToast('Cita creada correctamente', 'success')
+        setToast({ type: 'success', message: 'Cita creada correctamente' })
       } else if (event) {
         await calendarApi.updateEvent(event.id, {
           type: effectiveType,
@@ -356,14 +356,14 @@ export function AppointmentFormModal({
             }
           }
         }
-        showToast('Cita actualizada correctamente', 'success')
+        setToast({ type: 'success', message: 'Cita actualizada correctamente' })
       }
       onSaved()
       onClose()
     } catch (err) {
       const fallbackMessage = mode === 'create' ? 'Error al crear la cita' : 'Error al actualizar la cita'
       setError(err instanceof Error ? err.message : fallbackMessage)
-      showToast(fallbackMessage, 'error')
+      setToast({ type: 'error', message: fallbackMessage })
     } finally {
       setLoading(false)
     }
@@ -685,6 +685,13 @@ export function AppointmentFormModal({
         overlayClassName="z-[60]"
       />
     ) : null}
+    {toast && (
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast(null)}
+      />
+    )}
     </Fragment>
   )
 }
