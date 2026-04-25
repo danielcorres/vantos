@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+  <body style="font-family: -apple-system, Segoe UI, Roboto, sans-serif; background: #f6f7fb; margin: 0; padding: 32px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.06);">
+      <tr>
+        <td style="padding: 32px;">
+          <h1 style="margin: 0 0 16px 0; font-size: 22px; color: #2c3e50;">Confirma tu correo</h1>
+          <p style="margin: 0 0 24px 0; color: #4a5568; font-size: 15px; line-height: 1.5;">
+            Gracias por registrarte. Haz clic en el botón para confirmar tu correo y activar tu cuenta.
+          </p>
+
+          <p style="text-align: center; margin: 0 0 24px 0;">
+            <a
+              href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&type=signup"
+              style="display: inline-block; padding: 12px 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: #ffffff; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 14px;"
+            >
+              Confirmar correo
+            </a>
+          </p>
+
+          <p style="margin: 0; color: #7f8c8d; font-size: 12px; line-height: 1.5;">
+            Si no creaste esta cuenta, puedes ignorar este mensaje.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
