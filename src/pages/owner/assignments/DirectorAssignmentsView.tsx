@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { MoreHorizontal } from 'lucide-react'
-import { Toast } from '../../../shared/components/Toast'
 import { getSystemOwnerId } from '../../../lib/systemOwner'
 import { useAuth } from '../../../shared/auth/AuthProvider'
 import { useDirectorAssignments } from './hooks/useAssignments'
@@ -13,12 +12,14 @@ import { LeaderSlotPopover } from './components/LeaderSlotPopover'
 import { TeamHierarchyBoard } from './components/TeamHierarchyBoard'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { AssignmentEstadoActionsMenu } from './components/AssignmentEstadoActionsMenu'
+import { useNotify } from '../../../shared/utils/notify'
 
 type Tab = 'people' | 'teams' | 'audit'
 
 type ConfirmKind = 'archive' | 'restore' | 'delete'
 
 export function DirectorAssignmentsView() {
+  const notify = useNotify()
   const { user, role: authRole } = useAuth()
   const currentUserId = user?.id ?? null
   const isOwner = authRole === 'owner'
@@ -27,7 +28,6 @@ export function DirectorAssignmentsView() {
   /** Evita pintar la tabla antes de conocer el owner de sistema (protección de filas). */
   const [ownerResolved, setOwnerResolved] = useState(false)
   const [tab, setTab] = useState<Tab>('people')
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [popoverAdvisor, setPopoverAdvisor] = useState<AssignmentProfile | null>(null)
   const popBtnRef = useRef<HTMLButtonElement>(null)
   const [showArchived, setShowArchived] = useState(false)
@@ -126,9 +126,9 @@ export function DirectorAssignmentsView() {
       managerId,
       profiles
     )
-    if (!r.ok) setToast({ type: 'error', message: r.message })
+    if (!r.ok) notify.raw(r.message || 'No se pudo actualizar la asignación. Inténtalo nuevamente', 'error')
     else {
-      setToast({ type: 'success', message: 'Manager actualizado' })
+      notify.raw('Manager actualizado correctamente', 'success')
       setPopoverAdvisor(null)
     }
     return r
@@ -141,9 +141,9 @@ export function DirectorAssignmentsView() {
       recruiterId,
       profiles
     )
-    if (!r.ok) setToast({ type: 'error', message: r.message })
+    if (!r.ok) notify.raw(r.message || 'No se pudo actualizar la asignación. Inténtalo nuevamente', 'error')
     else {
-      setToast({ type: 'success', message: 'Recluta actualizado' })
+      notify.raw('Recluta actualizado correctamente', 'success')
       setPopoverAdvisor(null)
     }
     return r
@@ -151,15 +151,15 @@ export function DirectorAssignmentsView() {
 
   const wrapAddSeg = async (advisorId: string, segId: string) => {
     const r = await addSeguimientoLink(advisorId, segId)
-    if (!r.ok) setToast({ type: 'error', message: r.message || 'Error' })
-    else setToast({ type: 'success', message: 'Seguimiento añadido' })
+    if (!r.ok) notify.raw(r.message || 'No se pudo actualizar la asignación. Inténtalo nuevamente', 'error')
+    else notify.raw('Seguimiento añadido correctamente', 'success')
     return r
   }
 
   const wrapRemoveSeg = async (advisorId: string, segId: string) => {
     const r = await removeSeguimientoLink(advisorId, segId)
-    if (!r.ok) setToast({ type: 'error', message: r.message || 'Error' })
-    else setToast({ type: 'success', message: 'Seguimiento quitado' })
+    if (!r.ok) notify.raw(r.message || 'No se pudo actualizar la asignación. Inténtalo nuevamente', 'error')
+    else notify.raw('Seguimiento quitado correctamente', 'success')
     return r
   }
 
@@ -184,11 +184,11 @@ export function DirectorAssignmentsView() {
             : confirm.kind === 'restore'
               ? 'Asesor restaurado'
               : 'Usuario eliminado del sistema'
-        setToast({ type: 'success', message: msg })
+        notify.raw(msg, 'success')
         if (popoverAdvisor?.user_id === confirm.userId) setPopoverAdvisor(null)
         setConfirm(null)
       } else {
-        setToast({ type: 'error', message: r.message || 'Error' })
+        notify.raw(r.message || 'No se pudo completar la acción. Inténtalo nuevamente', 'error')
       }
     } finally {
       setConfirmBusy(false)
@@ -257,10 +257,6 @@ export function DirectorAssignmentsView() {
         onCancel={() => !confirmBusy && setConfirm(null)}
         onConfirm={runConfirm}
       />
-
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
 
       <div>
         <h1 className="text-2xl font-semibold text-text">Asignaciones</h1>
@@ -647,7 +643,7 @@ export function DirectorAssignmentsView() {
             advisors={advisors}
             managers={managers}
             onReassignManager={reassignAdvisorManager}
-            onToast={(msg, type) => setToast({ message: msg, type })}
+            onToast={(msg, type) => notify.raw(msg, type)}
           />
         </div>
       )}

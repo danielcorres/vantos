@@ -9,8 +9,8 @@ import {
 import { subscribeGoogleCalendarSyncErrors } from '../features/calendar/utils/googleCalendarSyncListeners'
 import { GOOGLE_CALENDAR_INTEGRATION_ENABLED } from '../features/calendar/config/googleCalendarIntegrationEnabled'
 import { formatGoogleCalendarReturnError } from '../features/calendar/utils/googleOAuthReturnMessages'
-import { Toast } from '../shared/components/Toast'
 import { useUserRole } from '../shared/hooks/useUserRole'
+import { useNotify } from '../shared/utils/notify'
 
 /** Quién puede editar datos de hitos de asesor en Mi perfil. */
 const ROLES_EDIT_PROFILE_MILESTONE = new Set(['developer', 'recruiter', 'manager'])
@@ -44,6 +44,7 @@ function formatBirthDisplay(ymd: string): string {
 const VALID_ADVISOR_STATUS = new Set(['asesor_12_meses', 'nueva_generacion', 'consolidado'])
 
 export function ProfilePage() {
+  const notify = useNotify()
   const [searchParams, setSearchParams] = useSearchParams()
   const { role, loading: roleLoading } = useUserRole()
 
@@ -57,13 +58,11 @@ export function ProfilePage() {
   const [advisorStatus, setAdvisorStatus] = useState<AdvisorStatusValue>('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [googleBanner, setGoogleBanner] = useState<{
     connected: boolean
     google_email: string | null
   } | null>(null)
   const [googleBannerLoading, setGoogleBannerLoading] = useState(false)
-  const [googleToast, setGoogleToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const refreshGoogleStatus = useCallback(async () => {
     if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) {
@@ -92,15 +91,12 @@ export function ProfilePage() {
     if (!g) return
     if (GOOGLE_CALENDAR_INTEGRATION_ENABLED) {
       if (g === 'connected') {
-        setGoogleToast({ type: 'success', message: 'Google Calendar conectado correctamente.' })
+        notify.raw('Google Calendar conectado correctamente', 'success')
         void refreshGoogleStatus()
       } else if (g === 'error') {
         const reason = searchParams.get('reason')
         const detail = reason ? decodeURIComponent(reason.replace(/\+/g, ' ')) : ''
-        setGoogleToast({
-          type: 'error',
-          message: formatGoogleCalendarReturnError(detail),
-        })
+        notify.raw(formatGoogleCalendarReturnError(detail), 'error')
       }
     }
     setSearchParams(
@@ -117,9 +113,9 @@ export function ProfilePage() {
   useEffect(() => {
     if (!GOOGLE_CALENDAR_INTEGRATION_ENABLED) return undefined
     return subscribeGoogleCalendarSyncErrors((msg) => {
-      setGoogleToast({ type: 'error', message: msg })
+      notify.raw(msg, 'error')
     })
-  }, [])
+  }, [notify])
 
   const roleForPerm = useMemo(() => {
     if (profile !== null) return profile.role
@@ -149,10 +145,7 @@ export function ProfilePage() {
       }
     } catch (err) {
       console.error('Error al cargar perfil:', err)
-      setToast({
-        type: 'error',
-        message: 'Error al cargar tu perfil',
-      })
+      notify.raw('No se pudo cargar tu perfil. Inténtalo nuevamente', 'error')
     } finally {
       setLoading(false)
     }
@@ -168,36 +161,28 @@ export function ProfilePage() {
       Boolean(advisorStatus.trim())
 
     if (!hasName && !hasBirth && !(canEditMilestone && hasMilestone)) {
-      setToast({
-        type: 'error',
-        message: canEditMilestone
+      notify.raw(
+        canEditMilestone
           ? 'Ingresa al menos nombre, apellido, fecha de nacimiento o algún dato de hitos'
           : 'Ingresa al menos un nombre, un apellido o tu fecha de nacimiento',
-      })
+        'info'
+      )
       return
     }
 
     if (canEditMilestone && advisorStatus.trim() && !VALID_ADVISOR_STATUS.has(advisorStatus.trim())) {
-      setToast({
-        type: 'error',
-        message: 'Estatus de asesor no válido',
-      })
+      notify.raw('Estatus del asesor no válido', 'error')
       return
     }
 
     if (canEditMilestone && keyActivationDate.trim() && connectionDate.trim()) {
       if (keyActivationDate.trim() > connectionDate.trim()) {
-        setToast({
-          type: 'error',
-          message: 'La fecha de alta de clave no puede ser posterior a la fecha de conexión',
-        })
+        notify.raw('La fecha de alta de clave no puede ser posterior a la fecha de conexión', 'error')
         return
       }
     }
 
     setSaving(true)
-    setToast(null)
-
     try {
       const updated = await upsertMyProfile({
         first_name: firstName.trim(),
@@ -220,19 +205,12 @@ export function ProfilePage() {
       setKeyActivationDate(updated.key_activation_date ?? '')
       setConnectionDate(updated.connection_date ?? '')
       setAdvisorStatus((updated.advisor_status as AdvisorStatusValue) ?? '')
-      setToast({
-        type: 'success',
-        message: 'Perfil guardado ✅',
-      })
+      notify.raw('Perfil actualizado correctamente', 'success')
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : 'Error al guardar perfil'
-      setToast({
-        type: 'error',
-        message: errorMessage,
-      })
+      notify.raw(errorMessage, 'error')
     } finally {
       setSaving(false)
-      setTimeout(() => setToast(null), 3000)
     }
   }
 
@@ -242,16 +220,16 @@ export function ProfilePage() {
       window.location.href = r.authUrl
       return
     }
-    setGoogleToast({ type: 'error', message: r.message })
+    notify.raw(r.message, 'error')
   }
 
   const handleDisconnectGoogle = async () => {
     const r = await disconnectGoogleCalendar()
     if (r.ok) {
-      setGoogleToast({ type: 'success', message: 'Google Calendar desconectado.' })
+      notify.raw('Google Calendar desconectado correctamente', 'success')
       void refreshGoogleStatus()
     } else {
-      setGoogleToast({ type: 'error', message: r.message })
+      notify.raw(r.message, 'error')
     }
   }
 
@@ -491,19 +469,6 @@ export function ProfilePage() {
         </div>
       </div>
 
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
-      {googleToast != null && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] max-w-md w-[calc(100%-2rem)]">
-          <Toast
-            type={googleToast.type}
-            message={googleToast.message}
-            onClose={() => setGoogleToast(null)}
-            durationMs={4200}
-          />
-        </div>
-      )}
     </div>
   )
 }

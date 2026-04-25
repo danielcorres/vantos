@@ -4,12 +4,14 @@ import type { PolicyInsured } from '../policies.insured.types'
 import { usePolicyInsured } from '../hooks/usePolicyInsured'
 import { RELATIONSHIP_LABELS } from '../policiesLabels'
 import { InsuredForm } from './InsuredForm'
+import { useNotify } from '../../../shared/utils/notify'
 
 type InsuredSectionProps = {
   policyId: string
 }
 
 export function InsuredSection({ policyId }: InsuredSectionProps) {
+  const notify = useNotify()
   const { insured, loading, error, reload } = usePolicyInsured(policyId)
   const [showForm, setShowForm] = useState(false)
   const [editing, setEditing] = useState<PolicyInsured | null>(null)
@@ -46,8 +48,14 @@ export function InsuredSection({ policyId }: InsuredSectionProps) {
       try {
         await policyInsuredApi.remove(row.id)
         reload()
+        notify.success('insured.deleted')
       } catch (e) {
-        window.alert(e instanceof Error ? e.message : 'No se pudo eliminar')
+        notify.raw(
+          e instanceof Error && e.message
+            ? e.message
+            : 'No se pudo eliminar el asegurado. Inténtalo nuevamente',
+          'error'
+        )
       }
     })()
   }

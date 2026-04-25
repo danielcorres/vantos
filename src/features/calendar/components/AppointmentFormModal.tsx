@@ -13,7 +13,7 @@ import {
 import { getStatusPillClass, getStatusLabel, getTypeLabel } from '../utils/pillStyles'
 import { useReducedMotion } from '../../../shared/hooks/useReducedMotion'
 import { AppointmentLeadPicker } from './AppointmentLeadPicker'
-import { Toast } from '../../../shared/components/Toast'
+import { useNotify } from '../../../shared/utils/notify'
 
 const DURATION_OPTIONS = [30, 45, 60, 90] as const
 const STATUS_OPTIONS: AppointmentStatus[] = ['scheduled', 'completed', 'no_show', 'canceled']
@@ -92,6 +92,7 @@ export function AppointmentFormModal({
   helpText = null,
   initialEditFocus = null,
 }: AppointmentFormModalProps) {
+  const notify = useNotify()
   const dateTimeSectionRef = useRef<HTMLDivElement>(null)
   const dateInputRef = useRef<HTMLInputElement>(null)
   const statusSectionRef = useRef<HTMLDivElement>(null)
@@ -105,7 +106,6 @@ export function AppointmentFormModal({
   const [status, setStatus] = useState<AppointmentStatus>('scheduled')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const prefersReducedMotion = useReducedMotion()
 
@@ -332,7 +332,7 @@ export function AppointmentFormModal({
             }
           }
         }
-        setToast({ type: 'success', message: 'Cita creada correctamente' })
+        notify.success('appointment.created')
       } else if (event) {
         await calendarApi.updateEvent(event.id, {
           type: effectiveType,
@@ -356,14 +356,14 @@ export function AppointmentFormModal({
             }
           }
         }
-        setToast({ type: 'success', message: 'Cita actualizada correctamente' })
+        notify.success('appointment.updated')
       }
       onSaved()
       onClose()
     } catch (err) {
       const fallbackMessage = mode === 'create' ? 'Error al crear la cita' : 'Error al actualizar la cita'
       setError(err instanceof Error ? err.message : fallbackMessage)
-      setToast({ type: 'error', message: fallbackMessage })
+      notify.raw(fallbackMessage, 'error')
     } finally {
       setLoading(false)
     }
@@ -375,10 +375,12 @@ export function AppointmentFormModal({
     setError(null)
     try {
       await calendarApi.deleteEvent(event.id)
+      notify.success('appointment.deleted')
       onSaved()
       onClose()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al eliminar')
+      notify.raw('No se pudo eliminar la cita. Inténtalo nuevamente', 'error')
     } finally {
       setLoading(false)
       setShowDeleteConfirm(false)
@@ -685,13 +687,6 @@ export function AppointmentFormModal({
         overlayClassName="z-[60]"
       />
     ) : null}
-    {toast && (
-      <Toast
-        message={toast.message}
-        type={toast.type}
-        onClose={() => setToast(null)}
-      />
-    )}
     </Fragment>
   )
 }

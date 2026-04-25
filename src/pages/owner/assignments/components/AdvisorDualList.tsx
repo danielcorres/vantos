@@ -66,7 +66,8 @@ export function AdvisorDualList({
       else if (r.message) onToast(r.message, 'error')
     }
     setSelMine(new Set())
-    onToast(`${ok} asesor(es) liberados`, 'success')
+    if (ok > 0) onToast(`${ok} asesor(es) liberados correctamente`, 'success')
+    else onToast('No se pudo liberar ningún asesor. Inténtalo nuevamente', 'error')
   }
 
   const bulkClaim = async () => {
@@ -79,7 +80,8 @@ export function AdvisorDualList({
       else if (r.message) onToast(r.message, 'error')
     }
     setSelAvail(new Set())
-    onToast(`${ok} asesor(es) asignados a ti`, 'success')
+    if (ok > 0) onToast(`${ok} asesor(es) asignados correctamente`, 'success')
+    else onToast('No se pudo asignar ningún asesor. Inténtalo nuevamente', 'error')
   }
 
   const otherLabel =
@@ -149,7 +151,7 @@ export function AdvisorDualList({
                     onClick={async () => {
                       const r = await onRelease(p.user_id)
                       if (!r.ok && r.message) onToast(r.message, 'error')
-                      else onToast('Liberado', 'success')
+                      else onToast('Asesor liberado correctamente', 'success')
                     }}
                   >
                     Liberar
@@ -199,7 +201,7 @@ export function AdvisorDualList({
                     onClick={async () => {
                       const r = await onClaim(p.user_id)
                       if (!r.ok && r.message) onToast(r.message, 'error')
-                      else onToast('Asignado a tu equipo', 'success')
+                      else onToast('Asesor asignado correctamente', 'success')
                     }}
                   >
                     Asignar a mí

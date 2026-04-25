@@ -9,25 +9,40 @@ interface ToastItem {
 }
 
 interface ToastContextValue {
-  showToast: (message: string, kind?: ToastKind) => void
+  showToast: (message: string, kind?: ToastKind, options?: { durationMs?: number }) => void
 }
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
-const DURATION_MS = 2800
+const DURATION_MS_BY_KIND: Record<ToastKind, number> = {
+  success: 2200,
+  error: 3200,
+  info: 2600,
+}
+const DEDUPE_WINDOW_MS = 900
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const counter = useRef(0)
+  const lastShownRef = useRef<{ message: string; kind: ToastKind; at: number } | null>(null)
 
   const removeToast = useCallback((id: number) => {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
-  const showToast = useCallback((message: string, kind: ToastKind = 'success') => {
+  const showToast = useCallback((message: string, kind: ToastKind = 'success', options?: { durationMs?: number }) => {
+    const clean = message.trim()
+    if (!clean) return
+    const now = Date.now()
+    const last = lastShownRef.current
+    if (last && last.message === clean && last.kind === kind && now - last.at < DEDUPE_WINDOW_MS) {
+      return
+    }
+    lastShownRef.current = { message: clean, kind, at: now }
     const id = ++counter.current
-    setToasts((prev) => [...prev, { id, message, kind }])
-    setTimeout(() => removeToast(id), DURATION_MS)
+    setToasts((prev) => [...prev, { id, message: clean, kind }])
+    const ms = options?.durationMs ?? DURATION_MS_BY_KIND[kind]
+    setTimeout(() => removeToast(id), ms)
   }, [removeToast])
 
   return (

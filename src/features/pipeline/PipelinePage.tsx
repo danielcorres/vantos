@@ -26,7 +26,6 @@ import { getWeeklyEntryLeads } from '../productivity/api/drilldown.api'
 
 import type { StageSlug } from '../productivity/types/productivity.types'
 import { STAGE_SLUGS_ORDER } from '../productivity/types/productivity.types'
-import { Toast } from '../../shared/components/Toast'
 import { displayStageName } from '../../shared/utils/stageStyles'
 import type { CreateLeadInput } from './pipeline.api'
 import { calendarApi } from '../calendar/api/calendar.api'
@@ -38,6 +37,7 @@ import {
   isImmediateBackwardStageMove,
   RETROCESO_BLOCKED_TOAST_MS,
 } from './utils/stageMoveDirection'
+import { useNotify } from '../../shared/utils/notify'
 
 const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
   contactos_nuevos: 'Contactos',
@@ -66,12 +66,6 @@ function formatWeekRangeLabel(weekStartYmd: string): string {
 const STORAGE_KEY_VIEW = 'pipeline:viewMode'
 type ViewMode = 'pipeline' | 'records'
 
-type PipelineToast = {
-  type: 'error' | 'success' | 'info'
-  message: string
-  durationMs?: number
-} | null
-
 function getStoredViewMode(): ViewMode {
   try {
     const v = localStorage.getItem(STORAGE_KEY_VIEW)
@@ -98,10 +92,10 @@ const initialState: PipelineState = {
 }
 
 export function PipelinePage() {
+  const notify = useNotify()
   const [searchParams, setSearchParams] = useSearchParams()
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState<ViewMode>(getStoredViewMode)
-  const [pipelineToast, setPipelineToast] = useState<PipelineToast>(null)
   const [state, dispatch] = useReducer(pipelineReducer, initialState)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [createStageId, setCreateStageId] = useState<string | undefined>(undefined)
@@ -284,6 +278,13 @@ export function PipelinePage() {
   const [tableVisibleCount, setTableVisibleCount] = useState<number | null>(null)
   const [stageLoadMeta, setStageLoadMeta] = useState<Record<string, { total: number; loaded: number }>>({})
   const [kanbanStageLoadingMore, setKanbanStageLoadingMore] = useState<string | null>(null)
+  const showPipelineToast = useCallback(
+    (message: string, type: 'success' | 'error' | 'info', durationMs?: number) => {
+      notify.raw(message, type, durationMs ? { durationMs } : undefined)
+    },
+    [notify]
+  )
+
   const stageLoadMetaRef = useRef(stageLoadMeta)
   useEffect(() => {
     stageLoadMetaRef.current = stageLoadMeta
@@ -421,22 +422,21 @@ export function PipelinePage() {
       try {
         await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
         await refreshAffectedStages(fromStageId, toStageId)
-        setPipelineToast({
-          type: 'success',
-          message: stageName ? `Movido a ${displayStageName(stageName)}` : 'Etapa actualizada',
-        })
+        showPipelineToast(
+          stageName ? `Movido a ${displayStageName(stageName)}` : 'Etapa actualizada correctamente',
+          'success'
+        )
       } catch (err: unknown) {
         dispatch({
           type: 'MOVE_ROLLBACK',
           payload: { leadId, fromStageId, prevStageChangedAt },
         })
-        setPipelineToast({
-          type: 'error',
-          message:
-            err instanceof Error && err.message
-              ? err.message
-              : 'No se pudo mover la etapa. Intenta nuevamente.',
-        })
+        showPipelineToast(
+          err instanceof Error && err.message
+            ? err.message
+            : 'No se pudo actualizar la etapa. Inténtalo nuevamente',
+          'error'
+        )
       } finally {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
@@ -504,7 +504,7 @@ export function PipelinePage() {
         schedulingSummaryByLeadId,
       })
       if (r.kind === 'toast') {
-        setPipelineToast({ type: r.level, message: r.message })
+        showPipelineToast(r.message, r.level)
         return
       }
       if (r.kind === 'edit') {
@@ -531,7 +531,7 @@ export function PipelinePage() {
 
   useEffect(() => {
     return subscribeGoogleCalendarSyncErrors((msg) => {
-      setPipelineToast({ type: 'error', message: msg })
+      showPipelineToast(msg, 'error')
     })
   }, [])
 
@@ -569,11 +569,11 @@ export function PipelinePage() {
       }
       if (isBackwardStageMove(fromStageId, toStageId, state.stages)) {
         if (!isImmediateBackwardStageMove(fromStageId, toStageId, state.stages)) {
-          setPipelineToast({
-            type: 'error',
-            message: getMultiStepBackwardBlockedMessage(fromStageId, state.stages),
-            durationMs: RETROCESO_BLOCKED_TOAST_MS,
-          })
+          showPipelineToast(
+            getMultiStepBackwardBlockedMessage(fromStageId, state.stages),
+            'error',
+            RETROCESO_BLOCKED_TOAST_MS
+          )
           setDraggedLead(null)
           return
         }
@@ -608,11 +608,11 @@ export function PipelinePage() {
       const scrollY = window.scrollY
       if (isBackwardStageMove(fromStageId, toStageId, state.stages)) {
         if (!isImmediateBackwardStageMove(fromStageId, toStageId, state.stages)) {
-          setPipelineToast({
-            type: 'error',
-            message: getMultiStepBackwardBlockedMessage(fromStageId, state.stages),
-            durationMs: RETROCESO_BLOCKED_TOAST_MS,
-          })
+          showPipelineToast(
+            getMultiStepBackwardBlockedMessage(fromStageId, state.stages),
+            'error',
+            RETROCESO_BLOCKED_TOAST_MS
+          )
           return
         }
         setBackwardPending({
@@ -777,7 +777,7 @@ export function PipelinePage() {
             type="button"
             onClick={() => {
               void navigator.clipboard.writeText(window.location.href).then(() =>
-                setPipelineToast({ type: 'success', message: 'Link copiado' })
+                showPipelineToast('Link copiado correctamente', 'success')
               )
             }}
             className="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 hover:bg-black/5 dark:hover:bg-white/10 px-2 py-1 rounded transition-colors"
@@ -901,7 +901,7 @@ export function PipelinePage() {
           weeklyLoadError={weeklyMode ? weeklyLoadError : null}
           onClearWeekly={clearWeeklyMode}
           onVisibleCountChange={setTableVisibleCount}
-          onToast={(msg) => setPipelineToast({ type: 'success', message: msg })}
+          onToast={(msg) => showPipelineToast(msg, 'success')}
         />
       )}
 
@@ -939,7 +939,7 @@ export function PipelinePage() {
             onDrop={handleDrop}
             onMoveStage={handleMoveStage}
             onCreateLead={handleCreateLeadFromStage}
-            onToast={(msg) => setPipelineToast({ type: 'success', message: msg })}
+            onToast={(msg) => showPipelineToast(msg, 'success')}
             onUpdated={refreshDataSilent}
             onSchedule={openScheduleForLead}
             onEditAppointment={openAppointmentEditFromChip}
@@ -1043,14 +1043,6 @@ export function PipelinePage() {
         />
       )}
 
-      {pipelineToast && (
-        <Toast
-          message={pipelineToast.message}
-          type={pipelineToast.type}
-          onClose={() => setPipelineToast(null)}
-          durationMs={pipelineToast.durationMs ?? 2200}
-        />
-      )}
     </div>
   )
 }

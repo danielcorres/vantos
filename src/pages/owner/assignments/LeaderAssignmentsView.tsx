@@ -1,9 +1,9 @@
-import { useMemo, useState, useCallback } from 'react'
+import { useMemo, useCallback } from 'react'
 import { useAuth } from '../../../shared/auth/AuthProvider'
-import { Toast } from '../../../shared/components/Toast'
 import { useLeaderSelfAssign, type LeaderKind } from './hooks/useAssignments'
 import { AdvisorDualList } from './components/AdvisorDualList'
 import { roleLabelEs } from './copy'
+import { useNotify } from '../../../shared/utils/notify'
 
 type Props = {
   kind: LeaderKind
@@ -11,12 +11,12 @@ type Props = {
 
 export function LeaderAssignmentsView({ kind }: Props) {
   const { user, role } = useAuth()
+  const notify = useNotify()
   const myId = user?.id ?? null
-  const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
 
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
-    setToast({ message, type })
-  }, [])
+    notify.raw(message, type)
+  }, [notify])
 
   const { mine, available, loading, error, rowStates, refetch, claim, release } = useLeaderSelfAssign(
     Boolean(myId),
@@ -51,10 +51,6 @@ export function LeaderAssignmentsView({ kind }: Props) {
 
   return (
     <div className="space-y-6">
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
-
       <div>
         <h1 className="text-2xl font-semibold text-text">{title}</h1>
         <p className="text-sm text-muted mt-1">

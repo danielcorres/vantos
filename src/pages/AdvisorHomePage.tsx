@@ -26,7 +26,6 @@ import type { LeadSchedulingSummary } from '../features/calendar/utils/stageSche
 import { resolveCalModalFromGuidance } from '../features/pipeline/utils/resolveCalModalFromGuidance'
 import { AppointmentFormModal } from '../features/calendar/components/AppointmentFormModal'
 import type { AppointmentType } from '../features/calendar/types/calendar.types'
-import { Toast } from '../shared/components/Toast'
 import {
   fetchMilestonePolicyCounts,
   type AdvisorMilestoneProfile,
@@ -41,6 +40,7 @@ import { AdvisorHubTodayCard } from '../features/advisor-hub/components/AdvisorH
 import { AdvisorHubUrgentLeadsCard } from '../features/advisor-hub/components/AdvisorHubUrgentLeadsCard'
 import { AdvisorHubPipelinePhasesCard } from '../features/advisor-hub/components/AdvisorHubPipelinePhasesCard'
 import { AdvisorHubMilestones12mCard } from '../features/advisor-hub/components/AdvisorHubMilestones12mCard'
+import { useNotify } from '../shared/utils/notify'
 
 /** Máximo de filas en Citas de hoy y en Leads sin cita en el hub (evita tarjetas muy altas). */
 const HUB_LIST_VISIBLE_CAP = 5
@@ -74,6 +74,7 @@ async function batchNextByLeadIds(leadIds: string[]): Promise<Record<string, Cal
 }
 
 export function AdvisorHomePage() {
+  const notify = useNotify()
   const { user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -105,7 +106,6 @@ export function AdvisorHomePage() {
   const [milestoneLoadError, setMilestoneLoadError] = useState<string | null>(null)
 
   const [calModal, setCalModal] = useState<CalModalState>(null)
-  const [toast, setToast] = useState<{ type: 'error' | 'success' | 'info'; message: string } | null>(null)
 
   const [hubGreetingLine, setHubGreetingLine] = useState('')
   const [hubBirthdayBanner, setHubBirthdayBanner] = useState<AdvisorHubBirthdayBanner | null>(null)
@@ -308,7 +308,7 @@ export function AdvisorHomePage() {
         schedulingSummaryByLeadId,
       })
       if (r.kind === 'toast') {
-        setToast({ type: r.level === 'error' ? 'error' : 'info', message: r.message })
+        notify.raw(r.message, r.level === 'error' ? 'error' : 'info')
         return
       }
       if (r.kind === 'edit') {
@@ -435,9 +435,6 @@ export function AdvisorHomePage() {
         />
       )}
 
-      {toast ? (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} durationMs={2400} />
-      ) : null}
     </>
   )
 }

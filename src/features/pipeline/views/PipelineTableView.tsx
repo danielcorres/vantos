@@ -17,7 +17,6 @@ import {
 } from '../../calendar/components/AppointmentFormModal'
 import type { AppointmentType } from '../../calendar/types/calendar.types'
 import { PipelineTable } from '../components/PipelineTable'
-import { Toast } from '../../../shared/components/Toast'
 import { formatDateMX } from '../../../shared/utils/dates'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
 import { LeadTemperatureChip } from '../../../components/pipeline/LeadTemperatureChip'
@@ -37,6 +36,7 @@ import {
   isImmediateBackwardStageMove,
   RETROCESO_BLOCKED_TOAST_MS,
 } from '../utils/stageMoveDirection'
+import { useNotify } from '../../../shared/utils/notify'
 
 const BTN_PRIMARY =
   'h-9 rounded-xl bg-neutral-900 text-white px-4 text-sm font-semibold gap-2 hover:bg-neutral-800 active:scale-[0.98] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-neutral-300 focus-visible:ring-offset-1 flex-shrink-0 inline-flex items-center justify-center'
@@ -87,16 +87,19 @@ export function PipelineTableView({
   onVisibleCountChange?: (n: number) => void
   onToast?: (message: string) => void
 } = {}) {
+  const notify = useNotify()
   const navigate = useNavigate()
   const [stages, setStages] = useState<PipelineStage[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [toast, setToast] = useState<{
-    type: 'success' | 'error'
-    message: string
-    durationMs?: number
-  } | null>(null)
+  const showToast = useCallback(
+    (message: string, type: 'success' | 'error' | 'info', durationMs?: number) => {
+      notify.raw(message, type, durationMs ? { durationMs } : undefined)
+    },
+    [notify]
+  )
+
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [postCreateAskLead, setPostCreateAskLead] = useState<Lead | null>(null)
   type CalModalState =
@@ -482,10 +485,7 @@ export function PipelineTableView({
         schedulingSummaryByLeadId: mergedSchedulingSummaryByLeadId,
       })
       if (r.kind === 'toast') {
-        setToast({
-          type: r.level === 'error' ? 'error' : 'success',
-          message: r.message,
-        })
+        showToast(r.message, r.level === 'error' ? 'error' : 'info')
         return
       }
       if (r.kind === 'edit') {
@@ -512,7 +512,7 @@ export function PipelineTableView({
 
   useEffect(() => {
     return subscribeGoogleCalendarSyncErrors((msg) => {
-      setToast({ type: 'error', message: msg })
+      showToast(msg, 'error')
     })
   }, [])
 
@@ -526,7 +526,7 @@ export function PipelineTableView({
     setHighlightLeadId(newLead.id)
     setTimeout(() => setHighlightLeadId(null), 3000)
     await refreshCurrentMode()
-    setToast({ type: 'success', message: 'Lead creado' })
+    showToast('Lead creado correctamente', 'success')
     return newLead
   }
 
@@ -548,12 +548,12 @@ export function PipelineTableView({
     try {
       await pipelineApi.moveLeadStage(leadId, toStageId, idempotencyKey)
       await refreshCurrentMode()
-      setToast({ type: 'success', message: 'Etapa actualizada' })
+      showToast('Etapa actualizada correctamente', 'success')
     } catch (err) {
       clearTimeout(highlightTimeout)
       setHighlightLeadId(null)
       onMoveStageRollback?.(leadId, fromStageId, prevStageChangedAt ?? null)
-      setToast({ type: 'error', message: err instanceof Error ? err.message : 'Error al mover' })
+      showToast(err instanceof Error ? err.message : 'No se pudo actualizar la etapa. Inténtalo nuevamente', 'error')
     }
   }
 
@@ -563,11 +563,7 @@ export function PipelineTableView({
     const fromStageId = lead.stage_id
     if (isBackwardStageMove(fromStageId, toStageId, stages)) {
       if (!isImmediateBackwardStageMove(fromStageId, toStageId, stages)) {
-        setToast({
-          type: 'error',
-          message: getMultiStepBackwardBlockedMessage(fromStageId, stages),
-          durationMs: RETROCESO_BLOCKED_TOAST_MS,
-        })
+        showToast(getMultiStepBackwardBlockedMessage(fromStageId, stages), 'error', RETROCESO_BLOCKED_TOAST_MS)
         return
       }
       setBackwardPending({ leadId, fromStageId, toStageId })
@@ -839,12 +835,12 @@ export function PipelineTableView({
                                 .then(async () => {
                                   await loadData()
                                   await onRefreshActivos?.()
-                                  setToast({ type: 'success', message: 'Restaurado. Ya aparece en Activos.' })
+                                  showToast('Lead restaurado correctamente', 'success')
                                 })
                                 .catch((err) => {
                                   console.error('Error al restaurar lead:', err)
                                   const msg = err instanceof Error ? err.message : 'Error al restaurar'
-                                  setToast({ type: 'error', message: msg })
+                                  showToast(msg, 'error')
                                 })
                             }}
                             className="btn btn-ghost text-xs"
@@ -885,7 +881,7 @@ export function PipelineTableView({
               highlightLeadId={highlightLeadId}
               onRowClick={handleRowClick}
               onMoveStage={handleMoveStage}
-              onToast={onToast ?? ((msg) => setToast({ type: 'success', message: msg }))}
+              onToast={onToast ?? ((msg) => showToast(msg, 'success'))}
               onUpdated={refreshCurrentMode}
               nextAppointmentByLeadId={mergedNextAppointmentByLeadId}
               onSchedule={openScheduleForLead}
@@ -996,14 +992,6 @@ export function PipelineTableView({
         />
       )}
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-          durationMs={toast.durationMs ?? 1200}
-        />
-      )}
     </div>
   )
 }

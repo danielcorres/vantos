@@ -2,6 +2,7 @@ import type { MouseEvent } from 'react'
 import type { Policy } from '../policies.types'
 import { CURRENCY_LABELS, RAMO_LABELS, RECEIPT_LABELS } from '../policiesLabels'
 import { PolicyStatusBadge } from './PolicyStatusBadge'
+import { useNotify } from '../../../shared/utils/notify'
 
 type PolicyRowProps = {
   policy: Policy
@@ -23,6 +24,7 @@ export function PolicyRow({
   onEdit,
   onDelete,
 }: PolicyRowProps) {
+  const notify = useNotify()
   const handleDelete = (e: MouseEvent) => {
     e.stopPropagation()
     if (
@@ -35,8 +37,14 @@ export function PolicyRow({
     void (async () => {
       try {
         await onDelete(policy.id)
+        notify.success('policy.deleted')
       } catch (err) {
-        window.alert(err instanceof Error ? err.message : 'No se pudo eliminar')
+        notify.raw(
+          err instanceof Error && err.message
+            ? err.message
+            : 'No se pudo eliminar la póliza. Inténtalo nuevamente',
+          'error'
+        )
       }
     })()
   }
