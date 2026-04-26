@@ -11,6 +11,7 @@ import { GOOGLE_CALENDAR_INTEGRATION_ENABLED } from '../features/calendar/config
 import { formatGoogleCalendarReturnError } from '../features/calendar/utils/googleOAuthReturnMessages'
 import { useUserRole } from '../shared/hooks/useUserRole'
 import { useNotify } from '../shared/utils/notify'
+import { PageLoading } from '../components/ui/PageLoading'
 
 /** Quién puede editar datos de hitos de asesor en Mi perfil. */
 const ROLES_EDIT_PROFILE_MILESTONE = new Set(['developer', 'recruiter', 'manager'])
@@ -234,11 +235,7 @@ export function ProfilePage() {
   }
 
   if (loading) {
-    return (
-      <div className="text-center p-8">
-        <span className="text-muted">Cargando...</span>
-      </div>
-    )
+    return <PageLoading label="Cargando perfil..." />
   }
 
   const displayName = profile?.full_name?.trim() || 'Sin nombre'

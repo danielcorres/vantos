@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import type { Policy } from '../policies.types'
 import { PolicyRow } from './PolicyRow'
 import { InsuredSection } from './InsuredSection'
+import { PageLoading } from '../../../components/ui/PageLoading'
 
 type PolicyListProps = {
   policies: Policy[]
@@ -21,7 +22,9 @@ export function PolicyList({ policies, loading, onEdit, onDelete }: PolicyListPr
 
   if (loading) {
     return (
-      <div className="card p-8 text-center text-muted text-sm">Cargando pólizas…</div>
+      <div className="card">
+        <PageLoading label="Cargando pólizas..." />
+      </div>
     )
   }
 

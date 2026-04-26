@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAdvisorMilestones } from '../hooks/useAdvisorMilestones'
 import { AdvisorMilestoneCard } from './AdvisorMilestoneCard'
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 export interface AdvisorMilestonesSectionProps {
   advisorIds: string[]
@@ -58,7 +59,9 @@ export function AdvisorMilestonesSection({
     return (
       <div>
         <h3 className="text-sm font-medium text-muted mb-2">{title}</h3>
-        <div className="card text-center text-sm text-muted">Cargando hitos…</div>
+        <div className="card flex items-center justify-center p-4">
+          <LoadingSpinner label="Cargando hitos..." className="text-muted" />
+        </div>
       </div>
     )
   }

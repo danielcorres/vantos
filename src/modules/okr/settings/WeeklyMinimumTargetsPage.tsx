@@ -11,6 +11,7 @@ import { supabase } from '../../../lib/supabase'
 import { loadWeeklyMinimumTargets, saveWeeklyMinimumTargets } from './weeklyMinimumTargetsApi'
 import { DEFAULT_WEEKLY_MINIMUMS, type WeeklyMinimumTargetsMap } from '../dashboard/weeklyMinimumTargets'
 import { METRIC_MINIMUM_CONFIGS } from './metricMinimumConfig'
+import { PageLoading } from '../../../components/ui/PageLoading'
 
 export function WeeklyMinimumTargetsPage() {
   const navigate = useNavigate()
@@ -100,13 +101,7 @@ export function WeeklyMinimumTargetsPage() {
   }
 
   if (roleLoading || loading) {
-    return (
-      <div className="space-y-4">
-        <div className="text-center p-8">
-          <span className="text-muted">Cargando...</span>
-        </div>
-      </div>
-    )
+    return <PageLoading label="Cargando configuración..." />
   }
 
   if (!isOwner) {

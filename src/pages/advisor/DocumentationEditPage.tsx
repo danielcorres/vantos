@@ -5,6 +5,7 @@ import {
   PLAYBOOK_DOCUMENT_SLUG,
 } from './documentation/documentationConstants'
 import { useDocumentationEditor } from './documentation/useDocumentationPage'
+import { PageLoading } from '../../components/ui/PageLoading'
 
 export function DocumentationEditPage() {
   const navigate = useNavigate()
@@ -34,8 +35,8 @@ export function DocumentationEditPage() {
 
   if (state === 'loading' || state === 'idle') {
     return (
-      <div className="max-w-[1400px] mx-auto w-full px-4 py-8">
-        <p className="text-sm text-muted">Cargando documento…</p>
+      <div className="max-w-[1400px] mx-auto w-full px-4">
+        <PageLoading label="Cargando documento..." />
       </div>
     )
   }

@@ -28,6 +28,7 @@ import {
   fetchEventsForRange,
 } from '../../modules/okr/dashboard/weekCompareHelpers'
 import { AdvisorMilestonesSection } from '../../modules/advisors/ui/AdvisorMilestonesSection'
+import { PageLoading } from '../../components/ui/PageLoading'
 import { useAdvisorPipeline } from '../../features/pipeline/hooks/useAdvisorPipeline'
 import { AdvisorPipelineSummary } from '../../features/pipeline/components/AdvisorPipelineSummary'
 
@@ -433,11 +434,7 @@ export function AdvisorWeekDetailPage() {
 
   // RETURNS TEMPRANOS (después de todos los hooks)
   if (roleLoading || loading) {
-    return (
-      <div className="text-center p-8">
-        <span className="text-muted">Cargando...</span>
-      </div>
-    )
+    return <PageLoading label="Cargando semana..." />
   }
 
   if (!canAccessAdvisorDetail) {

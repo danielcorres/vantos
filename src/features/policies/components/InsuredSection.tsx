@@ -5,6 +5,7 @@ import { usePolicyInsured } from '../hooks/usePolicyInsured'
 import { RELATIONSHIP_LABELS } from '../policiesLabels'
 import { InsuredForm } from './InsuredForm'
 import { useNotify } from '../../../shared/utils/notify'
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 type InsuredSectionProps = {
   policyId: string
@@ -77,7 +78,9 @@ export function InsuredSection({ policyId }: InsuredSectionProps) {
       </div>
 
       {error ? <div className="mb-2 text-xs text-red-700 dark:text-red-300">{error}</div> : null}
-      {loading ? <div className="text-xs text-muted mb-2">Cargando asegurados…</div> : null}
+      {loading ? (
+        <LoadingSpinner size={14} label="Cargando asegurados..." className="text-xs text-muted mb-2" />
+      ) : null}
 
       {showForm ? (
         <InsuredForm policyId={policyId} editing={editing} onCancel={closeForm} onSaved={handleSaved} />

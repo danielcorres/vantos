@@ -4,6 +4,7 @@ import { useLeaderSelfAssign, type LeaderKind } from './hooks/useAssignments'
 import { AdvisorDualList } from './components/AdvisorDualList'
 import { roleLabelEs } from './copy'
 import { useNotify } from '../../../shared/utils/notify'
+import { PageLoading } from '../../../components/ui/PageLoading'
 
 type Props = {
   kind: LeaderKind
@@ -31,11 +32,7 @@ export function LeaderAssignmentsView({ kind }: Props) {
   }, [kind])
 
   if (loading && mine.length === 0 && available.length === 0) {
-    return (
-      <div className="text-center p-8">
-        <span className="text-muted">Cargando tu equipo…</span>
-      </div>
-    )
+    return <PageLoading label="Cargando tu equipo..." />
   }
 
   if (error) {

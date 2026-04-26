@@ -7,6 +7,7 @@ import { DailyGoalProgress } from '../components/DailyGoalProgress'
 import { useNotify } from '../../../shared/utils/notify'
 import { todayLocalYmd, timestampToYmdInTz, addDaysYmd, TZ_MTY } from '../../../shared/utils/dates'
 import { compareOkrMetricDisplayOrder, getMetricLabel } from '../domain/metricLabels'
+import { PageLoading } from '../../../components/ui/PageLoading'
 
 interface TodaySummary {
   metric_key: string
@@ -168,7 +169,7 @@ export function OkrTodayPage() {
   }
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '40px' }}>Cargando...</div>
+    return <PageLoading label="Cargando OKR..." />
   }
 
   return (

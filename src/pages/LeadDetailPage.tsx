@@ -22,6 +22,7 @@ import { LeadAppointmentsList } from '../features/calendar/components/LeadAppoin
 import { AppointmentFormModal } from '../features/calendar/components/AppointmentFormModal'
 import type { LeadTemperature } from '../features/pipeline/pipeline.api'
 import { useAuth } from '../shared/auth/AuthProvider'
+import { AnimatedContainer } from '../components/ui/AnimatedContainer'
 
 const DELETE_LEAD_CONFIRM_WORD = 'ELIMINAR'
 
@@ -668,7 +669,10 @@ export function LeadDetailPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-6xl px-2 sm:px-4 py-4 space-y-4">
+      <AnimatedContainer
+        variant="up"
+        className="mx-auto max-w-6xl px-2 sm:px-4 py-4 space-y-4"
+      >
         <div className="h-8 w-44 rounded-lg bg-neutral-200/90 dark:bg-neutral-800 animate-pulse motion-reduce:animate-none" />
         <div className={`${CARD_SURFACE} ${CARD_PAD} space-y-3`}>
           <div className="h-10 max-w-md rounded-lg bg-neutral-100 dark:bg-neutral-800/90 animate-pulse motion-reduce:animate-none" />
@@ -678,7 +682,7 @@ export function LeadDetailPage() {
             <div className="h-16 rounded-lg bg-neutral-100 dark:bg-neutral-800/90 sm:col-span-2 animate-pulse motion-reduce:animate-none" />
           </div>
         </div>
-      </div>
+      </AnimatedContainer>
     )
   }
 

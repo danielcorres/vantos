@@ -4,6 +4,7 @@ import { calendarApi } from '../api/calendar.api'
 import type { CalendarEvent } from '../types/calendar.types'
 import { getTypePillClass, getStatusPillClass, getTypeLabel, getStatusLabel } from '../utils/pillStyles'
 import { eventDisplayLabel } from '../utils/eventDisplay'
+import { AnimatedContainer } from '../../../components/ui/AnimatedContainer'
 
 /** Misma tipografía que las secciones en LeadDetailPage (Datos, Actividad, …). */
 const SECTION_LABEL =
@@ -97,11 +98,11 @@ export function LeadAppointmentsList({ leadId, onRequestNewAppointment }: LeadAp
       </div>
 
       {loading ? (
-        <div className="space-y-2">
+        <AnimatedContainer variant="up" className="space-y-2">
           <div className="h-10 rounded-lg bg-neutral-200/60 animate-pulse dark:bg-neutral-800/50" />
           <div className="h-10 rounded-lg bg-neutral-200/60 animate-pulse dark:bg-neutral-800/50" />
           <div className="h-8 w-3/4 rounded-lg bg-neutral-200/60 animate-pulse dark:bg-neutral-800/50" />
-        </div>
+        </AnimatedContainer>
       ) : events.length === 0 ? (
         <div className="flex flex-col gap-2 py-1 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-neutral-500 dark:text-neutral-400">

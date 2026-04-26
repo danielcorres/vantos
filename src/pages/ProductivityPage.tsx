@@ -14,6 +14,7 @@ import {
   fetchWeeklyMinimumTargetsForOwner,
   DEFAULT_WEEKLY_MINIMUMS,
 } from '../modules/okr/dashboard/weeklyMinimumTargets'
+import { AnimatedContainer } from '../components/ui/AnimatedContainer'
 
 const STAGE_LABELS: Record<StageSlug, string> = {
   contactos_nuevos: 'Contactos Nuevos',
@@ -194,14 +195,14 @@ export function ProductivityPage() {
         )}
 
         {loading ? (
-          <div className="space-y-3">
+          <AnimatedContainer variant="up" className="space-y-3">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="rounded-lg border border-border bg-bg/50 p-3">
                 <div className="h-4 w-2/3 bg-black/10 rounded animate-pulse mb-2" />
                 <div className="h-2 w-full bg-black/5 rounded animate-pulse" />
               </div>
             ))}
-          </div>
+          </AnimatedContainer>
         ) : (
           <>
             <div className="space-y-3">

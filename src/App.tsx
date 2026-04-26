@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useSession } from './lib/useSession'
 import { Layout } from './components/Layout'
 import { ProtectedRoute } from './components/ProtectedRoute'
+import { PageLoading } from './components/ui/PageLoading'
 import { Login } from './pages/Login'
 import { AuthCallback } from './pages/AuthCallback'
 import { Activity } from './pages/Activity'
@@ -12,11 +13,7 @@ function AppRoutes() {
   const { session, loading } = useSession()
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh' }}>
-        <p>Cargando...</p>
-      </div>
-    )
+    return <PageLoading label="Cargando..." fullHeight />
   }
 
   return (

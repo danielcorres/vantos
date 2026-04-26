@@ -7,6 +7,7 @@ import { useNotify } from '../../../shared/utils/notify'
 import { useUserRole } from '../../../shared/hooks/useUserRole'
 import { useAuth } from '../../../shared/auth/AuthProvider'
 import { compareOkrMetricDisplayOrder, getMetricLabel } from '../domain/metricLabels'
+import { PageLoading } from '../../../components/ui/PageLoading'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -170,16 +171,16 @@ export function OkrScoringPage() {
   // Protección de ruta: mostrar loading mientras se carga auth o rol (early return DESPUÉS de todos los hooks)
   if (authLoading || roleLoading) {
     return (
-      <div className="text-center p-8">
-        <span className="text-muted">{authLoading ? 'Cargando sesión...' : 'Cargando rol...'}</span>
+      <>
+        <PageLoading label={authLoading ? 'Cargando sesión...' : 'Cargando rol...'} />
         {!authLoading && roleError === 'timeout' && (
-          <div className="mt-4">
+          <div className="text-center mt-2">
             <button onClick={retryRole} className="btn btn-primary text-sm">
               Reintentar
             </button>
           </div>
         )}
-      </div>
+      </>
     )
   }
 
@@ -323,11 +324,7 @@ export function OkrScoringPage() {
   }
 
   if (loading) {
-    return (
-      <div className="text-center p-8">
-        <span className="text-muted">Cargando...</span>
-      </div>
-    )
+    return <PageLoading label="Cargando puntajes..." />
   }
 
   return (

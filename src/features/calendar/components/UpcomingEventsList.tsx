@@ -5,6 +5,7 @@ import type { AppointmentEditFocus } from './AppointmentFormModal'
 import { getTypePillClass, getStatusPillClass, getTypeLabel, getStatusLabel } from '../utils/pillStyles'
 import { eventDisplayLabel } from '../utils/eventDisplay'
 import { todayLocalYmd, addDaysYmd } from '../../../shared/utils/dates'
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 function formatTime(isoString: string): string {
   const d = new Date(isoString)
@@ -94,8 +95,8 @@ export function UpcomingEventsList({ onEventClick, refreshKey = 0 }: UpcomingEve
 
   if (loading) {
     return (
-      <div className="py-8 text-center text-muted text-sm">
-        Cargando próximas…
+      <div className="py-8 text-center">
+        <LoadingSpinner label="Cargando próximas..." className="text-muted" />
       </div>
     )
   }

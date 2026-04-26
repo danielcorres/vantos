@@ -13,6 +13,7 @@ import { TeamHierarchyBoard } from './components/TeamHierarchyBoard'
 import { ConfirmDialog } from './components/ConfirmDialog'
 import { AssignmentEstadoActionsMenu } from './components/AssignmentEstadoActionsMenu'
 import { useNotify } from '../../../shared/utils/notify'
+import { PageLoading } from '../../../components/ui/PageLoading'
 
 type Tab = 'people' | 'teams' | 'audit'
 
@@ -209,11 +210,7 @@ export function DirectorAssignmentsView() {
   }, [estadoMenu, profiles])
 
   if (loading || !ownerResolved) {
-    return (
-      <div className="text-center p-8">
-        <span className="text-muted">Cargando asignaciones…</span>
-      </div>
-    )
+    return <PageLoading label="Cargando asignaciones..." />
   }
 
   if (error) {

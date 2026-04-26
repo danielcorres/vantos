@@ -8,6 +8,7 @@ import { getWeeklyRhythmCoach } from '../utils/weeklyRhythmCoach'
 import { WeeklyRhythmCoach } from '../components/WeeklyRhythmCoach'
 import { getLastNWeekStarts, groupEventsByWeek, formatWeekRange as formatWeekRangeHistory } from '../utils/weeklyHistoryHelpers'
 import { compareOkrMetricDisplayOrder, getMetricLabel } from '../domain/metricLabels'
+import { AnimatedContainer } from '../../../components/ui/AnimatedContainer'
 
 interface WeekMetricTotal {
   metric_key: string
@@ -559,7 +560,7 @@ export function OkrWeekPage() {
   // Loading skeleton
   if (loading) {
     return (
-      <div className="space-y-4">
+      <AnimatedContainer variant="up" className="space-y-4">
         <div>
           <div className="h-8 w-48 bg-bg rounded mb-2 animate-pulse" />
           <div className="h-4 w-32 bg-bg rounded animate-pulse" />
@@ -570,7 +571,7 @@ export function OkrWeekPage() {
         <div className="card p-0">
           <div className="h-64 bg-bg rounded animate-pulse" />
         </div>
-      </div>
+      </AnimatedContainer>
     )
   }
 

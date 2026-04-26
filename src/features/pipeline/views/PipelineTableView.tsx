@@ -21,6 +21,7 @@ import { formatDateMX } from '../../../shared/utils/dates'
 import { getStageTagClasses, getStageAccentStyle, displayStageName } from '../../../shared/utils/stageStyles'
 import { LeadTemperatureChip } from '../../../components/pipeline/LeadTemperatureChip'
 import { LeadSourceTag } from '../../../components/pipeline/LeadSourceTag'
+import { PageLoading } from '../../../components/ui/PageLoading'
 import type { CalendarEvent } from '../../calendar/types/calendar.types'
 import { calendarApi } from '../../calendar/api/calendar.api'
 import { subscribeGoogleCalendarSyncErrors } from '../../calendar/utils/googleCalendarSyncListeners'
@@ -592,11 +593,7 @@ export function PipelineTableView({
   }
 
   if (pipelineMode === 'activos' && weeklyLeadIdsPending) {
-    return (
-      <div className="text-center p-8">
-        <span className="text-muted">Cargando...</span>
-      </div>
-    )
+    return <PageLoading label="Cargando..." />
   }
 
   if (weeklyMode && !weeklyLeadIdsPending && filteredLeads.length === 0) {

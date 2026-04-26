@@ -5,6 +5,7 @@ import type { AppointmentEditFocus } from './AppointmentFormModal'
 import { getWeekRangeFromDate } from '../utils/weekRange'
 import { getTypePillClass, getTypeLabel, getStatusPillClass, getStatusLabel } from '../utils/pillStyles'
 import { eventDisplayLabel } from '../utils/eventDisplay'
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 const DAY_NAMES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 
@@ -225,8 +226,8 @@ export function CalendarWeekView({
 
   if (loading) {
     return (
-      <div className="py-8 text-center text-muted text-sm">
-        Cargando semana…
+      <div className="py-8 text-center">
+        <LoadingSpinner label="Cargando semana..." className="text-muted" />
       </div>
     )
   }

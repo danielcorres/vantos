@@ -20,6 +20,7 @@ import { buildMetricBreakdown } from '../../modules/okr/dashboard/advisorDetailH
 import { addDaysYmd } from '../../shared/utils/dates'
 import { calcWeekRangeLocal, formatWeekRangePretty } from '../../modules/okr/utils/weeklyHistoryHelpers'
 import { AdvisorMilestonesSection } from '../../modules/advisors/ui/AdvisorMilestonesSection'
+import { PageLoading } from '../../components/ui/PageLoading'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -350,16 +351,16 @@ export function OwnerDashboardPage() {
 
   if (roleLoading || loading) {
     return (
-      <div className="text-center p-8">
-        <span className="text-muted">Cargando...</span>
+      <>
+        <PageLoading label="Cargando dashboard..." />
         {roleError === 'timeout' && !roleLoading && (
-          <div className="mt-4">
+          <div className="text-center mt-2">
             <button onClick={retryRole} className="btn btn-primary text-sm">
               Reintentar
             </button>
           </div>
         )}
-      </div>
+      </>
     )
   }
 

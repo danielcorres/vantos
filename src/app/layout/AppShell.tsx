@@ -6,6 +6,7 @@ import { IconCalendar, IconHome, IconMenu, IconPipeline, IconUser, IconX } from 
 import { getUserDisplayName } from '../../lib/profile'
 import { VantMark } from '../../components/branding/VantMark'
 import { VantLogo } from '../../components/branding/VantLogo'
+import { PageLoading } from '../../components/ui/PageLoading'
 import { getHomePathForRole } from '../../modules/auth/getHomePathForRole'
 
 const SIDEBAR_EXPANDED = 256 // 64 * 4 (w-64)
@@ -76,8 +77,7 @@ export function AppShell() {
   if (authLoading) {
     return (
       <div className="flex flex-col justify-center items-center min-h-screen gap-4 bg-bg dark:bg-neutral-950">
-        <VantMark size={48} animated aria-label="VANT" />
-        <span className="text-muted dark:text-neutral-400">Cargando...</span>
+        <PageLoading label="Cargando..." fullHeight />
         {authError && (
           <div className="card p-4 max-w-md text-center">
             <div className="text-sm text-red-700 dark:text-red-300 mb-3">{authError}</div>

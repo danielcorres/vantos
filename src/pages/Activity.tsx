@@ -3,6 +3,7 @@ import { useSession } from '../lib/useSession'
 import { supabase } from '../lib/supabase'
 import { getErrorMessage } from '../lib/supabaseErrorHandler'
 import { getMetricLabel, OKR_CORE_METRIC_DISPLAY_ORDER } from '../modules/okr/domain/metricLabels'
+import { PageLoading } from '../components/ui/PageLoading'
 import './Activity.css'
 
 function formatActivityError(error: unknown): string {
@@ -228,7 +229,7 @@ export function Activity() {
   }
 
   if (sessionLoading) {
-    return <div className="activity-loading">Cargando...</div>
+    return <PageLoading label="Cargando..." />
   }
 
   return (

@@ -18,6 +18,7 @@ import { buildMetricBreakdown } from '../../modules/okr/dashboard/advisorDetailH
 import { addDaysYmd } from '../../shared/utils/dates'
 import { calcWeekRangeLocal, formatWeekRangePretty } from '../../modules/okr/utils/weeklyHistoryHelpers'
 import { AdvisorMilestonesSection } from '../../modules/advisors/ui/AdvisorMilestonesSection'
+import { PageLoading } from '../../components/ui/PageLoading'
 
 const IS_DEV = import.meta.env.DEV
 
@@ -275,11 +276,7 @@ export function ManagerDashboardPage() {
 
 
   if (roleLoading || loading) {
-    return (
-      <div className="text-center p-8">
-        <span className="text-muted">Cargando...</span>
-      </div>
-    )
+    return <PageLoading label="Cargando dashboard..." />
   }
 
   if (!isManager) {
