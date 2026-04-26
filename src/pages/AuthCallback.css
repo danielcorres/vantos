@@ -3,40 +3,43 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background-color: #0b1120;
   padding: 20px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 }
 
 .auth-callback-card {
-  background: white;
-  border-radius: 12px;
-  padding: 40px;
+  background: #151d2e;
+  border: 1px solid #1e2a3f;
+  border-radius: 18px;
+  padding: 44px 40px 48px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
   text-align: center;
 }
 
 .auth-callback-card h1 {
   margin: 0 0 16px 0;
-  font-size: 24px;
+  font-size: 22px;
   font-weight: 700;
-  color: #2c3e50;
+  color: #f0f4ff;
+  letter-spacing: -0.2px;
 }
 
 .auth-callback-card p {
   margin: 0 0 24px 0;
-  color: #7f8c8d;
+  color: #6b7a99;
   font-size: 14px;
-  line-height: 1.5;
+  line-height: 1.6;
 }
 
 .auth-callback-spinner {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  border: 4px solid rgba(102, 126, 234, 0.2);
-  border-top-color: #667eea;
+  border: 4px solid #1e2a3f;
+  border-top-color: #6b8fc4;
   margin: 0 auto 24px auto;
   animation: auth-callback-spin 0.9s linear infinite;
 }
@@ -51,9 +54,10 @@
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: #e9f7ef;
-  color: #2ecc71;
-  margin: 0 auto 20px auto;
+  background: #1a2640;
+  border: 1.5px solid #2a3d5a;
+  color: #6b8fc4;
+  margin: 0 auto 24px auto;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -61,8 +65,8 @@
 }
 
 .auth-callback-success-icon svg {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
 }
 
 @keyframes auth-callback-pop {
@@ -77,32 +81,35 @@
 }
 
 .error-message {
-  padding: 12px;
-  background-color: #fee;
-  color: #c33;
-  border-radius: 6px;
-  font-size: 14px;
-  border: 1px solid #fcc;
+  padding: 14px 16px;
+  background-color: #0d1525;
+  color: #e07070;
+  border-radius: 10px;
+  font-size: 13px;
+  border: 1px solid #2a1a1a;
   margin-bottom: 24px;
+  line-height: 1.5;
 }
 
 .back-link {
   display: inline-block;
-  padding: 12px 24px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  padding: 15px 24px;
+  background-color: #1e2d48;
+  border: 1px solid #2a3d5a;
+  color: #e8eeff;
   text-decoration: none;
-  border-radius: 6px;
+  border-radius: 10px;
   font-weight: 600;
-  font-size: 14px;
-  border: none;
+  font-size: 15px;
   cursor: pointer;
   font-family: inherit;
   transition: opacity 0.2s, transform 0.1s;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .back-link:hover {
-  opacity: 0.9;
+  opacity: 0.85;
 }
 
 .back-link:active {
