@@ -4,7 +4,7 @@ import type { EmailOtpType } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { getErrorMessage } from '../lib/supabaseErrorHandler'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
-import { SuccessIcon } from '../components/ui/SuccessIcon'
+import { SuccessIcon } from '../components/feedback/SuccessIcon'
 import './AuthCallback.css'
 
 type CallbackStatus = 'loading' | 'success' | 'error'

@@ -11,6 +11,8 @@ import { useUserRole } from '../../../shared/hooks/useUserRole'
 import { AdvisorMilestonesSection } from '../../advisors/ui/AdvisorMilestonesSection'
 import { getMyProfile } from '../../../lib/profile'
 import { deriveWelcomeName, isBirthdayToday } from '../../../shared/utils/advisorGreeting'
+import { AnimatedContainer } from '../../../components/ui/AnimatedContainer'
+import { LoadingSpinner } from '../../../components/ui/LoadingSpinner'
 
 function WelcomeHeader({ name, isBirthday }: { name: string; isBirthday: boolean }) {
   if (!name) return null
@@ -141,13 +143,16 @@ export function OkrHomePage() {
 
   if (loading) {
     return (
-      <div className="space-y-4">
+      <AnimatedContainer variant="up" className="space-y-4">
         <div className="card p-4">
+          <div className="mb-4">
+            <LoadingSpinner label="Cargando OKR..." className="text-neutral-600 dark:text-neutral-300" />
+          </div>
           <div className="h-8 w-32 bg-bg rounded mb-4 animate-pulse" />
           <div className="h-24 bg-bg rounded mb-3 animate-pulse" />
           <div className="h-10 bg-bg rounded animate-pulse" />
         </div>
-      </div>
+      </AnimatedContainer>
     )
   }
 

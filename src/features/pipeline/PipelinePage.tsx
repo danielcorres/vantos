@@ -38,6 +38,8 @@ import {
   RETROCESO_BLOCKED_TOAST_MS,
 } from './utils/stageMoveDirection'
 import { useNotify } from '../../shared/utils/notify'
+import { AnimatedContainer } from '../../components/ui/AnimatedContainer'
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner'
 
 const WEEKLY_STAGE_LABELS: Record<StageSlug, string> = {
   contactos_nuevos: 'Contactos',
@@ -631,17 +633,19 @@ export function PipelinePage() {
 
   if (state.loading) {
     return (
-      <div className="space-y-4">
+      <AnimatedContainer variant="up" className="space-y-4">
         <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
-          <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
+          <div>
+            <h1 className="text-2xl font-bold mb-1">Pipeline</h1>
+            <p className="text-sm text-muted">Seguimiento de tus oportunidades activas</p>
+          </div>
         </div>
+        <div className="card p-6 space-y-4">
+          <LoadingSpinner label="Cargando pipeline..." className="text-neutral-600 dark:text-neutral-300" />
+          <div className="h-10 w-56 rounded-lg bg-neutral-200/80 motion-safe:animate-pulse dark:bg-neutral-800/70" />
+          <div className="h-44 rounded-xl bg-neutral-200/70 motion-safe:animate-pulse dark:bg-neutral-800/60" />
         </div>
-        <div className="text-center p-8">
-          <span className="text-muted">Cargando...</span>
-        </div>
-      </div>
+      </AnimatedContainer>
     )
   }
 

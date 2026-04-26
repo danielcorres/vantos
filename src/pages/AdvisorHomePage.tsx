@@ -41,6 +41,8 @@ import { AdvisorHubUrgentLeadsCard } from '../features/advisor-hub/components/Ad
 import { AdvisorHubPipelinePhasesCard } from '../features/advisor-hub/components/AdvisorHubPipelinePhasesCard'
 import { AdvisorHubMilestones12mCard } from '../features/advisor-hub/components/AdvisorHubMilestones12mCard'
 import { useNotify } from '../shared/utils/notify'
+import { AnimatedContainer } from '../components/ui/AnimatedContainer'
+import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 
 /** Máximo de filas en Citas de hoy y en Leads sin cita en el hub (evita tarjetas muy altas). */
 const HUB_LIST_VISIBLE_CAP = 5
@@ -334,8 +336,13 @@ export function AdvisorHomePage() {
 
   if (authLoading || !user) {
     return (
-      <div className="mx-auto max-w-6xl px-4 py-12 text-sm text-neutral-500 dark:text-neutral-400">
-        Cargando sesión…
+      <div className="mx-auto max-w-6xl px-4 py-12">
+        <AnimatedContainer
+          variant="up"
+          className="rounded-2xl border border-neutral-200/70 bg-white/90 p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900/60"
+        >
+          <LoadingSpinner label="Cargando sesión..." className="text-neutral-600 dark:text-neutral-300" />
+        </AnimatedContainer>
       </div>
     )
   }
@@ -343,7 +350,10 @@ export function AdvisorHomePage() {
   if (loading) {
     return (
       <div className="min-h-0 pb-10">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+        <AnimatedContainer variant="up" className="mx-auto max-w-6xl px-4 py-8 sm:px-6 sm:py-10">
+          <div className="mb-4">
+            <LoadingSpinner label="Cargando inicio..." className="text-neutral-600 dark:text-neutral-300" />
+          </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-12 md:gap-6">
             <div className="col-span-12 space-y-2">
               <div className="h-8 w-48 max-w-full rounded-xl bg-neutral-200/90 motion-safe:animate-pulse dark:bg-neutral-800/80" />
@@ -353,7 +363,7 @@ export function AdvisorHomePage() {
             <div className="h-52 rounded-2xl border border-neutral-200/60 bg-white/80 md:col-span-5 motion-safe:animate-pulse dark:border-neutral-800 dark:bg-neutral-900/40" />
             <div className="col-span-12 h-64 rounded-2xl border border-neutral-200/60 bg-white/80 motion-safe:animate-pulse dark:border-neutral-800 dark:bg-neutral-900/40" />
           </div>
-        </div>
+        </AnimatedContainer>
       </div>
     )
   }
