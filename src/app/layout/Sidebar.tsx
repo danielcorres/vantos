@@ -16,6 +16,7 @@ import {
   IconPipeline,
   IconBookOpen,
   IconCalendar,
+  IconTrophy,
 } from './icons'
 import { useAuth } from '../../shared/auth/AuthProvider'
 import { VantLogo } from '../../components/branding/VantLogo'
@@ -125,6 +126,17 @@ export function Sidebar({ userEmail, onSignOut, onNavigate, isMobile = false, is
             r === 'seguimiento' ||
             r === 'developer' ||
             r === 'super_admin',
+        },
+        {
+          label: 'Campañas',
+          path: '/indicadores',
+          icon: IconTrophy,
+          visible: (r) =>
+            r === 'advisor' ||
+            r === 'manager' ||
+            r === 'owner' ||
+            r === 'director' ||
+            r === 'seguimiento',
         },
       ],
     },

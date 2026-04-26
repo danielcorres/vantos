@@ -42,8 +42,23 @@ const PipelineSettingsPage = lazy(() =>
 const PoliciesPage = lazy(() =>
   import('../pages/PoliciesPage').then((m) => ({ default: m.PoliciesPage }))
 )
+const CampaignsPage = lazy(() =>
+  import('../modules/campaigns/pages/CampaignsPage').then((m) => ({ default: m.CampaignsPage }))
+)
+const CampaignConfigPage = lazy(() =>
+  import('../modules/campaigns/pages/CampaignConfigPage').then((m) => ({ default: m.CampaignConfigPage }))
+)
+const CampaignLevelsPage = lazy(() =>
+  import('../modules/campaigns/pages/CampaignLevelsPage').then((m) => ({ default: m.CampaignLevelsPage }))
+)
+const CampaignRewardAwardsPage = lazy(() =>
+  import('../modules/campaigns/pages/CampaignRewardAwardsPage').then((m) => ({ default: m.CampaignRewardAwardsPage }))
+)
 
 /** Acceso a /owner/assignments (Directivo + líderes con self-claim) */
+const CAMPAIGNS_ROLES       = ['advisor', 'manager', 'owner', 'director', 'seguimiento'] as const
+const CAMPAIGNS_ADMIN_ROLES = ['owner', 'director'] as const
+const CAMPAIGNS_OPS_ROLES   = ['owner', 'director', 'seguimiento'] as const
 const ASSIGNMENTS_PAGE_ROLES = ['owner', 'director', 'seguimiento', 'manager', 'recruiter'] as const
 const OWNER_DASHBOARD_ROLES = ['owner', 'director', 'seguimiento'] as const
 const ADVISOR_AREA_ROLES = ['advisor', 'owner', 'manager', 'recruiter', 'director', 'seguimiento', 'developer', 'super_admin'] as const
@@ -249,6 +264,46 @@ export const router = createBrowserRouter([
         element: (
           <RoleGuard allowedRoles={[...ADVISOR_SETTINGS_ROLES]}>
             <AdvisorSettingsPage />
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'indicadores',
+        element: (
+          <RoleGuard allowedRoles={[...CAMPAIGNS_ROLES]}>
+            <Suspense fallback={<PageSkeleton />}>
+              <CampaignsPage />
+            </Suspense>
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'indicadores/config',
+        element: (
+          <RoleGuard allowedRoles={[...CAMPAIGNS_ADMIN_ROLES]}>
+            <Suspense fallback={<PageSkeleton />}>
+              <CampaignConfigPage />
+            </Suspense>
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'indicadores/config/niveles/:campaignId',
+        element: (
+          <RoleGuard allowedRoles={[...CAMPAIGNS_ADMIN_ROLES]}>
+            <Suspense fallback={<PageSkeleton />}>
+              <CampaignLevelsPage />
+            </Suspense>
+          </RoleGuard>
+        ),
+      },
+      {
+        path: 'indicadores/premios',
+        element: (
+          <RoleGuard allowedRoles={[...CAMPAIGNS_OPS_ROLES]}>
+            <Suspense fallback={<PageSkeleton />}>
+              <CampaignRewardAwardsPage />
+            </Suspense>
           </RoleGuard>
         ),
       },

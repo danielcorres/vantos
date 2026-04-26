@@ -423,3 +423,23 @@ export function IconArrowRight({ className = 'w-5 h-5', size = 20 }: IconProps) 
     </svg>
   )
 }
+
+export function IconTrophy({ className = 'w-5 h-5', size = 20 }: IconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      className={className}
+      width={size}
+      height={size}
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M10 1a.75.75 0 01.75.75v.5h3.5a.75.75 0 010 1.5H15v.5a5 5 0 01-3.25 4.702V9.5h.5a2.75 2.75 0 010 5.5H13a1 1 0 01-1 1H8a1 1 0 01-1-1H6.75a2.75 2.75 0 010-5.5h.5V8.452A5 5 0 014 3.75v-.5H2.75a.75.75 0 010-1.5h3.5v-.5A.75.75 0 0110 1zM5.5 3.25v.5a3.5 3.5 0 002.75 3.43V9.5H6.75a1.25 1.25 0 000 2.5h6.5a1.25 1.25 0 000-2.5H11.75V7.18A3.5 3.5 0 0014.5 3.75v-.5h-9z"
+        clipRule="evenodd"
+      />
+    </svg>
+  )
+}
