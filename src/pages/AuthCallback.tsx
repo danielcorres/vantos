@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { getErrorMessage } from '../lib/supabaseErrorHandler'
+import { LoadingSpinner } from '../components/ui/LoadingSpinner'
+import { SuccessIcon } from '../components/ui/SuccessIcon'
 import './AuthCallback.css'
 
 type CallbackStatus = 'loading' | 'success' | 'error'
@@ -127,8 +129,8 @@ export function AuthCallback() {
   if (status === 'loading') {
     return (
       <div className="auth-callback-container">
-        <div className="auth-callback-card">
-          <div className="auth-callback-spinner" aria-hidden="true" />
+        <div className="auth-callback-card animate-fade-in-up">
+          <LoadingSpinner size={48} className="mb-6 text-[#667eea]" />
           <h1>Verificando...</h1>
           <p>Procesando tu enlace de autenticación</p>
         </div>
@@ -139,12 +141,8 @@ export function AuthCallback() {
   if (status === 'success') {
     return (
       <div className="auth-callback-container">
-        <div className="auth-callback-card">
-          <div className="auth-callback-success-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-          </div>
+        <div className="auth-callback-card animate-fade-in-up">
+          <SuccessIcon size={64} className="mb-5" />
           <h1>Correo confirmado correctamente</h1>
           <p>Tu cuenta ha sido verificada. Te llevaremos al inicio de sesión en unos segundos.</p>
           <button
@@ -161,7 +159,7 @@ export function AuthCallback() {
 
   return (
     <div className="auth-callback-container">
-      <div className="auth-callback-card">
+      <div className="auth-callback-card animate-fade-in-up">
         <h1>Error de autenticación</h1>
         {error && <div className="error-message">{error}</div>}
         <button

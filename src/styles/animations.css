@@ -1,0 +1,62 @@
+/* ============================================================
+ * Sistema global de animaciones VANT-OS
+ *
+ * - Solo animan transform / opacity (compositor GPU, sin reflow).
+ * - Duraciones cortas (150–220ms) y easing suave.
+ * - prefers-reduced-motion ya aplica globalmente desde
+ *   src/styles/globals.css; estas animaciones lo respetan automáticamente.
+ *
+ * Convenciones de nombres:
+ *  - Modernos (kebab-case):  fade-in, fade-in-up, scale-in, pulse-soft.
+ *    Expuestos como utilidades Tailwind: animate-fade-in, animate-fade-in-up,
+ *    animate-scale-in, animate-pulse-soft, animate-spin-slow.
+ *  - Legacy (camelCase):     fadeIn, fadeInUp, slideUp, slideIn.
+ *    Mantenidos por compatibilidad con `style={{ animation: '...' }}` inline
+ *    usado por modales/toasts existentes. NO eliminar.
+ * ============================================================ */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.7; }
+}
+
+@keyframes vant-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.85; }
+}
+
+/* Aliases legacy — referenciados por inline style en modales y toasts */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(100%); }
+  to   { opacity: 1; transform: translateX(0); }
+}

@@ -17,12 +17,7 @@ export function Toast({ message, type = 'info', onClose, durationMs = 1800 }: To
   }, [durationMs, onClose])
 
   return (
-    <div 
-      className={`toast toast--${type}`} 
-      style={{
-        animation: 'fadeInUp 200ms ease-out',
-      }}
-    >
+    <div className={`toast toast--${type} animate-fade-in-up`}>
       <span className="toast__msg">{message}</span>
     </div>
   )

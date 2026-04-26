@@ -58,6 +58,31 @@ export default {
           xl: '1200px',
         },
       },
+      keyframes: {
+        'fade-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        'fade-in-up': {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'scale-in': {
+          '0%': { opacity: '0', transform: 'scale(0.92)' },
+          '100%': { opacity: '1', transform: 'scale(1)' },
+        },
+        'pulse-soft': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.7' },
+        },
+      },
+      animation: {
+        'fade-in': 'fade-in 200ms ease-out both',
+        'fade-in-up': 'fade-in-up 220ms ease-out both',
+        'scale-in': 'scale-in 180ms ease-out both',
+        'spin-slow': 'spin 1.2s linear infinite',
+        'pulse-soft': 'pulse-soft 1.6s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

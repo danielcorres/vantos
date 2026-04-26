@@ -132,14 +132,6 @@ export function KanbanBoard({
           label="Pipeline"
         />
 
-        {/* Animación sutil al cambiar de etapa (sin librerías). */}
-        <style>{`
-          @keyframes vantFadeSlideIn {
-            from { opacity: 0; transform: translateX(6px); }
-            to { opacity: 1; transform: translateX(0); }
-          }
-        `}</style>
-
         <div className="px-3 py-3 space-y-2">
           {mobileLeads.length === 0 ? (
             <EmptyState
@@ -152,7 +144,7 @@ export function KanbanBoard({
           ) : (
             <div
               key={mobileStageId}
-              className="space-y-2 motion-safe:animate-[vantFadeSlideIn_150ms_ease-out] motion-reduce:animate-none"
+              className="space-y-2 motion-safe:animate-fade-in-up motion-reduce:animate-none"
             >
               {mobileLeads.map((lead) => (
                 <LeadCardMobile

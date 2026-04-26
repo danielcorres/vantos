@@ -57,12 +57,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <div
               key={t.id}
               role="status"
-              className={`px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium pointer-events-auto transition-all
+              className={`px-4 py-2.5 rounded-lg shadow-lg text-sm font-medium pointer-events-auto transition-all animate-fade-in-up
                 ${t.kind === 'success' ? 'bg-green-700 text-white' : ''}
                 ${t.kind === 'error' ? 'bg-red-600 text-white' : ''}
                 ${t.kind === 'info' ? 'bg-neutral-800 text-white' : ''}
               `}
-              style={{ animation: 'fadeInUp 180ms ease-out' }}
             >
               {t.message}
             </div>

@@ -2,10 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-@keyframes vant-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.85; }
-}
+/* @keyframes vant-pulse vive en src/styles/animations.css */
 
 @layer base {
   html {

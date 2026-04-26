@@ -3,113 +3,61 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background-color: #0b1120;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   padding: 20px;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 }
 
 .auth-callback-card {
-  background: #151d2e;
-  border: 1px solid #1e2a3f;
-  border-radius: 18px;
-  padding: 44px 40px 48px;
+  background: white;
+  border-radius: 12px;
+  padding: 40px;
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
   text-align: center;
 }
 
 .auth-callback-card h1 {
   margin: 0 0 16px 0;
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 700;
-  color: #f0f4ff;
-  letter-spacing: -0.2px;
+  color: #2c3e50;
 }
 
 .auth-callback-card p {
   margin: 0 0 24px 0;
-  color: #6b7a99;
+  color: #7f8c8d;
   font-size: 14px;
-  line-height: 1.6;
-}
-
-.auth-callback-spinner {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: 4px solid #1e2a3f;
-  border-top-color: #6b8fc4;
-  margin: 0 auto 24px auto;
-  animation: auth-callback-spin 0.9s linear infinite;
-}
-
-@keyframes auth-callback-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.auth-callback-success-icon {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: #1a2640;
-  border: 1.5px solid #2a3d5a;
-  color: #6b8fc4;
-  margin: 0 auto 24px auto;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: auth-callback-pop 0.35s ease-out;
-}
-
-.auth-callback-success-icon svg {
-  width: 28px;
-  height: 28px;
-}
-
-@keyframes auth-callback-pop {
-  0% {
-    transform: scale(0.6);
-    opacity: 0;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  line-height: 1.5;
 }
 
 .error-message {
-  padding: 14px 16px;
-  background-color: #0d1525;
-  color: #e07070;
-  border-radius: 10px;
-  font-size: 13px;
-  border: 1px solid #2a1a1a;
+  padding: 12px;
+  background-color: #fee;
+  color: #c33;
+  border-radius: 6px;
+  font-size: 14px;
+  border: 1px solid #fcc;
   margin-bottom: 24px;
-  line-height: 1.5;
 }
 
 .back-link {
   display: inline-block;
-  padding: 15px 24px;
-  background-color: #1e2d48;
-  border: 1px solid #2a3d5a;
-  color: #e8eeff;
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
   text-decoration: none;
-  border-radius: 10px;
+  border-radius: 6px;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
+  border: none;
   cursor: pointer;
   font-family: inherit;
   transition: opacity 0.2s, transform 0.1s;
-  width: 100%;
-  box-sizing: border-box;
 }
 
 .back-link:hover {
-  opacity: 0.85;
+  opacity: 0.9;
 }
 
 .back-link:active {
